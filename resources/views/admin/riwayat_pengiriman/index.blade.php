@@ -173,7 +173,8 @@
                 processing: true,
                 serverSide: true,
                 ordering: true,
-                pageLength: 25,
+                pageLength: 10,
+                lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
                 ajax: {
                     url: "{{ route('admin.riwayat-pengiriman.index') }}",
                     data: function(d) {
