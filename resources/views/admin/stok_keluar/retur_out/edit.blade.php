@@ -19,7 +19,7 @@
           </div>
           <div class="col-md-4 mb-5">
             <label class="form-label required">Tanggal Retur</label>
-            <input type="text" name="return_date" id="return_date" class="form-control form-control-solid" value="{{ optional($ri->return_date)->format('Y-m-d') }}">
+            <input type="text" name="return_date" id="return_date" class="form-control form-control-solid flatpickr-date" value="{{ optional($ri->return_date)->format('Y-m-d') }}">
           </div>
           <div class="col-md-4 mb-5">
             <label class="form-label required">Gudang</label>
@@ -39,7 +39,7 @@
 
         <div class="mb-5">
           <label class="form-label">Deskripsi</label>
-          <input type="text" name="description" class="form-control form-control-solid" value="{{ $ri->description }}" />
+          <textarea name="description" class="form-control form-control-solid" rows="4" style="min-height:120px;">{{ $ri->description }}</textarea>
         </div>
 
         <h4 class="mt-10">Detail Barang</h4>
@@ -76,6 +76,13 @@
 @push('scripts')
 <script>
   $(function(){
+    // initialize flatpickr for date fields
+    // initialize flatpickr (jQuery plugin or global function)
+    if (typeof $.fn !== 'undefined' && typeof $.fn.flatpickr === 'function') {
+      try { $('#return_date').flatpickr({ dateFormat: 'Y-m-d' }); } catch(e){ console.warn('flatpickr init failed (jQuery)', e); }
+    } else if (typeof flatpickr === 'function') {
+      try { flatpickr('#return_date', { dateFormat: 'Y-m-d' }); } catch(e){ console.warn('flatpickr init failed (global)', e); }
+    }
     const inventory = @json($inventory ?? []);
     let idx = 0;
 
@@ -141,14 +148,15 @@
       const selectedItemId = $(currentSelect).val();
 
       // Duplicate check
-      if (selectedItemId) {
-          let isDuplicate = false;
-          $('.item-select').not(currentSelect).each(function() {
-              if ($(this).val() === selectedItemId) {
-                  isDuplicate = true;
-                  return false;
-              }
-          });
+    if (selectedItemId) {
+      let isDuplicate = false;
+      // only check other selects in the details tbody
+      $('#detail-table tbody .item-select').not(currentSelect).each(function() {
+        if ($(this).val() === selectedItemId) {
+          isDuplicate = true;
+          return false;
+        }
+      });
 
           if (isDuplicate) {
               Swal.fire('Peringatan', 'Item ini sudah dipilih di baris lain.', 'warning');
@@ -273,27 +281,38 @@
           return;
       }
 
-      $('.item-select').each(function() {
-          const $td = $(this).closest('td');
-          const $errorDiv = $td.find('.item-error');
+    // debug: list selects and values being validated
+    try {
+    const selects = $('#detail-table tbody select.item-select');
+    console.debug('Validating item selects count=', selects.length);
+    selects.each(function(i){ console.debug('select['+i+'] name=', $(this).attr('name'), 'val=', $(this).val()); });
+    } catch(e) { console.warn('debug failed', e); }
 
-          if (!$(this).val()) {
-              isValid = false;
-              $errorDiv.show().text('Item harus dipilih');
-          } else {
-              $errorDiv.hide().text('');
-          }
-      });
+    // validate only selects inside detail table body
+    $('#detail-table tbody select.item-select').each(function() {
+      const td = $(this).closest('td');
+      const $errorDiv = td.find('.item-error');
+      td.removeClass('is-invalid');
+      $errorDiv.hide().text('');
+      const val = $(this).val();
 
-      $('.quantity-input').each(function() {
-          const v = parseFloat($(this).val()) || 0;
-          if (v <= 0) {
-              isValid = false;
-              $(this).addClass('is-invalid');
-          } else {
-              $(this).removeClass('is-invalid');
-          }
-      });
+      if (val === null || val === undefined || String(val).trim() === '') {
+        isValid = false;
+        td.addClass('is-invalid');
+        $errorDiv.show().text('Item harus dipilih');
+      }
+    });
+
+    // validate only quantity inputs inside detail table body
+    $('#detail-table tbody .quantity-input').each(function() {
+      const v = parseFloat($(this).val()) || 0;
+      if (v <= 0) {
+        isValid = false;
+        $(this).addClass('is-invalid');
+      } else {
+        $(this).removeClass('is-invalid');
+      }
+    });
 
       if (isValid) {
           Swal.fire({

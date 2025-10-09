@@ -4,13 +4,11 @@ namespace App\Http\Controllers\Admin\StokKeluar;
 
 use App\Http\Controllers\Controller;
 use App\Models\ReturnOut;
-use App\Models\ReturnOutDetail;
 use App\Models\Warehouse;
 use App\Models\Item;
 use App\Models\UserActivity;
 use App\Models\Inventory;
 use App\Models\StockMovement;
-use App\Models\GoodsReceipt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -53,19 +51,20 @@ class ReturnOutController extends Controller
                 ->leftJoin('items as i', 'rod.item_id', '=', 'i.id');
 
             if ($forcedWarehouseId !== null) {
-                $base->where('ri.warehouse_id', $forcedWarehouseId);
+                $base->where('ro.warehouse_id', $forcedWarehouseId);
             }
 
-            $total = (clone $base)->count();
+            // base has joins which may duplicate rows; count distinct return_out ids for total
+            $total = (clone $base)->distinct('ro.id')->count('ro.id');
 
             $q = (clone $base);
             if ($statusFilter && $statusFilter !== 'semua') {
-                $q->where('ri.status', $statusFilter);
+                $q->where('ro.status', $statusFilter);
             }
             if ($search) {
                 $q->where(function($s) use ($search){
-                    $s->where('ri.code','like',"%$search%")
-                      ->orWhere('ri.status','like',"%$search%")
+                    $s->where('ro.code','like',"%$search%")
+                      ->orWhere('ro.status','like',"%$search%")
                       ->orWhere('w.name','like',"%$search%")
                       ->orWhere('i.sku','like',"%$search%");
                 });
@@ -237,14 +236,18 @@ class ReturnOutController extends Controller
                 ]);
             }
 
-            UserActivity::create([
-                'user_id' => Auth::id(),
-                'activity' => 'created',
-                'menu' => 'Retur Out',
-                'description' => 'Menambahkan retur out: ' . $ri->code,
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->header('User-Agent'),
-            ]);
+            // Log user activity (do not fail main tx if logging fails)
+            try {
+                $itemsCount = is_array($validated['details'] ?? null) ? count($validated['details']) : 0;
+                UserActivity::create([
+                    'user_id' => Auth::id(),
+                    'activity' => 'created',
+                    'menu' => 'Retur Out',
+                    'description' => 'Menambahkan Retur Out: ' . $ri->code . ' (Gudang ID: ' . ($validated['warehouse_id'] ?? '-') . ', Tujuan Gudang ID: ' . ($validated['destination_warehouse_id'] ?? '-') . ', Items: ' . $itemsCount . ')',
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ]);
+            } catch (\Throwable $e) { /* ignore activity errors */ }
 
             DB::commit();
             return redirect()->route('admin.stok-keluar.retur-out.index')->with('success','Retur out berhasil dibuat.');
@@ -280,6 +283,10 @@ class ReturnOutController extends Controller
 
     public function update(Request $request, ReturnOut $retur_out)
     {
+        if ($retur_out->status === ReturnOut::STATUS_COMPLETED) {
+            return redirect()->back()->withErrors(['general' => 'Dokumen sudah completed dan tidak dapat diubah.']);
+        }
+
         $validated = $request->validate([
             'code' => ['required','string','max:50', Rule::unique('return_outs','code')->ignore($retur_out->id)],
             'warehouse_id' => ['required','exists:warehouses,id'],
@@ -361,14 +368,18 @@ class ReturnOutController extends Controller
                 ]);
             }
 
-            UserActivity::create([
-                'user_id' => Auth::id(),
-                'activity' => 'updated',
-                'menu' => 'Retur Out',
-                'description' => 'Mengupdate retur out: ' . $retur_out->code,
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->header('User-Agent'),
-            ]);
+            // Log user activity (do not fail main tx if logging fails)
+            try {
+                $itemsCount = is_array($validated['details'] ?? null) ? count($validated['details']) : 0;
+                UserActivity::create([
+                    'user_id' => Auth::id(),
+                    'activity' => 'updated',
+                    'menu' => 'Retur Out',
+                    'description' => 'Mengubah Retur Out: ' . ($validated['code'] ?? $retur_out->code) . ' (Gudang ID: ' . ($validated['warehouse_id'] ?? $retur_out->warehouse_id) . ', Tujuan Gudang ID: ' . ($validated['destination_warehouse_id'] ?? $retur_out->destination_warehouse_id) . ', Items: ' . $itemsCount . ')',
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ]);
+            } catch (\Throwable $e) { /* ignore activity errors */ }
 
             DB::commit();
             return redirect()->route('admin.stok-keluar.retur-out.index')->with('success','Retur out berhasil diupdate.');
@@ -380,20 +391,26 @@ class ReturnOutController extends Controller
 
     public function destroy(ReturnOut $retur_out)
     {
+        if ($retur_out->status === ReturnOut::STATUS_COMPLETED) {
+            return response()->json(['success' => false, 'message' => 'Dokumen sudah completed dan tidak dapat dihapus.'], 422);
+        }
+
         DB::beginTransaction();
         try {
             $code = $retur_out->code;
             $retur_out->details()->delete();
             $retur_out->delete();
 
-            UserActivity::create([
-                'user_id' => Auth::id(),
-                'activity' => 'deleted',
-                'menu' => 'Retur Out',
-                'description' => 'Menghapus retur out: ' . $code,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->header('User-Agent'),
-            ]);
+            try {
+                UserActivity::create([
+                    'user_id' => Auth::id(),
+                    'activity' => 'deleted',
+                    'menu' => 'Retur Out',
+                    'description' => 'Menghapus Retur Out: ' . $code,
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->header('User-Agent'),
+                ]);
+            } catch (\Throwable $e) { /* ignore activity errors */ }
             DB::commit();
             return response()->json(['success'=>true]);
         } catch (\Exception $e) {
@@ -479,14 +496,18 @@ class ReturnOutController extends Controller
                 'completed_at' => now(),
             ]);
 
-            UserActivity::create([
-                'user_id' => Auth::id(),
-                'activity' => 'approved',
-                'menu' => 'Retur Out',
-                'description' => 'Menyetujui retur out: ' . $retur_out->code,
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->header('User-Agent'),
-            ]);
+            // Log user activity (do not fail main tx if logging fails)
+            try {
+                $itemsCount = $retur_out->relationLoaded('details') ? $retur_out->details->count() : (int) $retur_out->details()->count();
+                UserActivity::create([
+                    'user_id' => Auth::id(),
+                    'activity' => 'approved',
+                    'menu' => 'Retur Out',
+                    'description' => 'Menyetujui Retur Out: ' . $retur_out->code . ' (Gudang ID: ' . ($retur_out->warehouse_id ?? '-') . ', Tujuan Gudang ID: ' . ($retur_out->destination_warehouse_id ?? '-') . ', Items: ' . $itemsCount . ')',
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ]);
+            } catch (\Throwable $e) { /* ignore activity errors */ }
 
             DB::commit();
             return response()->json(['success' => true, 'message' => 'Retur out disetujui dan diselesaikan.']);

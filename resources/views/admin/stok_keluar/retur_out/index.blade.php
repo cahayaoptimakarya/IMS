@@ -45,12 +45,24 @@
         </div>
     </div>
     <div class="card">
-        <div class="card-header border-0 pt-6 d-flex justify-content-between align-items-center">
-            <h3 class="card-title fw-bolder">Daftar Retur Out</h3>
-            @if ($canCreate)
-                <a href="{{ route('admin.stok-keluar.retur-out.create') }}" class="btn btn-primary">Tambah</a>
-            @endif
-        </div>
+            <div class="card-header border-0 pt-6 d-flex justify-content-between align-items-center">
+                <div class="card-title">
+                    <div class="d-flex align-items-center position-relative my-1">
+                        <span class="svg-icon svg-icon-1 position-absolute ms-6">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <rect opacity="0.5" x="17.0365" y="15.1223" width="8.15546" height="2" rx="1" transform="rotate(45 17.0365 15.1223)" fill="black"></rect>
+                                <path d="M11 19C6.55556 19 3 15.4444 3 11C3 6.55556 6.55556 3 11 3C15.4444 3 19 6.55556 19 11C19 15.4444 15.4444 19 11 19ZM11 5C7.53333 5 5 7.53333 5 11C5 14.4667 7.53333 17 11 17C14.4667 17 17 14.4667 17 11C17 7.53333 14.4667 5 11 5Z" fill="black"></path>
+                            </svg>
+                        </span>
+                        <input type="text" id="search_input" class="form-control form-control-solid w-250px ps-15" placeholder="Cari Retur Out">
+                    </div>
+                </div>
+                <div>
+                    @if ($canCreate)
+                        <a href="{{ route('admin.stok-keluar.retur-out.create') }}" class="btn btn-primary">Tambah</a>
+                    @endif
+                </div>
+            </div>
         <div class="card-body pt-0">
             <div class="table-responsive min-h-500px">
                 <table class="table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer" id="ri-table">
@@ -93,7 +105,7 @@ $(function(){
         searching: true,
         ajax: {
             url: `{{ route('admin.stok-keluar.retur-out.index') }}`,
-            data: function(d){ }
+            data: function(d){ d.search.value = $('#search_input').val(); }
         },
         columns: [
             { data: 'code', name: 'ro.code' },
@@ -118,19 +130,23 @@ $(function(){
                 </a>
                 <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-150px py-4" data-kt-menu="true">
                     <div class="menu-item px-3"><a href="${showUrl}" class="menu-link px-3">Detail</a></div>`;
-                if (canEdit) html += `<div class="menu-item px-3"><a href="${editUrl}" class="menu-link px-3">Edit</a></div>`;
+                if (canEdit && row.status !== 'completed') html += `<div class="menu-item px-3"><a href="${editUrl}" class="menu-link px-3">Edit</a></div>`;
                 if (row.status === 'draft' && canApprove) html += `<div class="menu-item px-3"><button type="button" class="menu-link px-3 border-0 bg-transparent w-100 text-start action-complete" data-url="${completeUrl}" data-code="${row.code}">Complete</button></div>`;
-                if (canDelete) html += `<div class="menu-item px-3"><form method="POST" action="${delUrl}" class="ri-del"><input type="hidden" name="_token" value="${csrf}" /><input type="hidden" name="_method" value="DELETE" /><button type="submit" class="menu-link px-3 border-0 bg-transparent w-100 text-start">Delete</button></form></div>`;
+                if (canDelete && row.status !== 'completed') html += `<div class="menu-item px-3"><form method="POST" action="${delUrl}" class="ri-del"><input type="hidden" name="_token" value="${csrf}" /><input type="hidden" name="_method" value="DELETE" /><button type="submit" class="menu-link px-3 border-0 bg-transparent w-100 text-start">Delete</button></form></div>`;
                 html += `</div>`; return html;
             } },
         ],
         drawCallback: function(){ loadCounts(); if (typeof KTMenu !== 'undefined' && KTMenu.createInstances) { KTMenu.createInstances(); } }
     });
-
     $('#ri-table').on('submit','.ri-del', function(e){ e.preventDefault(); const f=this; $.post($(f).attr('action'), $(f).serialize()).done(()=>table.ajax.reload(null,false)).fail(()=>toastr.error('Gagal menghapus')); });
     $('#ri-table').on('click','.action-complete', function(){ const url=$(this).data('url'); const code=$(this).data('code'); Swal.fire({text:`Selesaikan dokumen ${code}?`, icon:'question', showCancelButton:true, buttonsStyling:false, confirmButtonText:'Ya, selesaikan!', cancelButtonText:'Batal', customClass:{confirmButton:'btn fw-bold btn-primary', cancelButton:'btn fw-bold btn-active-light-light'}}).then(function(res){ if(res.value){ $.post(url,{_token:csrf}).done((r)=>{ if(r.success){ toastr.success(r.message||'Berhasil'); table.ajax.reload(null,false); loadCounts(); } else { toastr.error(r.message||'Gagal'); } }).fail((xhr)=>{ toastr.error(xhr.responseJSON?.message||'Gagal'); }); } }); });
+
+    // Debounce helper and attach search input handler (ensure runs after jQuery loaded)
+    const debounce = (fn, delay) => { let t; return function(){ clearTimeout(t); t = setTimeout(()=>fn.apply(this, arguments), delay); }; };
+    $('#search_input').on('keyup', debounce(function(){ $('#ri-table').DataTable().draw(); }, 400));
 
     loadCounts();
 });
 </script>
 @endpush
+ 

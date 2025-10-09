@@ -285,7 +285,7 @@ class MenuSeeder extends Seeder
 
         // Retur Issue (Retur Keluar)
         Menu::updateOrCreate(
-            ['name' => 'Retur Out'],
+            ['name' => 'Retur Keluar'],
             [
                 'url' => '/admin/stok-keluar/retur-out',
                 'icon' => 'fas fa-undo-alt',
