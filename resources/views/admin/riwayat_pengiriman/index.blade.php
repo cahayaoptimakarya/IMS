@@ -2,6 +2,12 @@
 
 @push('styles')
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <style>
+        .warehouse-chip { display:flex; align-items:center; gap:8px; }
+        .warehouse-name { font-weight:700; color:#0f172a; }
+        .warehouse-arrow { color:#6b7280; font-weight:800; margin:0 6px; }
+        .warehouse-meta { font-size:0.82rem; color:#6b7280; }
+    </style>
 @endpush
 
 @push('toolbar')
@@ -122,7 +128,11 @@
                                 <th class="text-center min-w-100px">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="fw-bold text-gray-600"></tbody>
+                        <tbody class="fw-bold text-gray-600">
+                            <noscript>
+                                <tr><td colspan="7">JavaScript diperlukan untuk menampilkan daftar. Jika Anda melihat ini, aktifkan JavaScript.</td></tr>
+                            </noscript>
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -158,39 +168,58 @@
                 });
             }
 
-            function reloadTable() {
-                const params = {
-                    'search[value]': $('#search_input').val(),
-                    status: $('#status_filter').val(),
-                    reference_type: $('#ref_type_filter').val(),
-                    date: $('#date_filter').val(),
-                    start: 0,
-                    length: 25,
-                    draw: 1,
-                    'order[0][column]': 1,
-                    'order[0][dir]': 'desc'
-                };
-                $.get("{{ route('admin.riwayat-pengiriman.index') }}", params, function(res) {
-                    const tbody = $('#table-on-page tbody');
-                    tbody.empty();
-                    (res.data || []).forEach(function(row) {
-                        const showUrl = "{{ route('admin.riwayat-pengiriman.show', ['shipment' => 'SHIPMENT_ID']) }}".replace('SHIPMENT_ID', row.id);
-                        const suratJalanUrl = (row.reference_type === 'transfer request' && row.reference_id)
-                            ? "{{ route('admin.transfergudang.surat-jalan.show', ':id') }}".replace(':id', row.reference_id)
-                            : null;
-                        const tr = `<tr>
-                            <td>${row.code}</td>
-                            <td>${row.shipping_date ?? '-'}</td>
-                            <td><span class="badge badge-light">${row.reference_type}</span> ${row.reference_code ?? '-'}</td>
-                            <td>${row.to_warehouse_name ?? '-'}</td>
-                            <td>${renderStatus(row.status)}</td>
-                            <td>${row.driver ?? '-'}</td>
-                            <td class="text-center">
+            // Initialize DataTable with server-side processing
+            const table = $('#table-on-page').DataTable({
+                processing: true,
+                serverSide: true,
+                ordering: true,
+                pageLength: 25,
+                ajax: {
+                    url: "{{ route('admin.riwayat-pengiriman.index') }}",
+                    data: function(d) {
+                        // pass extra parameters from filters
+                        d.status = $('#status_filter').val();
+                        d.reference_type = $('#ref_type_filter').val();
+                        d.date = $('#date_filter').val();
+                        // ensure search from our input (optional, DataTables will also set d.search.value)
+                        if ($('#search_input').val()) {
+                            d.search = d.search || {};
+                            d.search.value = $('#search_input').val();
+                        }
+                    }
+                },
+                columns: [
+                    { data: 'code', name: 's.code' },
+                    { data: 'shipping_date', name: 's.shipping_date' },
+                    { data: null, orderable: false, searchable: false, render: function(data){
+                        return `<span class="badge badge-light">${data.reference_type}</span> ${data.reference_code || '-'};`;
+                    }},
+                    { data: null, orderable: false, searchable: true, render: function(data){
+                        // render From -> To
+                        const from = data.from_warehouse_name || '-';
+                        const to = data.to_warehouse_name || '-';
+                        return `
+                            <div class="warehouse-chip">
+                                <div class="d-flex flex-column">
+                                    <div class="warehouse-name">${from}</div>
+                                    <div class="warehouse-meta">Dari</div>
+                                </div>
+                                <div class="warehouse-arrow">→</div>
+                                <div class="d-flex flex-column">
+                                    <div class="warehouse-name">${to}</div>
+                                    <div class="warehouse-meta">Ke</div>
+                                </div>
+                            </div>`;
+                    }},
+                    { data: 'status', name: 's.status', render: function(data){ return renderStatus(data); } },
+                    { data: 'driver', name: 's.driver_name' },
+                    { data: 'id', orderable: false, searchable: false, render: function(data, type, row){
+                        const showUrl = "{{ route('admin.riwayat-pengiriman.show', ['shipment' => 'SHIPMENT_ID']) }}".replace('SHIPMENT_ID', data);
+                        return `
+                            <div class="text-center">
                                 <a href="#" class="btn btn-sm btn-light btn-active-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">Actions
                                     <span class="svg-icon svg-icon-5 m-0">
-                                        <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\">
-                                            <path d=\"M11.4343 12.7344L7.25 8.55005C6.83579 8.13583 6.16421 8.13584 5.75 8.55005C5.33579 8.96426 5.33579 9.63583 5.75 10.05L11.2929 15.5929C11.6834 15.9835 12.3166 15.9835 12.7071 15.5929L18.25 10.05C18.6642 9.63584 18.6642 8.96426 18.25 8.55005C17.8358 8.13584 17.1642 8.13584 16.75 8.55005L12.5657 12.7344C12.2533 13.0468 11.7467 13.0468 11.4343 12.7344Z\" fill=\"black\"></path>
-                                        </svg>
+                                        <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\"> <path d=\"M11.4343 12.7344L7.25 8.55005C6.83579 8.13583 6.16421 8.13584 5.75 8.55005C5.33579 8.96426 5.33579 9.63583 5.75 10.05L11.2929 15.5929C11.6834 15.9835 12.3166 15.9835 12.7071 15.5929L18.25 10.05C18.6642 9.63584 18.6642 8.96426 18.25 8.55005C17.8358 8.13584 17.1642 8.13584 16.75 8.55005L12.5657 12.7344C12.2533 13.0468 11.7467 13.0468 11.4343 12.7344Z\" fill=\"black\"></path> </svg>
                                     </span>
                                 </a>
                                 <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-150px py-4" data-kt-menu="true">
@@ -198,26 +227,32 @@
                                         <a href="${showUrl}" class="menu-link px-3">Detail</a>
                                     </div>
                                 </div>
-                            </td>
-                        </tr>`;
-                        tbody.append(tr);
-                    });
+                            </div>`;
+                    }}
+                ],
+                order: [[1, 'desc']],
+                drawCallback: function(settings){
+                    // Update filter info and status counts after draw
+                    const api = this.api();
+                    const recordsFiltered = settings.json ? settings.json.recordsFiltered : api.page.info().recordsDisplay;
                     const refText = $('#ref_type_filter option:selected').text();
                     const statusText = $('#status_filter option:selected').text();
                     const dateText = $('#date_filter').val() || 'Semua Tanggal';
-                    $('#filter-info').text(`${res.recordsFiltered} pengiriman • Tanggal: ${dateText} • Tipe: ${refText} • Status: ${statusText}`);
-                    // Re-init KT menu for newly injected action buttons
+                    $('#filter-info').text(`${recordsFiltered} pengiriman • Tanggal: ${dateText} • Tipe: ${refText} • Status: ${statusText}`);
+                    // Re-init KT menu for action buttons
                     if (typeof KTMenu !== 'undefined' && KTMenu.createInstances) {
                         KTMenu.createInstances();
                     }
-                }).done(loadStatusCounts);
-            }
+                    loadStatusCounts();
+                }
+            });
 
-            $('#apply_filter').on('click', reloadTable);
-            $('#search_input').on('input', debounce(reloadTable, 400));
-            $('#status_filter, #ref_type_filter').on('change', reloadTable);
+            $('#apply_filter').on('click', function(){ table.draw(); });
+            $('#status_filter, #ref_type_filter').on('change', function(){ table.draw(); });
+            $('#search_input').on('input', debounce(function(){ table.search($('#search_input').val()).draw(); }, 400));
 
-            reloadTable();
+            // initial load
+            table.draw();
         });
     </script>
 @endpush
