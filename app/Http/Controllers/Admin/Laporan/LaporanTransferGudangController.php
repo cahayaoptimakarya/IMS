@@ -51,6 +51,36 @@ class LaporanTransferGudangController extends Controller
             $baseQuery->where('to_warehouse_id', $toWarehouseFilter);
         }
 
+        // --- Additional aggregations for transfer metrics ---
+        $totalTransfers = (clone $baseQuery)->count();
+        $totalCompleted = (clone $baseQuery)->where('status', 'completed')->count();
+        $successRate = $totalTransfers ? round(($totalCompleted / $totalTransfers) * 100, 2) : 0;
+
+        // Average fulfillment time (minutes) between request date and completed_at for completed transfers
+        $avgFulfillmentMinutes = (clone $baseQuery)
+            ->whereNotNull('completed_at')
+            ->where('status', 'completed')
+            ->selectRaw('COALESCE(AVG(TIMESTAMPDIFF(MINUTE, date, completed_at)),0) as avg_minutes')
+            ->value('avg_minutes');
+
+        // Top origin-destination pairs
+        $topOriginDestination = (clone $baseQuery)
+            ->select('from_warehouse_id', 'to_warehouse_id', DB::raw('count(*) as transfer_count'))
+            ->groupBy('from_warehouse_id', 'to_warehouse_id')
+            ->orderByDesc('transfer_count')
+            ->limit(5)
+            ->get();
+
+        // Average items per transfer (approx) — compute by loading counts per transfer
+        $avgItemsPerTransfer = (clone $baseQuery)->withCount('items')->get()->avg('items_count') ?: 0;
+
+        // Aging for pending: average days since request for pending transfers
+        $pendingTransfers = (clone $baseQuery)->where('status', 'pending')->get();
+        $agingPending = 0;
+        if ($pendingTransfers->count() > 0) {
+            $agingPending = round($pendingTransfers->map(function($t){ return Carbon::now()->diffInDays(Carbon::parse($t->date)); })->avg(), 2);
+        }
+
         // Stats
         $stats = [
             'total_transfers' => (clone $baseQuery)->count(),
@@ -86,7 +116,8 @@ class LaporanTransferGudangController extends Controller
             : Warehouse::all();
 
         return view('admin.laporan.laporan-transfer-gudang', compact(
-            'stats', 'trendData', 'pieChartData', 'warehouses', 'dateRange', 'statusFilter', 'fromWarehouseFilter', 'toWarehouseFilter'
+            'stats', 'trendData', 'pieChartData', 'warehouses', 'dateRange', 'statusFilter', 'fromWarehouseFilter', 'toWarehouseFilter',
+            'successRate', 'avgFulfillmentMinutes', 'topOriginDestination', 'avgItemsPerTransfer', 'agingPending'
         ));
     }
 

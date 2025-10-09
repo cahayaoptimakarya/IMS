@@ -87,6 +87,44 @@ class LaporanController extends Controller
             'series' => $pieChartResult->pluck('count'),
         ];
         
+        // --- Additional useful aggregations ---
+        // Top outgoing items (by absolute quantity) within range
+        $topOutgoing = (clone $baseQuery)
+            ->leftJoin('items as i', 'stock_movements.item_id', '=', 'i.id')
+            ->select('i.id as item_id', 'i.nama_barang', DB::raw('COALESCE(SUM(ABS(stock_movements.quantity)),0) as total_out'))
+            ->where('stock_movements.quantity', '<', 0)
+            ->groupBy('i.id', 'i.nama_barang')
+            ->orderByDesc('total_out')
+            ->limit(10)
+            ->get();
+
+        // Top incoming items (by quantity) within range
+        $topIncoming = (clone $baseQuery)
+            ->leftJoin('items as i', 'stock_movements.item_id', '=', 'i.id')
+            ->select('i.id as item_id', 'i.nama_barang', DB::raw('COALESCE(SUM(stock_movements.quantity),0) as total_in'))
+            ->where('stock_movements.quantity', '>', 0)
+            ->groupBy('i.id', 'i.nama_barang')
+            ->orderByDesc('total_in')
+            ->limit(10)
+            ->get();
+
+        // Negative stock events count
+        $negativeEvents = (clone $baseQuery)
+            ->where('stock_after', '<', 0)
+            ->count();
+
+        // Average daily movements in the range
+        $days = max(1, $startDate->diffInDays($endDate) + 1);
+        $avgDailyMovement = $days ? round(((clone $baseQuery)->count() / $days), 2) : 0;
+
+        // Movement by warehouse (sum of absolute quantity)
+        $warehouseMovement = (clone $baseQuery)
+            ->leftJoin('warehouses as w', 'stock_movements.warehouse_id', '=', 'w.id')
+            ->select('stock_movements.warehouse_id', 'w.name as warehouse_name', DB::raw('COALESCE(SUM(ABS(stock_movements.quantity)),0) as movement_sum'))
+            ->groupBy('stock_movements.warehouse_id', 'w.name')
+            ->orderByDesc('movement_sum')
+            ->get();
+        
         $warehouses = auth()->user() && auth()->user()->warehouse_id
             ? Warehouse::where('id', auth()->user()->warehouse_id)->get()
             : Warehouse::all();
@@ -98,7 +136,12 @@ class LaporanController extends Controller
             'pieChartData',
             'warehouses',
             'items',
-            'dateRange'
+            'dateRange',
+            'topOutgoing',
+            'topIncoming',
+            'negativeEvents',
+            'avgDailyMovement',
+            'warehouseMovement'
         ));
     }
 

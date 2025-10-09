@@ -100,7 +100,82 @@
                 </div>
             </div>
         </div>
+        
+    <!-- Metrik Tambahan Transfer -->
+        <div class="row g-5 g-xl-8 mb-6">
+            <div class="col-xl-3">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-body">
+                        <div class="text-muted fs-7">Tingkat Keberhasilan</div>
+                        <div class="text-dark fw-bolder fs-2 mt-3">{{ number_format($successRate ?? 0, 2) }}%</div>
+                        <div class="text-muted fs-8">Persentase permintaan transfer yang selesai</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-body">
+                        <div class="text-muted fs-7">Rata-rata Waktu Penyelesaian</div>
+                        <div class="text-dark fw-bolder fs-2 mt-3">{{ round(($avgFulfillmentMinutes ?? 0) / 60, 2) }} jam</div>
+                        <div class="text-muted fs-8">Rata-rata waktu (jam) untuk menyelesaikan permintaan transfer</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-body">
+                        <div class="text-muted fs-7">Rata-rata Item per Transfer</div>
+                        <div class="text-dark fw-bolder fs-2 mt-3">{{ number_format($avgItemsPerTransfer ?? 0, 2) }}</div>
+                        <div class="text-muted fs-8">Rata-rata jumlah item per permintaan transfer</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-body">
+                        <div class="text-muted fs-7">Rata-rata Lama Pending (hari)</div>
+                        <div class="text-dark fw-bolder fs-2 mt-3">{{ number_format($agingPending ?? 0, 2) }}</div>
+                        <div class="text-muted fs-8">Rata-rata hari permintaan yang masih pending</div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
+        <!-- Top Origin-Destination Table -->
+        <div class="row g-5 g-xl-8 mb-8">
+            <div class="col-xl-12">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-header border-0 pt-5">
+                        <h3 class="card-title align-items-start flex-column">
+                            <span class="card-label fw-bolder text-dark">Pasangan Gudang Terbanyak (Pengirim → Penerima)</span>
+                            <span class="text-muted mt-1 fw-bold fs-7">Pasangan gudang dengan jumlah permintaan transfer terbanyak</span>
+                        </h3>
+                    </div>
+                    <div class="card-body pt-5">
+                        <div class="table-responsive">
+                            <table class="table align-middle table-row-dashed fs-7 gy-3">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>Dari Gudang</th>
+                                        <th>Ke Gudang</th>
+                                        <th class="text-end">Jumlah Transfer</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (($topOriginDestination ?? collect()) as $pair)
+                                        <tr>
+                                            <td>{{ \App\Models\Warehouse::where('id', $pair->from_warehouse_id)->value('name') ?? 'N/A' }}</td>
+                                            <td>{{ \App\Models\Warehouse::where('id', $pair->to_warehouse_id)->value('name') ?? 'N/A' }}</td>
+                                            <td class="text-end">{{ number_format($pair->transfer_count ?? 0) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="card">
             <div class="card-header border-0 pt-6">
                 <div class="card-title">
@@ -122,7 +197,7 @@
                     </button>
                     <div class="menu menu-sub menu-sub-dropdown w-300px w-md-325px" data-kt-menu="true">
                         <div class="px-7 py-5">
-                            <div class="fs-4 text-dark fw-bolder">Filter Options</div>
+                            <div class="fs-4 text-dark fw-bolder">Opsi Filter</div>
                         </div>
                         <div class="separator border-gray-200"></div>
                         <div class="px-7 py-5">
@@ -159,8 +234,8 @@
                                 </div>
                             @endif
                             <div class="d-flex justify-content-end">
-                                <a href="{{ route('admin.laporan.laporan-transfer-gudang') }}" class="btn btn-light btn-active-light-primary me-2">Reset</a>
-                                <button type="submit" class="btn btn-primary" form="filter_form">Apply</button>
+                                <a href="{{ route('admin.laporan.laporan-transfer-gudang') }}" class="btn btn-light btn-active-light-primary me-2">Atur Ulang</a>
+                                <button type="submit" class="btn btn-primary" form="filter_form">Terapkan</button>
                             </div>
                         </div>
                     </div>

@@ -72,6 +72,48 @@
             <!--end::Row-->
         </div>
 
+        <!-- Additional Metrics Row -->
+        <div class="row g-5 g-xl-8 mb-6">
+            <div class="col-xl-3">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-body">
+                        <div class="text-muted fs-7">Negative Stock Events</div>
+                        <div class="text-dark fw-bolder fs-2 mt-3">{{ number_format($negativeEvents ?? 0) }}</div>
+                        <div class="text-muted fs-8">Jumlah kejadian stok negatif dalam periode</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-body">
+                        <div class="text-muted fs-7">Avg Daily Movements</div>
+                        <div class="text-dark fw-bolder fs-2 mt-3">{{ number_format($avgDailyMovement ?? 0, 2) }}</div>
+                        <div class="text-muted fs-8">Rata-rata transaksi per hari</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-6">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-body">
+                        <div class="text-muted fs-7">Top Warehouse by Movement</div>
+                        <div class="mt-3">
+                            <ul class="list-group">
+                                @foreach (($warehouseMovement ?? collect()) as $wm)
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div class="fw-bolder">{{ $wm->warehouse_name ?? 'Unknown' }}</div>
+                                            <div class="text-muted fs-8">Gudang ID: {{ $wm->warehouse_id }}</div>
+                                        </div>
+                                        <div class="fw-bolder">{{ number_format($wm->movement_sum, 2, ',', '.') }}</div>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!--begin::Row-->
         <div class="row g-5 g-xl-8">
             <div class="col-xl-7">
@@ -102,6 +144,70 @@
             </div>
         </div>
         <!--end::Row-->
+
+        <!-- Top Items Row -->
+        <div class="row g-5 g-xl-8 mb-8">
+            <div class="col-xl-6">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-header border-0 pt-5">
+                        <h3 class="card-title align-items-start flex-column">
+                            <span class="card-label fw-bolder text-dark">Top Incoming Items</span>
+                            <span class="text-muted mt-1 fw-bold fs-7">Berdasarkan kuantitas masuk</span>
+                        </h3>
+                    </div>
+                    <div class="card-body pt-5">
+                        <div class="table-responsive">
+                            <table class="table align-middle table-row-dashed fs-7 gy-3">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>Barang</th>
+                                        <th class="text-end">Total In</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (($topIncoming ?? collect()) as $inc)
+                                        <tr>
+                                            <td>{{ $inc->nama_barang }}</td>
+                                            <td class="text-end">{{ number_format($inc->total_in, 2, ',', '.') }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-6">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-header border-0 pt-5">
+                        <h3 class="card-title align-items-start flex-column">
+                            <span class="card-label fw-bolder text-dark">Top Outgoing Items</span>
+                            <span class="text-muted mt-1 fw-bold fs-7">Berdasarkan kuantitas keluar</span>
+                        </h3>
+                    </div>
+                    <div class="card-body pt-5">
+                        <div class="table-responsive">
+                            <table class="table align-middle table-row-dashed fs-7 gy-3">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>Barang</th>
+                                        <th class="text-end">Total Out</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (($topOutgoing ?? collect()) as $out)
+                                        <tr>
+                                            <td>{{ $out->nama_barang }}</td>
+                                            <td class="text-end">{{ number_format($out->total_out, 2, ',', '.') }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="card">
             <div class="card-header border-0 pt-6">
