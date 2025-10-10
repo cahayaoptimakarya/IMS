@@ -63,7 +63,7 @@ class AssemblyRecipeController extends Controller
     {
         $request->validate([
                 'description' => 'nullable|string',
-                'finished_item_id' => 'required|integer|exists:items,id',
+                'finished_item_id' => 'required|integer|exists:items,id|unique:assembly_recipes,finished_item_id',
                 'output_quantity' => 'required|numeric|min:0.01',
                 'is_active' => 'nullable|boolean',
                 'components.item_id' => 'required|array|min:1',
@@ -71,6 +71,15 @@ class AssemblyRecipeController extends Controller
                 'components.quantity' => 'required|array|min:1',
                 'components.quantity.*' => 'required|numeric|min:0.01',
             ]);
+
+        // Server-side check: finished item must not appear in component list
+        $finished = $request->input('finished_item_id');
+        $componentIds = $request->input('components.item_id', []);
+        foreach ($componentIds as $compId) {
+            if ($compId && intval($compId) === intval($finished)) {
+                return redirect()->back()->withInput()->withErrors(['finished_item_id' => 'Produk jadi tidak boleh sama dengan salah satu komponen.']);
+            }
+        }
         DB::beginTransaction();
         try {
             $recipe = AssemblyRecipe::create([
@@ -99,17 +108,17 @@ class AssemblyRecipeController extends Controller
                 'user_id' => Auth::id(),
                 'activity' => 'created',
                 'menu' => 'assemblyrecipes',
-                'description' => 'Menambahkan assembly recipe: ' . $recipe->code,
+                'description' => 'Menambahkan resep perakitan: ' . $recipe->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
             ]);
 
             DB::commit();
 
-            return redirect()->route('admin.masterdata.assemblyrecipes.index')->with('success', 'Assembly recipe berhasil ditambahkan.');
+            return redirect()->route('admin.masterdata.assemblyrecipes.index')->with('success', 'resep perakitan berhasil ditambahkan.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->withInput()->with('error', 'Gagal menambahkan assembly recipe: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', 'Gagal menambahkan resep perakitan: ' . $e->getMessage());
         }
     }
 
@@ -128,7 +137,7 @@ class AssemblyRecipeController extends Controller
         $request->validate([
                 'code' => 'nullable|string|max:100|unique:assembly_recipes,code,' . $assemblyrecipe->id,
                 'description' => 'nullable|string',
-                'finished_item_id' => 'required|integer|exists:items,id',
+                'finished_item_id' => 'required|integer|exists:items,id|unique:assembly_recipes,finished_item_id,' . $assemblyrecipe->id,
                 'output_quantity' => 'required|numeric|min:0.01',
                 'is_active' => 'nullable|boolean',
                 'components.item_id' => 'required|array|min:1',
@@ -136,6 +145,15 @@ class AssemblyRecipeController extends Controller
                 'components.quantity' => 'required|array|min:1',
                 'components.quantity.*' => 'required|numeric|min:0.01',
             ]);
+
+        // Server-side check: finished item must not appear in component list
+        $finished = $request->input('finished_item_id');
+        $componentIds = $request->input('components.item_id', []);
+        foreach ($componentIds as $compId) {
+            if ($compId && intval($compId) === intval($finished)) {
+                return redirect()->back()->withInput()->withErrors(['finished_item_id' => 'Produk jadi tidak boleh sama dengan salah satu komponen.']);
+            }
+        }
         DB::beginTransaction();
         try {
             $dataToUpdate = [
@@ -167,17 +185,17 @@ class AssemblyRecipeController extends Controller
                 'user_id' => Auth::id(),
                 'activity' => 'updated',
                 'menu' => 'assemblyrecipes',
-                'description' => 'Memperbarui assembly recipe: ' . $assemblyrecipe->code,
+                'description' => 'Memperbarui resep perakitan: ' . $assemblyrecipe->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
             ]);
 
             DB::commit();
 
-            return redirect()->route('admin.masterdata.assemblyrecipes.index')->with('success', 'Assembly recipe berhasil diperbarui.');
+            return redirect()->route('admin.masterdata.assemblyrecipes.index')->with('success', 'resep perakitan berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->withInput()->with('error', 'Gagal memperbarui assembly recipe: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', 'Gagal memperbarui resep perakitan: ' . $e->getMessage());
         }
     }
 
@@ -193,17 +211,17 @@ class AssemblyRecipeController extends Controller
                 'user_id' => Auth::id(),
                 'activity' => 'deleted',
                 'menu' => 'assemblyrecipes',
-                'description' => 'Menghapus assembly recipe: ' . $code,
+                'description' => 'Menghapus resep perakitan: ' . $code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
             ]);
 
             DB::commit();
 
-            return redirect()->route('admin.masterdata.assemblyrecipes.index')->with('success', 'Assembly recipe berhasil dihapus.');
+            return redirect()->route('admin.masterdata.assemblyrecipes.index')->with('success', 'resep perakitan berhasil dihapus.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal menghapus assembly recipe: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal menghapus resep perakitan: ' . $e->getMessage());
         }
     }
 }

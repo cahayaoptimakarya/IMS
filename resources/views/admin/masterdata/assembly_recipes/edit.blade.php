@@ -156,13 +156,33 @@
                     Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Lengkapi data wajib dan pastikan qty > 0.' });
                     return;
                 }
+
+                // check finished vs components
+                var duplicateFound = false;
+                var duplicateRows = [];
+                $('#components .component-row').each(function(){
+                    var $row = $(this);
+                    var item = $row.find('select[name="components[item_id][]"]').val();
+                    if(item && finished && String(item) === String(finished)){
+                        duplicateFound = true; duplicateRows.push($row);
+                    }
+                });
+                if(duplicateFound){
+                    duplicateRows.forEach(function($r){ $r.find('select[name="components[item_id][]"]').addClass('is-invalid'); });
+                    Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Produk jadi tidak boleh sama dengan salah satu komponen.' });
+                    $('html, body').animate({ scrollTop: $('.is-invalid').first().offset().top - 100 }, 250);
+                    return;
+                }
+
                 Swal.fire({
-                    text: "Apakah Anda yakin ingin menyimpan data ini?",
-                    icon: "question",
+                    title: 'Apakah Anda yakin?',
+                    text: 'Dokumen akan disubmit. Lanjutkan?',
+                    icon: 'warning',
                     showCancelButton: true,
                     buttonsStyling: false,
-                    confirmButtonText: "Ya, simpan!",
-                    cancelButtonText: "Tidak, batalkan",
+                    confirmButtonText: 'Ya, submit',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true,
                     customClass: {
                         confirmButton: "btn fw-bold btn-primary",
                         cancelButton: "btn fw-bold btn-active-light-primary"
@@ -172,6 +192,37 @@
                         submitForm.submit();
                     }
                 });
+            });
+
+            // Immediate duplicate check: show SweetAlert if finished item equals any component
+            function showFinishedComponentConflict() {
+                Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Produk jadi tidak boleh sama dengan salah satu komponen.' });
+            }
+            function clearAndHighlight($sel){
+                $sel.addClass('is-invalid');
+                $sel.val('').trigger('change');
+                setTimeout(function(){ $sel.removeClass('is-invalid'); }, 3000);
+            }
+            $('select[name="finished_item_id"]').on('change', function(){
+                var finished = $(this).val();
+                if(!finished) return;
+                var found = false;
+                $('#components .component-row').each(function(){
+                    var $row = $(this);
+                    var $comp = $row.find('select[name="components[item_id][]"]');
+                    if(String($comp.val()) === String(finished)){
+                        found = true; clearAndHighlight($comp);
+                    }
+                });
+                if(found) showFinishedComponentConflict();
+            });
+            $('#components').on('change', 'select[name="components[item_id][]"]', function(){
+                var finished = $('select[name="finished_item_id"]').val();
+                var $sel = $(this);
+                if(!finished) return;
+                if(String($sel.val()) === String(finished)){
+                    clearAndHighlight($sel); showFinishedComponentConflict();
+                }
             });
         });
     </script>

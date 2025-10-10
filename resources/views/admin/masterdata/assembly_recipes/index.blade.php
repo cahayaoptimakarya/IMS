@@ -51,8 +51,8 @@
                             <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
                                 <th class="sorting">No</th>
                                 <th class="min-w-125px sorting">Kode</th>
-                                <th class="min-w-200px sorting">Deskripsi</th>
                                 <th class="min-w-200px sorting">Produk Jadi</th>
+                                <th class="min-w-200px sorting">Deskripsi</th>
                                 <th class="min-w-100px sorting">Output</th>
                                 <th class="min-w-100px sorting">Aktif</th>
                                 <th class="min-w-125px sorting">Actions</th>
@@ -63,8 +63,13 @@
                                 <tr>
                                     <td>{{ ($recipes->currentPage() - 1) * $recipes->perPage() + $loop->iteration }}</td>
                                     <td>{{ $recipe->code }}</td>
+                                    <td>
+                                        <div class="d-flex flex-column">
+                                            <div class="fw-bold text-primary">{{ $recipe->finishedItem->sku ?? '-' }}</div>
+                                            <div class="text-muted small">{{ $recipe->finishedItem->nama_barang ?? '-' }}</div>
+                                        </div>
+                                    </td>
                                     <td>{{ $recipe->description ?? '-' }}</td>
-                                    <td>{{ $recipe->finishedItem->nama_barang ?? '-' }} ({{ $recipe->finishedItem->sku ?? '-' }})</td>
                                     <td>{{ number_format($recipe->output_quantity, 2, ',', '.') }}</td>
                                     <td>
                                         @if($recipe->is_active)

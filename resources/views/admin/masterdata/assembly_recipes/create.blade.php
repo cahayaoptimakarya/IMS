@@ -171,29 +171,95 @@
                 var laravelErrors = @json($errors->all());
                 laravelErrors.forEach(function(msg){ toastr.error(msg); });
             @endif
-            // SweetAlert confirm + simple validation before submit
+            // SweetAlert confirm + validation before submit (create)
             $('#assembly-recipe-form').on('submit', function(e){
                 e.preventDefault();
                 var form = this;
+                // clear previous invalid markers
+                $(form).find('.is-invalid').removeClass('is-invalid');
+
                 var code = $('input[name="code"]').val().trim();
                 var finished = $('select[name="finished_item_id"]').val();
                 var output = parseFloat($('input[name="output_quantity"]').val());
                 var validComponents = true;
+                var duplicateFound = false;
+                var duplicateRows = [];
+
                 $('#components .component-row').each(function(){
-                    var item = $(this).find('select[name="components[item_id][]"]').val();
-                    var qty = parseFloat($(this).find('input[name="components[quantity][]"]').val());
+                    var $row = $(this);
+                    var item = $row.find('select[name="components[item_id][]"]').val();
+                    var qty = parseFloat($row.find('input[name="components[quantity][]"]').val());
                     if(!item || !qty || qty <= 0){ validComponents = false; }
+                    if(item && finished && String(item) === String(finished)){
+                        duplicateFound = true;
+                        duplicateRows.push($row);
+                    }
                 });
+
+                    // Immediate duplicate check: show SweetAlert if finished item equals any component
+                    function showFinishedComponentConflict() {
+                        Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Produk jadi tidak boleh sama dengan salah satu komponen.' });
+                    }
+
+                    function clearAndHighlight($sel){
+                        $sel.addClass('is-invalid');
+                        // clear value and notify select2 if used
+                        $sel.val('').trigger('change');
+                        // remove invalid class after short delay so user can reselect
+                        setTimeout(function(){ $sel.removeClass('is-invalid'); }, 3000);
+                    }
+
+                    // when finished product changes, remove any matching components and alert
+                    $('select[name="finished_item_id"]').on('change', function(){
+                        var finished = $(this).val();
+                        if(!finished) return;
+                        var found = false;
+                        $('#components .component-row').each(function(){
+                            var $row = $(this);
+                            var $comp = $row.find('select[name="components[item_id][]"]');
+                            if(String($comp.val()) === String(finished)){
+                                found = true;
+                                clearAndHighlight($comp);
+                            }
+                        });
+                        if(found) showFinishedComponentConflict();
+                    });
+
+                    // when a component select changes, check against finished product
+                    $('#components').on('change', 'select[name="components[item_id][]"]', function(){
+                        var finished = $('select[name="finished_item_id"]').val();
+                        var $sel = $(this);
+                        if(!finished) return;
+                        if(String($sel.val()) === String(finished)){
+                            clearAndHighlight($sel);
+                            showFinishedComponentConflict();
+                        }
+                    });
+
                 if(!code || !finished || !output || output <= 0 || !validComponents){
                     Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Lengkapi data wajib dan pastikan qty > 0.' });
                     return;
                 }
+
+                if(duplicateFound){
+                    // mark offending selects
+                    duplicateRows.forEach(function($r){
+                        $r.find('select[name="components[item_id][]"]').addClass('is-invalid');
+                    });
+                    Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Produk jadi tidak boleh sama dengan salah satu komponen.' });
+                    // scroll to first invalid
+                    $('html, body').animate({ scrollTop: $('.is-invalid').first().offset().top - 100 }, 250);
+                    return;
+                }
+
                 Swal.fire({
-                    title: 'Apakah Anda yakin menyimpan?',
-                    icon: 'question',
+                    title: 'Apakah Anda yakin?',
+                    text: 'Dokumen akan disubmit. Lanjutkan?',
+                    icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonText: 'Ya, simpan',
-                    cancelButtonText: 'Batal'
+                    confirmButtonText: 'Ya, submit',
+                    cancelButtonText: 'Batal',
+                    reverseButtons: true
                 }).then(function(res){
                     if(res.isConfirmed){ form.submit(); }
                 });
