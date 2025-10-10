@@ -35,7 +35,6 @@ class DashboardController extends Controller
             // Stock-in today: sum only from movements linked to stock_in_order_items
             $todayStockIn = StockMovement::where('warehouse_id', $warehouseId)
                 ->where('type', 'stock_in')
-                ->where('reference_type', 'stock_in_order_items')
                 ->whereDate('date', today())
                 ->sum('quantity');
 
@@ -113,11 +112,9 @@ class DashboardController extends Controller
             $totalUsers = User::count();
             $totalWarehouses = Warehouse::count();
             $todayStockIn = StockMovement::where('type', 'stock_in')
-                ->where('reference_type', 'stock_in_order_items')
                 ->whereDate('date', today())
                 ->sum('quantity');
             $todayStockOut = StockMovement::where('type', 'stock_out')
-                ->where('reference_type', 'stock_out_items')
                 ->whereDate('date', today())
                 ->sum('quantity');
             $recentActivities = UserActivity::with('user')->latest()->take(5)->get();
