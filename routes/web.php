@@ -119,6 +119,7 @@ Route::middleware(['auth', 'permission'])->group(function () {
         Route::get('stok-opname/system-stock', [StockOpnameController::class, 'getSystemStock'])->name('stok-opname.system-stock');
         Route::post('stok-opname/{stok_opname}/update-status', [StockOpnameController::class, 'updateStatus'])->name('stok-opname.updateStatus');
         Route::resource('stok-opname', StockOpnameController::class);
+        Route::get('adjustment/status-counts', [AdjustmentController::class, 'getStatusCounts'])->name('adjustment.status-counts');
         Route::resource('adjustment', AdjustmentController::class);
         Route::post('adjustment/{adjustment}/update-status', [AdjustmentController::class, 'updateStatus'])->name('adjustment.updateStatus');
     });

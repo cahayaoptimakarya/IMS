@@ -1,7 +1,18 @@
 @extends('layouts.app')
 
 @push('styles')
-    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <style>
+        .status-card-icon .symbol-label { background: #F3E8FF; }
+        .status-card-icon i { color: #7C3AED; }
+        .status-metrics { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+        .status-metrics .metric { text-align: center; min-width: 88px; }
+        .status-metrics .chip { display: inline-block; padding: 6px 12px; border-radius: 10px; font-weight: 700; font-size: 1rem; line-height: 1; }
+        .chip-warning { background: #FFF7E6; color: #F59E0B; }
+        .chip-primary { background: #E6F0FF; color: #3B82F6; }
+        .chip-success { background: #ECFDF5; color: #10B981; }
+        .chip-danger { background: #FEE2E2; color: #EF4444; }
+        @media (max-width: 576px) { .status-metrics { justify-content: flex-start; } .status-metrics .metric { min-width: 70px; } }
+    </style>
 @endpush
 
 @push('toolbar')
@@ -13,6 +24,53 @@
 
 @section('content')
     <div class="content flex-row-fluid" id="kt_content">
+        <div class="row g-5 g-xl-8">
+            <div class="col-12">
+                <div class="card card-xl-stretch mb-xl-8">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                            <div class="d-flex align-items-center mb-4 mb-md-0">
+                                <div class="symbol symbol-50px me-5 status-card-icon">
+                                    <div class="symbol-label">
+                                        <i class="fas fa-edit fs-2x"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-dark fw-bolder fs-5 mb-1">Status Penyesuaian</div>
+                                    <div class="text-muted fw-bold">Dokumen Penyesuaian</div>
+                                </div>
+                            </div>
+                            <div class="status-metrics">
+                                <div class="metric">
+                                    <div class="chip chip-warning" id="status_pending">
+                                        <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
+                                    </div>
+                                    <div class="text-muted fs-8 mt-1">Pending</div>
+                                </div>
+                                <div class="metric">
+                                    <div class="chip chip-success" id="status_completed">
+                                        <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
+                                    </div>
+                                    <div class="text-muted fs-8 mt-1">Completed</div>
+                                </div>
+                                <div class="metric">
+                                    <div class="chip chip-danger" id="status_rejected">
+                                        <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
+                                    </div>
+                                    <div class="text-muted fs-8 mt-1">Rejected</div>
+                                </div>
+                                <div class="metric">
+                                    <div class="chip chip-primary" id="status_draft">
+                                        <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
+                                    </div>
+                                    <div class="text-muted fs-8 mt-1">Draft</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="card">
             <div class="card-header border-0 pt-6">
                 <div class="card-title">
@@ -191,6 +249,22 @@
                 var statusFilter = $("#status_filter").val();
                 var dateFilter = $("#date_filter_options").val() === 'semua' ? 'semua' : $("#date_filter").val();
                 var warehouseFilter = $('#warehouse_filter').length ? $('#warehouse_filter').val() : null;
+
+                $.ajax({
+                    url: "{{ route('admin.manajemenstok.adjustment.status-counts') }}",
+                    type: "GET",
+                    data: {
+                        status: statusFilter,
+                        date: dateFilter,
+                        warehouse_id: warehouseFilter
+                    },
+                    success: function(response) {
+                        $('#status_pending').text(response.pending || 0);
+                        $('#status_completed').text(response.completed || 0);
+                        $('#status_rejected').text(response.rejected || 0);
+                        $('#status_draft').text(response.draft || 0);
+                    }
+                });
 
                 var statusText = $("#status_filter option:selected").text();
                 var dateText = dateFilter === 'semua' ? 'Semua Tanggal' : dateFilter;

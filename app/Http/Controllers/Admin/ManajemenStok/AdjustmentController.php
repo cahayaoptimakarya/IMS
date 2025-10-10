@@ -128,6 +128,38 @@ class AdjustmentController extends Controller
         return view('admin.manajemenstok.adjustment.index', compact('warehouses'));
     }
 
+    public function getStatusCounts(Request $request)
+    {
+        $dateFilter = $request->input('date');
+        $warehouseFilter = $request->input('warehouse_id');
+
+        $baseQuery = Adjustment::query();
+
+        if (Auth::user()->warehouse_id) {
+            $baseQuery->where('warehouse_id', Auth::user()->warehouse_id);
+        } else {
+            if ($warehouseFilter && $warehouseFilter !== 'semua') {
+                $baseQuery->where('warehouse_id', $warehouseFilter);
+            }
+        }
+
+        if ($dateFilter && $dateFilter !== 'semua') {
+            if (strpos($dateFilter, ' to ') !== false) {
+                [$startDate, $endDate] = explode(' to ', $dateFilter);
+                $baseQuery->whereBetween('adjustment_date', [$startDate, $endDate]);
+            } else {
+                $baseQuery->whereDate('adjustment_date', $dateFilter);
+            }
+        }
+
+        $statusCounts = [
+            'pending' => (clone $baseQuery)->where('status', 'pending')->count(),
+            'completed' => (clone $baseQuery)->where('status', 'completed')->count(),
+        ];
+
+        return response()->json($statusCounts);
+    }
+
     public function create()
     {
         $warehouses = Warehouse::all();
