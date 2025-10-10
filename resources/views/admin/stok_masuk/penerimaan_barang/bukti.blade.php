@@ -84,7 +84,7 @@
                                 <div class="col-5 meta-label">No. Pengiriman</div>
                                 <div class="col-7 meta-value">{{ $goodsReceipt->shipment->code ?? '-' }}</div>
                                 <div class="col-5 meta-label">Tanggal Kirim</div>
-                                <div class="col-7 meta-value">{{ optional($goodsReceipt->shipment?->shipping_date)->format('d M Y') ?? '-' }}</div>
+                                <div class="col-7 meta-value">{{ $goodsReceipt->shipment?->shipping_date ?? '-' }}</div>
                                 <div class="col-5 meta-label">Kendaraan</div>
                                 <div class="col-7 meta-value">{{ trim(($goodsReceipt->shipment->vehicle_type ?? '').' '.($goodsReceipt->shipment->license_plate ?? '')) ?: '-' }}</div>
                                 <div class="col-5 meta-label">Supir</div>

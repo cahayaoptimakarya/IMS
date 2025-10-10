@@ -44,7 +44,8 @@
                     <div class="row mb-7">
                         <div class="col-md-4">
                             <label class="form-label required">Nomor Dokumen</label>
-                            <input type="text" name="code" class="form-control form-control-solid" value="{{ old('code', $newCode) }}" readonly>
+                            <div class="form-control form-control-solid bg-light">{{ old('code', $newCode) }}</div>
+                            <input type="hidden" name="code" value="{{ old('code', $newCode) }}">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label required">Tanggal Penerimaan</label>
@@ -53,16 +54,19 @@
                         <div class="col-md-4">
                             <label class="form-label required">Gudang Tujuan</label>
                             @php($forcedWarehouseId = optional(auth()->user())->warehouse_id)
-                            <select name="warehouse_id" id="warehouse_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Gudang" @if($forcedWarehouseId) disabled @endif>
-                                <option value="">Pilih Gudang</option>
-                                @foreach ($warehouses as $warehouse)
-                                    <option value="{{ $warehouse->id }}" @selected(old('warehouse_id', $forcedWarehouseId) == $warehouse->id)>
-                                        {{ $warehouse->name }}
-                                    </option>
-                                @endforeach
-                            </select>
                             @if($forcedWarehouseId)
+                                @php($forcedWarehouse = $warehouses->firstWhere('id', $forcedWarehouseId))
+                                <div class="form-control form-control-solid bg-light">{{ $forcedWarehouse->name ?? '-' }}</div>
                                 <input type="hidden" name="warehouse_id" value="{{ $forcedWarehouseId }}">
+                            @else
+                                <select name="warehouse_id" id="warehouse_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Gudang">
+                                    <option value="">Pilih Gudang</option>
+                                    @foreach ($warehouses as $warehouse)
+                                        <option value="{{ $warehouse->id }}" @selected(old('warehouse_id') == $warehouse->id)>
+                                            {{ $warehouse->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
                             @endif
                         </div>
                     </div>
@@ -177,21 +181,23 @@
                                 </div>
                                 <div class="help-muted mt-1">Gunakan kolom ini untuk memfilter baris item.</div>
                             </div>
-                            <div class="summary" id="items-summary">0 item • Total: 0 Qty | 0 Koli</div>
+                            <div class="d-flex align-items-center gap-3">
+                                <button type="button" id="fill-all-max" class="btn btn-sm btn-outline-primary">Isi Maksimal</button>
+                                <div class="summary" id="items-summary">0 item • Total: 0 Qty | 0 Koli</div>
+                            </div>
                         </div>
                         <div class="table-responsive mb-7">
                             <table class="table align-middle table-row-dashed" id="detail-table">
                                 <thead class="text-muted">
-                                    <tr>
-                                        <th class="min-w-200px">Item</th>
-                                        <th id="col-ordered-qty" class="min-w-110px text-end">Qty Dikirim</th>
-                                        <th id="col-ordered-koli" class="min-w-110px text-end">Koli Dikirim</th>
-                                        <th class="min-w-110px text-end">Qty Diterima</th>
-                                        <th class="min-w-110px text-end">Koli Diterima</th>
-                                        <th class="min-w-200px">Catatan</th>
-                                        <th class="min-w-75px"></th>
-                                    </tr>
-                                </thead>
+                                            <tr>
+                                                <th class="min-w-200px">Item</th>
+                                                <th id="col-ordered-qty" class="min-w-110px text-end">Qty Dikirim</th>
+                                                <th id="col-ordered-koli" class="min-w-110px text-end">Koli Dikirim</th>
+                                                <th class="min-w-110px text-end">Qty Diterima</th>
+                                                <th class="min-w-110px text-end">Koli Diterima</th>
+                                                <th class="min-w-75px"></th>
+                                            </tr>
+                                        </thead>
                                 <tbody id="detail-rows">
                                     <!-- Rows will be added dynamically -->
                                 </tbody>
@@ -243,20 +249,32 @@
                 const newRow = `
                     <tr data-name="${(safeLabel || '').toString().toLowerCase()}" data-koli-ratio="${koliRatio}" data-remaining-qty="${remainingQty}" data-remaining-koli="${remainingKoli}">
                         <td>
-                            <input type="text" class="form-control form-control-solid" value="${safeLabel}" readonly>
+                            <div class="d-flex flex-column">
+                                <div class="fw-bold">${safeLabel}</div>
+                            </div>
                             <input type="hidden" name="details[${index}][item_id]" value="${detail ? detail.item_id : ''}">
                             <input type="hidden" name="details[${index}][shipment_item_id]" value="${detail ? detail.shipment_item_id : ''}">
                             <input type="hidden" name="details[${index}][order_item_id]" value="${detail && detail.order_item_id ? detail.order_item_id : ''}">
                         </td>
-                        <td><input type="number" step="1" min="0" name="details[${index}][ordered_quantity]" class="form-control form-control-solid text-end" value="${Math.round(remainingQty)}" readonly></td>
-                        <td><input type="number" step="0.01" min="0" name="details[${index}][ordered_koli]" class="form-control form-control-solid text-end" value="${remainingKoli}" readonly></td>
+                        <td>
+                            <div class="text-end fw-semibold ordered-qty-display">${Math.round(remainingQty)}</div>
+                            <input type="hidden" name="details[${index}][ordered_quantity]" value="${Math.round(remainingQty)}">
+                        </td>
+                        <td>
+                            <div class="text-end fw-semibold ordered-koli-display">${Number(remainingKoli).toFixed(2)}</div>
+                            <input type="hidden" name="details[${index}][ordered_koli]" value="${Number(remainingKoli).toFixed(2)}">
+                        </td>
                         <td><input type="number" step="1" min="0" max="${Math.round(remainingQty)}" name="details[${index}][received_quantity]" class="form-control form-control-solid text-end received-quantity" value="0"></td>
                         <td><input type="number" step="0.01" min="0" max="${remainingKoli}" name="details[${index}][received_koli]" class="form-control form-control-solid text-end received-koli" value="0"></td>
-                        <td><input type="text" name="details[${index}][notes]" class="form-control form-control-solid" placeholder="Catatan"></td>
                         <td class="text-center">
-                            <button type="button" class="btn btn-icon btn-light-danger remove-row" disabled>
-                                <i class="fas fa-trash"></i>
-                            </button>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button type="button" class="btn btn-sm btn-light-primary fill-max-row" title="Isi Maksimal">
+                                    Isi Maks
+                                </button>
+                                <button type="button" class="btn btn-icon btn-light-danger remove-row" disabled>
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>`;
                 
@@ -593,6 +611,29 @@
                     if (!isNaN(remainingQty) && qty > remainingQty) qty = Math.round(remainingQty);
                     if (qty < 0) qty = 0;
                     $row.find('.received-quantity').val(qty);
+                    updateSummary();
+                });
+
+                // Per-row fill max button
+                $('#detail-rows').on('click', '.fill-max-row', function() {
+                    const $row = $(this).closest('tr');
+                    const remainingQty = parseFloat($row.data('remaining-qty')) || 0;
+                    const remainingKoli = parseFloat($row.data('remaining-koli')) || 0;
+                    $row.find('.received-quantity').val(Math.round(remainingQty));
+                    // received-koli expects 2 decimals
+                    $row.find('.received-koli').val(Number(remainingKoli).toFixed(2));
+                    updateSummary();
+                });
+
+                // Fill all visible rows with max values
+                $('#fill-all-max').on('click', function() {
+                    $('#detail-rows').find('tr:visible').each(function() {
+                        const $row = $(this);
+                        const remainingQty = parseFloat($row.data('remaining-qty')) || 0;
+                        const remainingKoli = parseFloat($row.data('remaining-koli')) || 0;
+                        $row.find('.received-quantity').val(Math.round(remainingQty));
+                        $row.find('.received-koli').val(Number(remainingKoli).toFixed(2));
+                    });
                     updateSummary();
                 });
 

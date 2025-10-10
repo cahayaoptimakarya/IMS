@@ -45,7 +45,8 @@
                     <div class="row g-5 mb-7">
                         <div class="col-md-4">
                             <label class="form-label required">Nomor Dokumen</label>
-                            <input type="text" name="code" class="form-control form-control-solid" value="{{ old('code', $goodsReceipt->code) }}" readonly>
+                            <div class="form-control form-control-solid bg-light">{{ old('code', $goodsReceipt->code) }}</div>
+                            <input type="hidden" name="code" value="{{ old('code', $goodsReceipt->code) }}">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label required">Tanggal Penerimaan</label>
@@ -169,15 +170,18 @@
 
                     <div id="details-container">
                         <div class="mb-3" id="items-toolbar">
-                            <div class="w-50">
-                                <div class="position-relative">
-                                    <i class="fas fa-search text-gray-400 position-absolute ms-3 mt-2"></i>
-                                    <input type="text" id="item-search" class="form-control form-control-sm ps-10" placeholder="Cari item (SKU/Nama)">
+                                <div class="w-50">
+                                    <div class="position-relative">
+                                        <i class="fas fa-search text-gray-400 position-absolute ms-3 mt-2"></i>
+                                        <input type="text" id="item-search" class="form-control form-control-sm ps-10" placeholder="Cari item (SKU/Nama)">
+                                    </div>
+                                    <div class="help-muted mt-1">Gunakan kolom ini untuk memfilter baris item.</div>
                                 </div>
-                                <div class="help-muted mt-1">Gunakan kolom ini untuk memfilter baris item.</div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button type="button" id="fill-all-max" class="btn btn-sm btn-outline-primary">Isi Maksimal</button>
+                                    <div class="summary" id="items-summary">0 item • Total: 0 Qty | 0 Koli</div>
+                                </div>
                             </div>
-                            <div class="summary" id="items-summary">0 item • Total: 0 Qty | 0 Koli</div>
-                        </div>
                         <div class="table-responsive mb-7">
                             <table class="table align-middle table-row-dashed" id="detail-table">
                                 <thead class="text-muted">
@@ -195,19 +199,31 @@
                                     @foreach ($goodsReceipt->details as $i => $d)
                                         <tr data-name="{{ strtolower(($d->item->sku ?? '-') . ' - ' . ($d->item->nama_barang ?? $d->item->name ?? '-')) }}" data-koli-ratio="{{ $d->item->koli ?? 1 }}" data-remaining-qty="0" data-remaining-koli="0">
                                             <td>
-                                                <input type="text" class="form-control form-control-solid" value="{{ ($d->item->sku ?? '-') . ' - ' . ($d->item->nama_barang ?? $d->item->name ?? '-') }}" readonly>
+                                                <div class="d-flex flex-column">
+                                                    <div class="fw-bold">{{ ($d->item->sku ?? '-') . ' - ' . ($d->item->nama_barang ?? $d->item->name ?? '-') }}</div>
+                                                    <div class="text-muted small">ID: {{ $d->item_id }}</div>
+                                                </div>
                                                 <input type="hidden" name="details[{{ $i }}][item_id]" value="{{ $d->item_id }}">
                                                 <input type="hidden" name="details[{{ $i }}][shipment_item_id]" value="{{ $d->shipment_item_id }}">
                                             </td>
-                                            <td><input type="number" step="0.01" min="0" name="details[{{ $i }}][ordered_quantity]" class="form-control form-control-solid text-end" value="0" readonly></td>
-                                            <td><input type="number" step="0.01" min="0" name="details[{{ $i }}][ordered_koli]" class="form-control form-control-solid text-end" value="0" readonly></td>
+                                            <td>
+                                                <div class="text-end fw-semibold ordered-qty-display">0</div>
+                                                <input type="hidden" name="details[{{ $i }}][ordered_quantity]" value="0">
+                                            </td>
+                                            <td>
+                                                <div class="text-end fw-semibold ordered-koli-display">0.00</div>
+                                                <input type="hidden" name="details[{{ $i }}][ordered_koli]" value="0">
+                                            </td>
                                             <td><input type="number" step="0.01" min="0" name="details[{{ $i }}][received_quantity]" class="form-control form-control-solid text-end received-quantity" value="{{ number_format($d->received_quantity ?? 0, 2, '.', '') }}" max=""></td>
                                             <td><input type="number" step="0.01" min="0" name="details[{{ $i }}][received_koli]" class="form-control form-control-solid text-end received-koli" value="{{ number_format($d->received_koli ?? 0, 2, '.', '') }}" max=""></td>
                                             <td><input type="text" name="details[{{ $i }}][notes]" class="form-control form-control-solid" value="{{ $d->notes }}" placeholder="Catatan"></td>
                                             <td class="text-center">
-                                                <button type="button" class="btn btn-icon btn-light-danger remove-row" disabled>
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
+                                                <div class="d-flex justify-content-center gap-2">
+                                                    <button type="button" class="btn btn-sm btn-light-primary fill-max-row" title="Isi Maksimal">Isi Maks</button>
+                                                    <button type="button" class="btn btn-icon btn-light-danger remove-row" disabled>
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -557,6 +573,38 @@
                     });
                     $('#items-summary').text(`${itemCount} item • Total: ${totalQty} Qty | ${totalKoli} Koli`);
                 }
+
+                // Add per-row and global fill-max handlers (edit view)
+                // Populate ordered displays on load
+                $('#detail-rows').find('tr').each(function(){
+                    const $row = $(this);
+                    const orderedQtyInput = $row.find('input[name$="[ordered_quantity]"]');
+                    const orderedKoliInput = $row.find('input[name$="[ordered_koli]"]');
+                    const orderedQty = orderedQtyInput.val() || orderedQtyInput.attr('value') || '0';
+                    const orderedKoli = orderedKoliInput.val() || orderedKoliInput.attr('value') || '0';
+                    $row.find('.ordered-qty-display').text(Math.round(parseFloat(orderedQty) || 0));
+                    $row.find('.ordered-koli-display').text((parseFloat(orderedKoli) || 0).toFixed(2));
+                });
+
+                $('#detail-rows').on('click', '.fill-max-row', function(){
+                    const $row = $(this).closest('tr');
+                    const remainingQty = parseFloat($row.data('remaining-qty')) || 0;
+                    const remainingKoli = parseFloat($row.data('remaining-koli')) || 0;
+                    $row.find('.received-quantity').val(Math.round(remainingQty));
+                    $row.find('.received-koli').val(Number(remainingKoli).toFixed(2));
+                    updateSummary();
+                });
+
+                $('#fill-all-max').on('click', function(){
+                    $('#detail-rows').find('tr:visible').each(function(){
+                        const $row = $(this);
+                        const remainingQty = parseFloat($row.data('remaining-qty')) || 0;
+                        const remainingKoli = parseFloat($row.data('remaining-koli')) || 0;
+                        $row.find('.received-quantity').val(Math.round(remainingQty));
+                        $row.find('.received-koli').val(Number(remainingKoli).toFixed(2));
+                    });
+                    updateSummary();
+                });
 
                 $('#item-search').on('input', function(){
                     const q = ($(this).val() || '').toString().toLowerCase();
