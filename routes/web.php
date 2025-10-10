@@ -115,6 +115,7 @@ Route::middleware(['auth', 'permission'])->group(function () {
         Route::get('warehouse-stok/{warehouse}/{item}', [WarehouseStokController::class, 'show'])->name('warehousestok.show');
         Route::get('warehouse-stok/{warehouse}/{item}/data', [WarehouseStokController::class, 'data'])->name('warehousestok.data');
         Route::get('master-stok', [InventoryController::class, 'index'])->name('masterstok.index');
+        Route::get('stok-opname/status-counts', [StockOpnameController::class, 'getStatusCounts'])->name('stok-opname.status-counts');
         Route::get('stok-opname/system-stock', [StockOpnameController::class, 'getSystemStock'])->name('stok-opname.system-stock');
         Route::post('stok-opname/{stok_opname}/update-status', [StockOpnameController::class, 'updateStatus'])->name('stok-opname.updateStatus');
         Route::resource('stok-opname', StockOpnameController::class);

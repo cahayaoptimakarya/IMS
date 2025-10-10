@@ -106,6 +106,38 @@ class StockOpnameController extends Controller
         return view('admin.manajemenstok.stok-opname.index', compact('warehouses'));
     }
 
+    public function getStatusCounts(Request $request)
+    {
+        $dateFilter = $request->input('date');
+        $warehouseFilter = $request->input('warehouse');
+
+        $baseQuery = StockOpname::query();
+
+        if (auth()->user()->warehouse_id) {
+            $baseQuery->where('warehouse_id', auth()->user()->warehouse_id);
+        } else {
+            if ($warehouseFilter && $warehouseFilter !== 'semua') {
+                $baseQuery->where('warehouse_id', $warehouseFilter);
+            }
+        }
+
+        if ($dateFilter && $dateFilter !== 'semua') {
+            if (strpos($dateFilter, ' to ') !== false) {
+                [$startDate, $endDate] = explode(' to ', $dateFilter);
+                $baseQuery->whereBetween('start_date', [$startDate, $endDate]);
+            } else {
+                $baseQuery->whereDate('start_date', $dateFilter);
+            }
+        }
+
+        $statusCounts = [
+            'in_progress' => (clone $baseQuery)->where('status', 'in_progress')->count(),
+            'completed' => (clone $baseQuery)->where('status', 'completed')->count(),
+        ];
+
+        return response()->json($statusCounts);
+    }
+
     public function create()
     {
         $warehouses = Warehouse::all();

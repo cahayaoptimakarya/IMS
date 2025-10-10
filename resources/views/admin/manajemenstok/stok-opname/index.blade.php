@@ -1,5 +1,20 @@
 @extends('layouts.app')
 
+@push('styles')
+    <style>
+        .status-card-icon .symbol-label { background: #F3E8FF; }
+        .status-card-icon i { color: #7C3AED; }
+        .status-metrics { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+        .status-metrics .metric { text-align: center; min-width: 88px; }
+        .status-metrics .chip { display: inline-block; padding: 6px 12px; border-radius: 10px; font-weight: 700; font-size: 1rem; line-height: 1; }
+        .chip-warning { background: #FFF7E6; color: #F59E0B; }
+        .chip-primary { background: #E6F0FF; color: #3B82F6; }
+        .chip-success { background: #ECFDF5; color: #10B981; }
+        .chip-danger { background: #FEE2E2; color: #EF4444; }
+        @media (max-width: 576px) { .status-metrics { justify-content: flex-start; } .status-metrics .metric { min-width: 70px; } }
+    </style>
+@endpush
+
 @push('toolbar')
     @include('layouts.partials._toolbar', [
         'title' => 'Stock Opname',
@@ -9,6 +24,41 @@
 
 @section('content')
     <div class="content flex-row-fluid" id="kt_content">
+        <div class="row g-5 g-xl-8">
+            <div class="col-12">
+                <div class="card card-xl-stretch mb-xl-8">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                            <div class="d-flex align-items-center mb-4 mb-md-0">
+                                <div class="symbol symbol-50px me-5 status-card-icon">
+                                    <div class="symbol-label">
+                                        <i class="fas fa-clipboard-check fs-2x"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-dark fw-bolder fs-5 mb-1">Status Stok Opname</div>
+                                    <div class="text-muted fw-bold">Dokumen Stok Opname</div>
+                                </div>
+                            </div>
+                            <div class="status-metrics">
+                                <div class="metric">
+                                    <div class="chip chip-warning" id="status_in_progress">
+                                        <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
+                                    </div>
+                                    <div class="text-muted fs-8 mt-1">In Progress</div>
+                                </div>
+                                <div class="metric">
+                                    <div class="chip chip-success" id="status_completed">
+                                        <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
+                                    </div>
+                                    <div class="text-muted fs-8 mt-1">Completed</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
         <div class="card">
             <div class="card-header border-0 pt-6">
                 <div class="card-title">
@@ -89,6 +139,33 @@
 @push('scripts')
 <script>
 let table;
+
+function loadStatusCounts() {
+    const dateFilter = $('#date_filter_options').val() === 'semua' ? 'semua' : $('#date_filter').val();
+    const warehouseFilter = $('#warehouse_filter').length ? ($('#warehouse_filter').val() || 'semua') : '';
+
+    $.ajax({
+        url: "{{ route('admin.manajemenstok.stok-opname.status-counts') }}",
+        type: "GET",
+        data: {
+            date: dateFilter,
+            warehouse: warehouseFilter
+        },
+        beforeSend: function() {
+            $('#status_in_progress').html('<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>');
+            $('#status_completed').html('<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>');
+        },
+        success: function(response) {
+            $('#status_in_progress').text(response.in_progress || 0);
+            $('#status_completed').text(response.completed || 0);
+        },
+        error: function() {
+            $('#status_in_progress').text('N/A');
+            $('#status_completed').text('N/A');
+        }
+    });
+}
+
 $(document).ready(function(){
     table = $('#table-on-page').DataTable({
         processing: true,
@@ -196,6 +273,8 @@ $(document).ready(function(){
         })(),
     });
 
+    loadStatusCounts();
+
     $('#search_input').on('keyup', function(){ table.draw(); });
 
     // Date filter UI
@@ -233,6 +312,7 @@ $(document).ready(function(){
         }
         $('#filter-info').text(info);
         table.ajax.reload();
+        loadStatusCounts();
         $('[data-kt-menu-dismiss="true"]').click();
     });
     // delete inside dropdown form
