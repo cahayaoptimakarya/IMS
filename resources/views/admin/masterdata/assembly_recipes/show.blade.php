@@ -2,8 +2,8 @@
 
 @push('toolbar')
     @include('layouts.partials._toolbar', [
-        'title' => 'Detail Assembly Recipe',
-        'breadcrumbs' => ['Admin', 'Masterdata', 'Assembly Recipes', 'Detail'],
+        'title' => 'Detail Resep Perakitan',
+        'breadcrumbs' => ['Admin', 'Masterdata', 'Resep Perakitan', 'Detail'],
     ])
 @endpush
 
@@ -11,7 +11,7 @@
     <div class="content flex-row-fluid" id="kt_content">
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Detail Recipe: {{ $recipe->code }}</h3>
+                <h3 class="card-title">Detail Resep: {{ $recipe->code }}</h3>
             </div>
             <div class="card-body">
                 <div class="row g-6">

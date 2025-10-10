@@ -2,8 +2,8 @@
 
 @push('toolbar')
     @include('layouts.partials._toolbar', [
-        'title' => 'Edit Assembly Recipe',
-        'breadcrumbs' => ['Admin', 'Masterdata', 'Assembly Recipes', 'Edit'],
+        'title' => 'Edit Resep Perakitan',
+        'breadcrumbs' => ['Admin', 'Masterdata', 'Resep Perakitan', 'Edit'],
     ])
 @endpush
 

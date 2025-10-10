@@ -6,8 +6,8 @@
 
 @push('toolbar')
     @include('layouts.partials._toolbar', [
-        'title' => 'Assembly Recipes',
-        'breadcrumbs' => ['Admin', 'Masterdata', 'Assembly Recipes'],
+        'title' => 'Resep Perakitan',
+        'breadcrumbs' => ['Admin', 'Masterdata', 'Resep Perakitan'],
     ])
 @endpush
 
@@ -38,7 +38,7 @@
                 <div class="card-toolbar">
                     @if ($canCreate)
                         <div class="d-flex justify-content-end">
-                            <a href="{{ route('admin.masterdata.assemblyrecipes.create') }}" class="btn btn-primary">Tambah Recipe</a>
+                            <a href="{{ route('admin.masterdata.assemblyrecipes.create') }}" class="btn btn-primary">Tambah Resep</a>
                         </div>
                     @endif
                 </div>

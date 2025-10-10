@@ -108,7 +108,7 @@ class MenuSeeder extends Seeder
         );
 
         $assemblyRecipeMenu = Menu::updateOrCreate(
-            ['name' => 'Assembly Recipes'],
+            ['name' => 'Resep Perakitan'],
             [
                 'url' => '/admin/masterdata/assemblyrecipes',
                 'icon' => 'fas fa-project-diagram',

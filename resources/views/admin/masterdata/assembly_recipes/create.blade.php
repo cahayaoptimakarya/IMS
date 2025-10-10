@@ -1,8 +1,8 @@
 @extends('layouts.app')
 @push('toolbar')
     @include('layouts.partials._toolbar', [
-        'title' => 'Tambah Assembly Recipe',
-        'breadcrumbs' => ['Admin', 'Masterdata', 'Assembly Recipes', 'Tambah'],
+        'title' => 'Tambah Resep Perakitan',
+        'breadcrumbs' => ['Admin', 'Masterdata', 'Resep Perakitan', 'Tambah'],
     ])
 @endpush
 
