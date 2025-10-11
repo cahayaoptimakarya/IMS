@@ -14,7 +14,6 @@ return new class extends Migration {
             $table->id();
             $table->string('code')->unique();
             $table->integer('finished_item_id');
-            $table->decimal('output_quantity', 20, 2)->default(1);
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();

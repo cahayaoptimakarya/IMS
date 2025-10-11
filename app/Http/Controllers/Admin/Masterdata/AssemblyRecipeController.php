@@ -64,7 +64,6 @@ class AssemblyRecipeController extends Controller
         $request->validate([
                 'description' => 'nullable|string',
                 'finished_item_id' => 'required|integer|exists:items,id|unique:assembly_recipes,finished_item_id',
-                'output_quantity' => 'required|numeric|min:0.01',
                 'is_active' => 'nullable|boolean',
                 'components.item_id' => 'required|array|min:1',
                 'components.item_id.*' => 'required|integer|exists:items,id',
@@ -86,7 +85,6 @@ class AssemblyRecipeController extends Controller
                 'code' => $this->generateCode(),
                 'description' => $request->input('description'),
                 'finished_item_id' => $request->input('finished_item_id'),
-                'output_quantity' => $request->input('output_quantity', 1),
                 // Respect checkbox behavior: use has() so unchecked => false
                 'is_active' => $request->has('is_active'),
             ]);
@@ -138,7 +136,6 @@ class AssemblyRecipeController extends Controller
                 'code' => 'nullable|string|max:100|unique:assembly_recipes,code,' . $assemblyrecipe->id,
                 'description' => 'nullable|string',
                 'finished_item_id' => 'required|integer|exists:items,id|unique:assembly_recipes,finished_item_id,' . $assemblyrecipe->id,
-                'output_quantity' => 'required|numeric|min:0.01',
                 'is_active' => 'nullable|boolean',
                 'components.item_id' => 'required|array|min:1',
                 'components.item_id.*' => 'required|integer|exists:items,id',
@@ -159,7 +156,6 @@ class AssemblyRecipeController extends Controller
             $dataToUpdate = [
                 'description' => $request->input('description'),
                 'finished_item_id' => $request->input('finished_item_id'),
-                'output_quantity' => $request->input('output_quantity', 1),
                 'is_active' => $request->has('is_active'),
             ];
             if ($request->filled('code')) {

@@ -36,10 +36,7 @@
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
-                            <div class="mb-5">
-                                <label class="form-label required">Output Quantity</label>
-                                <input type="number" step="0.01" name="output_quantity" class="form-control form-control-solid" value="{{ old('output_quantity', $recipe->output_quantity) }}" required>
-                            </div>
+                            
                             <div class="mb-5 form-check form-switch">
                                 <input class="form-check-input" type="checkbox" name="is_active" value="1" id="is_active" {{ old('is_active', $recipe->is_active) ? 'checked' : '' }}>
                                 <label class="form-check-label" for="is_active">Aktif</label>
@@ -145,14 +142,13 @@
                 // basic validation
                 const code = $('input[name="code"]').val().trim();
                 const finished = $('select[name="finished_item_id"]').val();
-                const output = parseFloat($('input[name="output_quantity"]').val());
                 let validComponents = true;
                 $('#components .component-row').each(function(){
                     const item = $(this).find('select[name="components[item_id][]"]').val();
                     const qty = parseFloat($(this).find('input[name="components[quantity][]"]').val());
                     if(!item || !qty || qty <= 0){ validComponents = false; }
                 });
-                if(!code || !finished || !output || output <= 0 || !validComponents){
+                if(!code || !finished || !validComponents){
                     Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Lengkapi data wajib dan pastikan qty > 0.' });
                     return;
                 }

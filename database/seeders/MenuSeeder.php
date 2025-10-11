@@ -127,6 +127,16 @@ class MenuSeeder extends Seeder
             ]
         );
 
+        // Perakitan (top-level under admin)
+        Menu::updateOrCreate(
+            ['name' => 'Perakitan'],
+            [
+                'url' => '/admin/manajemen-stok/perakitan',
+                'icon' => 'fas fa-cogs',
+                'order' => 5,
+            ]
+        );
+
         // Manajemen Stok
         $manajemenStok = Menu::updateOrCreate(
             ['name' => 'Manajemen Stok'],

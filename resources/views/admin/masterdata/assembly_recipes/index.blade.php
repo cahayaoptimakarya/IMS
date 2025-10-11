@@ -53,7 +53,6 @@
                                 <th class="min-w-125px sorting">Kode</th>
                                 <th class="min-w-200px sorting">Produk Jadi</th>
                                 <th class="min-w-200px sorting">Deskripsi</th>
-                                <th class="min-w-100px sorting">Output</th>
                                 <th class="min-w-100px sorting">Aktif</th>
                                 <th class="min-w-125px sorting">Actions</th>
                             </tr>
@@ -70,7 +69,7 @@
                                         </div>
                                     </td>
                                     <td>{{ $recipe->description ?? '-' }}</td>
-                                    <td>{{ number_format($recipe->output_quantity, 2, ',', '.') }}</td>
+                                    
                                     <td>
                                         @if($recipe->is_active)
                                             <span class="badge badge-light-success">Aktif</span>

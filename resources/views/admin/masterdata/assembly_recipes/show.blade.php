@@ -28,10 +28,7 @@
                             <label class="form-label fw-bold">Produk Jadi</label>
                             <div class="form-control form-control-solid">{{ $recipe->finishedItem->nama_barang ?? '-' }} ({{ $recipe->finishedItem->sku ?? '-' }})</div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Output Quantity</label>
-                            <div class="form-control form-control-solid">{{ number_format($recipe->output_quantity, 2, ',', '.') }}</div>
-                        </div>
+                        
                         <div class="mb-3">
                             <label class="form-label fw-bold">Status</label>
                             <div class="form-control form-control-solid">{{ $recipe->is_active ? 'Aktif' : 'Nonaktif' }}</div>

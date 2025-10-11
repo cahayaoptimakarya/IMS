@@ -34,10 +34,7 @@
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
-                            <div class="mb-5">
-                                <label class="form-label required">Output Quantity</label>
-                                <input type="number" step="0.01" name="output_quantity" class="form-control form-control-solid" value="{{ old('output_quantity', 1) }}" required>
-                            </div>
+                            
                             <div class="mb-5 form-check form-switch">
                                 <input class="form-check-input" type="checkbox" name="is_active" value="1" id="is_active" {{ old('is_active', true) ? 'checked' : '' }}>
                                 <label class="form-check-label" for="is_active">Aktif</label>
@@ -180,7 +177,6 @@
 
                 var code = $('input[name="code"]').val().trim();
                 var finished = $('select[name="finished_item_id"]').val();
-                var output = parseFloat($('input[name="output_quantity"]').val());
                 var validComponents = true;
                 var duplicateFound = false;
                 var duplicateRows = [];
@@ -236,7 +232,7 @@
                         }
                     });
 
-                if(!code || !finished || !output || output <= 0 || !validComponents){
+                if(!code || !finished || !validComponents){
                     Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Lengkapi data wajib dan pastikan qty > 0.' });
                     return;
                 }

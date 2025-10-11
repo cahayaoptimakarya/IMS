@@ -9,7 +9,6 @@ class AssemblyRecipe extends Model
     protected $fillable = [
         'code',
         'finished_item_id',
-        'output_quantity',
         'description',
         'is_active',
     ];

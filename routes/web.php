@@ -122,6 +122,12 @@ Route::middleware(['auth', 'permission'])->group(function () {
         Route::get('adjustment/status-counts', [AdjustmentController::class, 'getStatusCounts'])->name('adjustment.status-counts');
         Route::resource('adjustment', AdjustmentController::class);
         Route::post('adjustment/{adjustment}/update-status', [AdjustmentController::class, 'updateStatus'])->name('adjustment.updateStatus');
+        // Perakitan
+        Route::get('perakitan/recipes/{recipe}', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'recipeDetail'])->name('perakitan.recipe-detail');
+        Route::post('perakitan/{assembly}/approve', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'approve'])->name('perakitan.approve');
+        Route::resource('perakitan', \App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class)->parameters([
+            'perakitan' => 'assembly'
+        ]);
     });
 
     Route::prefix('admin/transfer-gudang')->name('admin.transfergudang.')->group(function () {
