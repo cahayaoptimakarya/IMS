@@ -16,15 +16,15 @@
                     <div class="row g-5">
                         <div class="col-lg-6">
                             <div class="mb-5">
-                                <label class="form-label">Kode</label>
+                                <label class="form-label fs-6 fw-bolder text-dark">Kode</label>
                                 <input type="text" name="code" class="form-control form-control-solid" value="{{ old('code', $nextCode ?? '') }}" readonly>
                             </div>
                             <div class="mb-5">
-                                <label class="form-label required">Tanggal</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Tanggal</label>
                                 <input type="text" id="date" name="date" class="form-control form-control-solid" value="{{ old('date', now()->format('Y-m-d')) }}" required>
                             </div>
                             <div class="mb-5">
-                                <label class="form-label required">Gudang</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Gudang</label>
                                 <select name="warehouse_id" class="form-select form-select-solid" data-control="select2" required>
                                     <option value="">Pilih Gudang</option>
                                     @foreach($warehouses as $w)
@@ -36,7 +36,7 @@
                                 @enderror
                             </div>
                             <div class="mb-5">
-                                <label class="form-label">Resep (Opsional)</label>
+                                <label class="form-label fs-6 fw-bolder text-dark">Resep (Opsional)</label>
                                 <div class="d-flex align-items-center gap-2">
                                     <select name="assembly_recipe_id" id="recipe_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Resep" style="flex:1">
                                         <option value="">Pilih Resep</option>
@@ -53,7 +53,7 @@
 
                         <div class="col-lg-6">
                             <div class="mb-5">
-                                <label class="form-label required">Produk Jadi</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Produk Jadi</label>
                                 <select name="finished_item_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Item" required>
                                     <option value="">Pilih Item</option>
                                     @foreach($items as $item)
@@ -66,21 +66,21 @@
                                 <input type="hidden" id="finished_item_id_hidden" value="{{ old('finished_item_id') }}">
                             </div>
                             <div class="mb-5">
-                                <label class="form-label required">Output Plan</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Output Plan</label>
                                 <input type="number" step="0.01" name="output_quantity_plan" class="form-control form-control-solid" value="{{ old('output_quantity_plan', 1) }}" required>
                                 @error('output_quantity_plan')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
                             <div class="mb-5">
-                                <label class="form-label">Output Koli Plan</label>
+                                <label class="form-label fs-6 fw-bolder text-dark">Output Koli Plan</label>
                                 <input type="number" step="0.01" name="output_koli_plan" class="form-control form-control-solid" value="{{ old('output_koli_plan', 0) }}">
                                 @error('output_koli_plan')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
                             <div class="mb-5">
-                                <label class="form-label">Catatan</label>
+                                <label class="form-label fs-6 fw-bolder text-dark">Catatan</label>
                                 <textarea name="notes" class="form-control form-control-solid" rows="3" placeholder="Keterangan">{{ old('notes') }}</textarea>
                             </div>
                         </div>
@@ -88,40 +88,60 @@
 
                     {{-- Dynamic components section placed below the main row --}}
                     <div class="mt-6">
-                        <label class="form-label required">Komponen (Plan)</label>
-                        <div id="components">
-                            @php
-                                $oldItemIds = old('components.item_id', []);
-                                $oldQtyRec = old('components.quantity_recipes', []);
-                                $oldQtyPlan = old('components.quantity_plan', []);
-                            @endphp
-                            @if(count($oldItemIds))
-                                @foreach($oldItemIds as $idx => $oi)
-                                    <div class="d-flex gap-3 mb-3 component-row">
-                                        <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Item" required>
-                                            <option value="">Pilih Item</option>
-                                            @foreach($items as $item)
-                                                <option value="{{ $item->id }}" {{ $oi == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
-                                            @endforeach
-                                        </select>
-                                        <input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid" placeholder="Qty Resep" value="{{ $oldQtyRec[$idx] ?? '' }}" required>
-                                        <input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid" placeholder="Qty Plan" value="{{ $oldQtyPlan[$idx] ?? '' }}" required>
-                                        <button type="button" class="btn btn-light-danger remove-row">Hapus</button>
-                                    </div>
-                                @endforeach
-                            @else
-                                <div class="d-flex gap-3 mb-3 component-row">
-                                    <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>
-                                        <option value="">Pilih Item</option>
-                                        @foreach($items as $item)
-                                            <option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>
+                        <label class="form-label fs-6 fw-bolder text-dark">Komponen (Plan)</label>
+                        <div class="table-responsive">
+                            <table class="table align-middle table-row-dashed fs-6 gy-4" id="components-table">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th style="width:35%">Item</th>
+                                        <th class="text-end" style="width:15%">Qty Resep</th>
+                                        <th class="text-end" style="width:15%">Qty Plan</th>
+                                        <th class="text-end" style="width:15%">Koli Plan</th>
+                                        <th style="width:10%">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="components-body">
+                                    @php
+                                        $oldItemIds = old('components.item_id', []);
+                                        $oldQtyRec = old('components.quantity_recipes', []);
+                                        $oldQtyPlan = old('components.quantity_plan', []);
+                                        $oldKoliPlan = old('components.koli_plan', []);
+                                    @endphp
+                                    @if(count($oldItemIds))
+                                        @foreach($oldItemIds as $idx => $oi)
+                                            <tr class="component-row">
+                                                <td>
+                                                    <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Item" required>
+                                                        <option value="">Pilih Item</option>
+                                                        @foreach($items as $item)
+                                                            <option value="{{ $item->id }}" {{ $oi == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                                <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" value="{{ $oldQtyRec[$idx] ?? '' }}" required></td>
+                                                <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" value="{{ $oldQtyPlan[$idx] ?? '' }}" required></td>
+                                                <td><input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid text-end" placeholder="Koli Plan" value="{{ $oldKoliPlan[$idx] ?? '' }}"></td>
+                                                <td><button type="button" class="btn btn-danger btn-sm remove-row">X</button></td>
+                                            </tr>
                                         @endforeach
-                                    </select>
-                                    <input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid" placeholder="Qty Resep" required>
-                                    <input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid" placeholder="Qty Plan" required>
-                                    <button type="button" class="btn btn-light-danger remove-row">Hapus</button>
-                                </div>
-                            @endif
+                                    @else
+                                        <tr class="component-row">
+                                            <td>
+                                                <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>
+                                                    <option value="">Pilih Item</option>
+                                                    @foreach($items as $item)
+                                                        <option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
+                                            <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required></td>
+                                            <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" required></td>
+                                            <td><input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid text-end" placeholder="Koli Plan"></td>
+                                            <td><button type="button" class="btn btn-danger btn-sm remove-row">X</button></td>
+                                        </tr>
+                                    @endif
+                                </tbody>
+                            </table>
                         </div>
                         <button type="button" id="add-row" class="btn btn-light-primary">Tambah Komponen</button>
                     </div>
@@ -153,39 +173,63 @@
         }
         const initialState = {
             finished: $('select[name="finished_item_id"]').val(),
-            outputPlan: $('input[name="output_quantity_plan"]').val(),
-            componentsHtml: $('#components').html()
+            outputPlan: $('input[name="output_quantity_plan"]').val()
         };
+
+        function buildEmptyRow() {
+            return $(
+                '<tr class="component-row">\
+                    <td>\
+                        <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>\
+                            <option value="">Pilih Item</option>\
+                            @foreach($items as $item)\
+                                <option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
+                            @endforeach\
+                        </select>\
+                    </td>\
+                    <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required></td>\
+                    <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" required></td>\
+                    <td><input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid text-end" placeholder="Koli Plan"></td>\
+                    <td><button type="button" class="btn btn-danger btn-sm remove-row">X</button></td>\
+                </tr>'
+            );
+        }
         function resetToInitial() {
             const $finished = $('select[name="finished_item_id"]');
             const $hidden = $('#finished_item_id_hidden');
             $finished.prop('disabled', false).val(initialState.finished).trigger('change.select2');
             $hidden.removeAttr('name');
             $('input[name="output_quantity_plan"]').val(initialState.outputPlan);
-            const $wrap = $('#components');
-            $wrap.html(initialState.componentsHtml);
-            $wrap.find('[data-control="select2"]').select2({ width: '100%' });
+            const $wrap = $('#components-body');
+            // destroy any select2 to avoid ghost containers
+            try { $wrap.find('[data-control="select2"]').select2('destroy'); } catch(e) {}
+            $wrap.empty();
+            const row = buildEmptyRow();
+            $wrap.append(row);
+            row.find('[data-control="select2"]').select2({ width: '100%' });
         }
         // add/remove rows
         $('#add-row').on('click', function(){
             const row = $(
-                '<div class="d-flex gap-3 mb-3 component-row">\
-                    <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>\
-                        <option value="">Pilih Item</option>\
-                        @foreach($items as $item)\
-                            <option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
-                        @endforeach\
-                    </select>\
-                    <input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid" placeholder="Qty Resep" required>\
-                    <input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid" placeholder="Qty Plan" required>\
-                    <input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid" placeholder="Koli Plan">\
-                    <button type="button" class="btn btn-light-danger remove-row">Hapus</button>\
-                </div>'
+                '<tr class="component-row">\
+                    <td>\
+                        <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>\
+                            <option value="">Pilih Item</option>\
+                            @foreach($items as $item)\
+                                <option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
+                            @endforeach\
+                        </select>\
+                    </td>\
+                    <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required></td>\
+                    <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" required></td>\
+                    <td><input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid text-end" placeholder="Koli Plan"></td>\
+                    <td><button type="button" class="btn btn-danger btn-sm remove-row">X</button></td>\
+                </tr>'
             );
-            $('#components').append(row);
+            $('#components-body').append(row);
             row.find('[data-control="select2"]').select2({width: '100%'});
         });
-        $('#components').on('click', '.remove-row', function(){ $(this).closest('.component-row').remove(); });
+        $('#components-body').on('click', '.remove-row', function(){ $(this).closest('.component-row').remove(); });
 
         // when choose recipe => prefill finished item and components via AJAX
         $('#recipe_id').on('change', function(){
@@ -203,28 +247,33 @@
                     }
                     // no output qty from recipe anymore
                     if (resp.items && Array.isArray(resp.items)) {
-                        const $wrap = $('#components');
+                        const $wrap = $('#components-body');
                         $wrap.empty();
                         const outPlanNow = parseFloat($('input[name="output_quantity_plan"]').val());
                         resp.items.forEach(function(it){
-                            const row = $('<div class="d-flex gap-3 mb-3 component-row"></div>');
+                            const row = $('<tr class="component-row"></tr>');
                             const select = $('<select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required></select>');
                             select.append('<option value="">Pilih Item</option>');
                             @foreach($items as $item)
                                 select.append('<option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>');
                             @endforeach
                             select.val(String(it.item_id));
-                            const qtyRec = $('<input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid" placeholder="Qty Resep" required />');
+                            const qtyRec = $('<input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required />');
                             qtyRec.val(it.quantity);
-                            const qtyPlan = $('<input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid" placeholder="Qty Plan" required />');
+                            const qtyPlan = $('<input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" required />');
                             let planVal = parseFloat(it.quantity);
                             if (!isNaN(outPlanNow)) {
                                 planVal = (parseFloat(it.quantity) || 0) * outPlanNow;
                             }
                             qtyPlan.val(planVal.toFixed(2));
-                            const koliPlan = $('<input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid" placeholder="Koli Plan" />');
-                            const btn = $('<button type="button" class="btn btn-light-danger remove-row">Hapus</button>');
-                            row.append(select).append(qtyRec).append(qtyPlan).append(koliPlan).append(btn);
+                            const koliPlan = $('<input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid text-end" placeholder="Koli Plan" />');
+                            const tds = $('<td></td><td></td><td></td><td></td><td></td>');
+                            $(tds[0]).append(select);
+                            $(tds[1]).append(qtyRec);
+                            $(tds[2]).append(qtyPlan);
+                            $(tds[3]).append(koliPlan);
+                            $(tds[4]).append('<button type="button" class="btn btn-danger btn-sm remove-row">X</button>');
+                            row.append(tds);
                             $wrap.append(row);
                             select.select2({ width: '100%' });
                         });
@@ -236,7 +285,7 @@
         // auto-calc Qty Plan = Output Plan * Qty Resep
         $('input[name="output_quantity_plan"]').on('input change', function(){
             const outPlan = parseFloat($(this).val());
-            $('#components .component-row').each(function(){
+            $('#components-body .component-row').each(function(){
                 const $row = $(this);
                 const qtyRec = parseFloat($row.find('input[name="components[quantity_recipes][]"]').val());
                 if (!isNaN(outPlan) && !isNaN(qtyRec)) {
@@ -261,20 +310,20 @@
             const finished = $(this).val();
             if (!finished) return;
             let found = false;
-            $('#components .component-row').each(function(){
+            $('#components-body .component-row').each(function(){
                 const $comp = $(this).find('select[name="components[item_id][]"]');
                 if (String($comp.val()) === String(finished)) { found = true; clearAndHighlight($comp); }
             });
             if (found) showFinishedComponentConflict();
         });
-        $('#components').on('change', 'select[name="components[item_id][]"]', function(){
+        $('#components-body').on('change', 'select[name="components[item_id][]"]', function(){
             const finished = $('select[name="finished_item_id"]').val();
             const currentVal = $(this).val();
             if (finished && String(currentVal) === String(finished)) { clearAndHighlight($(this)); showFinishedComponentConflict(); return; }
             // prevent duplicate component items
             if (currentVal) {
                 let count = 0; let $dupTarget = null;
-                $('#components .component-row select[name="components[item_id][]"]').each(function(){
+                $('#components-body .component-row select[name="components[item_id][]"]').each(function(){
                     if (String($(this).val()) === String(currentVal)) { count++; if (count > 1) { $dupTarget = $(this); } }
                 });
                 if (count > 1) { clearAndHighlight($(this)); showComponentDuplicate(); }
@@ -301,7 +350,7 @@
                 return;
             }
             let validComponents = true; let duplicate = false; let duplicateItems = false;
-            $('#components .component-row').each(function(){
+            $('#components-body .component-row').each(function(){
                 const item = $(this).find('select[name="components[item_id][]"]').val();
                 const qtyRec = parseFloat($(this).find('input[name="components[quantity_recipes][]"]').val());
                 const qtyPlan = parseFloat($(this).find('input[name="components[quantity_plan][]"]').val());
@@ -310,7 +359,7 @@
             });
             // check duplicate items across components
             const seen = {};
-            $('#components .component-row select[name="components[item_id][]"]').each(function(){
+            $('#components-body .component-row select[name="components[item_id][]"]').each(function(){
                 const v = $(this).val();
                 if (!v) return;
                 if (seen[v]) { duplicateItems = true; }

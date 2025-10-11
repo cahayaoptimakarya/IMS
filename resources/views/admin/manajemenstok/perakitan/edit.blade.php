@@ -21,11 +21,11 @@
                                 <input type="text" class="form-control form-control-solid" value="{{ $assembly->code }}" readonly>
                             </div>
                             <div class="mb-5">
-                                <label class="form-label required">Tanggal</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Tanggal</label>
                                 <input type="text" id="date" name="date" class="form-control form-control-solid" value="{{ old('date', optional($assembly->date)->format('Y-m-d')) }}" required>
                             </div>
                             <div class="mb-5">
-                                <label class="form-label required">Gudang</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Gudang</label>
                                 <select name="warehouse_id" class="form-select form-select-solid" data-control="select2" required>
                                     <option value="">Pilih Gudang</option>
                                     @foreach($warehouses as $w)
@@ -37,7 +37,7 @@
                                 @enderror
                             </div>
                             <div class="mb-5">
-                                <label class="form-label">Resep (Opsional)</label>
+                                <label class="form-label fs-6 fw-bolder text-dark">Resep (Opsional)</label>
                                 <select name="assembly_recipe_id" id="recipe_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Resep">
                                     <option value="">Pilih Resep</option>
                                     @foreach($recipes as $r)
@@ -52,7 +52,7 @@
 
                         <div class="col-lg-6">
                             <div class="mb-5">
-                                <label class="form-label required">Produk Jadi</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Produk Jadi</label>
                                 <select name="finished_item_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Item" required>
                                     <option value="">Pilih Item</option>
                                     @foreach($items as $item)
@@ -64,14 +64,14 @@
                                 @enderror
                             </div>
                             <div class="mb-5">
-                                <label class="form-label required">Output Plan</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Output Plan</label>
                                 <input type="number" step="0.01" name="output_quantity_plan" class="form-control form-control-solid" value="{{ old('output_quantity_plan', $assembly->output_quantity_plan) }}" required>
                                 @error('output_quantity_plan')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
                             <div class="mb-5">
-                                <label class="form-label">Output Koli Plan</label>
+                                <label class="form-label fs-6 fw-bolder text-dark">Output Koli Plan</label>
                                 <input type="number" step="0.01" name="output_koli_plan" class="form-control form-control-solid" value="{{ old('output_koli_plan', $assembly->output_koli_plan) }}">
                                 @error('output_koli_plan')
                                     <span class="text-danger">{{ $message }}</span>
@@ -85,22 +85,37 @@
                     </div>
 
                     <div class="mt-6">
-                        <label class="form-label required">Komponen (Plan)</label>
-                        <div id="components">
-                            @foreach($assembly->components as $comp)
-                                <div class="d-flex gap-3 mb-3 component-row">
-                                    <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>
-                                        <option value="">Pilih Item</option>
-                                        @foreach($items as $item)
-                                            <option value="{{ $item->id }}" {{ $comp->item_id == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
-                                        @endforeach
-                                    </select>
-                                    <input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid" placeholder="Qty Resep" value="{{ $comp->quantity_recipes }}" required>
-                                    <input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid" placeholder="Qty Plan" value="{{ $comp->quantity_plan }}" required>
-                                    <input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid" placeholder="Koli Plan" value="{{ $comp->koli_plan }}">
-                                    <button type="button" class="btn btn-light-danger remove-row">Hapus</button>
-                                </div>
-                            @endforeach
+                        <label class="form-label fs-6 fw-bolder text-dark">Komponen (Plan)</label>
+                        <div class="table-responsive">
+                            <table class="table align-middle table-row-dashed fs-6 gy-4" id="components-table">
+                                <thead>
+                                <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                    <th style="width:35%">Item</th>
+                                    <th class="text-end" style="width:15%">Qty Resep</th>
+                                    <th class="text-end" style="width:15%">Qty Plan</th>
+                                    <th class="text-end" style="width:15%">Koli Plan</th>
+                                    <th style="width:10%">Aksi</th>
+                                </tr>
+                                </thead>
+                                <tbody id="components-body">
+                                @foreach($assembly->components as $comp)
+                                    <tr class="component-row">
+                                        <td>
+                                            <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>
+                                                <option value="">Pilih Item</option>
+                                                @foreach($items as $item)
+                                                    <option value="{{ $item->id }}" {{ $comp->item_id == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+                                        <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" value="{{ $comp->quantity_recipes }}" required></td>
+                                        <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" value="{{ $comp->quantity_plan }}" required></td>
+                                        <td><input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid text-end" placeholder="Koli Plan" value="{{ $comp->koli_plan }}"></td>
+                                        <td><button type="button" class="btn btn-danger btn-sm remove-row">X</button></td>
+                                    </tr>
+                                @endforeach
+                                </tbody>
+                            </table>
                         </div>
                         <button type="button" class="btn btn-light-primary" id="add-component">Tambah Komponen</button>
                     </div>
@@ -119,60 +134,101 @@
 <script>
     $(function(){
         $('[data-control="select2"]').select2({ width: '100%' });
-        $('#add-component').on('click', function(){
-            const row = $(
-                '<div class="d-flex gap-3 mb-3 component-row">\
-                    <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>\
-                        <option value="">Pilih Item</option>\
-                        @foreach($items as $item)\
-                            <option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
-                        @endforeach\
-                    </select>\
-                    <input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid" placeholder="Qty Resep" required>\
-                    <input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid" placeholder="Qty Plan" required>\
-                    <input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid" placeholder="Koli Plan">\
-                    <button type="button" class="btn btn-light-danger remove-row">Hapus</button>\
-                </div>'
-            );
-            $('#components').append(row);
-            row.find('[data-control="select2"]').select2({width: '100%'});
-        });
-        $('#components').on('click', '.remove-row', function(){ $(this).closest('.component-row').remove(); });
+        if ($('#recipe_id').length) {
+            $('#recipe_id').select2({ width: '100%', placeholder: 'Pilih Resep', allowClear: true });
+        }
 
-        // when choose recipe => prefill finished item, output plan, and components via AJAX
+        function buildRow(itemId, qtyRec, qtyPlan, koliPlan) {
+            const $tr = $('<tr class="component-row"></tr>');
+            const $item = $('<select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required></select>');
+            $item.append('<option value="">Pilih Item</option>');
+            @foreach($items as $item)
+                $item.append('<option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>');
+            @endforeach
+            if (itemId) { $item.val(String(itemId)); }
+            const $qtyRec = $('<input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required />');
+            if (typeof qtyRec !== 'undefined' && qtyRec !== null) { $qtyRec.val(qtyRec); }
+            const $qtyPlan = $('<input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" required />');
+            if (typeof qtyPlan !== 'undefined' && qtyPlan !== null) { $qtyPlan.val(qtyPlan); }
+            const $koliPlan = $('<input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid text-end" placeholder="Koli Plan" />');
+            if (typeof koliPlan !== 'undefined' && koliPlan !== null) { $koliPlan.val(koliPlan); }
+
+            const tds = $('<td></td><td></td><td></td><td></td><td></td>');
+            $(tds[0]).append($item);
+            $(tds[1]).append($qtyRec);
+            $(tds[2]).append($qtyPlan);
+            $(tds[3]).append($koliPlan);
+            $(tds[4]).append('<button type="button" class="btn btn-danger btn-sm remove-row">X</button>');
+            $tr.append(tds);
+            $tr.find('[data-control="select2"]').select2({ width: '100%' });
+            return $tr;
+        }
+
+        // capture initial component rows data for reset
+        const initialRows = [];
+        $('#components-body .component-row').each(function(){
+            initialRows.push({
+                item_id: $(this).find('select[name="components[item_id][]"]').val() || null,
+                qty_rec: $(this).find('input[name="components[quantity_recipes][]"]').val() || null,
+                qty_plan: $(this).find('input[name="components[quantity_plan][]"]').val() || null,
+                koli_plan: $(this).find('input[name="components[koli_plan][]"]').val() || null,
+            });
+        });
+
+        function resetToInitial() {
+            const $finished = $('select[name="finished_item_id"]');
+            $finished.prop('disabled', false).trigger('change.select2');
+            const $body = $('#components-body');
+            try { $body.find('[data-control="select2"]').select2('destroy'); } catch(e) {}
+            $body.empty();
+            if (initialRows.length === 0) {
+                $body.append(buildRow(null, null, null, null));
+            } else {
+                initialRows.forEach(function(r){
+                    $body.append(buildRow(r.item_id, r.qty_rec, r.qty_plan, r.koli_plan));
+                });
+            }
+        }
+        $('#add-component').on('click', function(){ $('#components-body').append(buildRow(null, null, null, null)); });
+        $('#components-body').on('click', '.remove-row', function(){ $(this).closest('.component-row').remove(); });
+
         // when choose recipe => prefill finished item and components via AJAX
         $('#recipe_id').on('change', function(){
             const id = $(this).val();
-            if (!id) return;
+            const $finished = $('select[name="finished_item_id"]');
+            if (!id) { resetToInitial(); return; }
             const url = '{{ url('/admin/manajemen-stok/perakitan/recipes') }}' + '/' + id;
             $.get(url)
               .done(function(resp){
                   if (resp.finished_item_id) {
-                      $('select[name="finished_item_id"]').val(String(resp.finished_item_id)).trigger('change');
+                      $finished.val(String(resp.finished_item_id)).trigger('change.select2');
+                      $finished.prop('disabled', true).trigger('change.select2');
                   }
                   if (resp.items && Array.isArray(resp.items)) {
-                      const $wrap = $('#components');
+                      const $wrap = $('#components-body');
+                      try { $wrap.find('[data-control="select2"]').select2('destroy'); } catch(e) {}
                       $wrap.empty();
+                      const outPlanNow = parseFloat($('input[name="output_quantity_plan"]').val());
                       resp.items.forEach(function(it){
-                          const row = $('<div class="d-flex gap-3 mb-3 component-row"></div>');
-                          const select = $('<select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required></select>');
-                          select.append('<option value="">Pilih Item</option>');
-                          @foreach($items as $item)
-                            select.append('<option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>');
-                          @endforeach
-                          select.val(String(it.item_id));
-                          const qtyRec = $('<input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid" placeholder="Qty Resep" required />');
-                          qtyRec.val(it.quantity);
-                          const qtyPlan = $('<input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid" placeholder="Qty Plan" required />');
-                          qtyPlan.val(it.quantity);
-                          const btn = $('<button type="button" class="btn btn-light-danger remove-row">Hapus</button>');
-                          row.append(select).append(qtyRec).append(qtyPlan).append(btn);
-                          $wrap.append(row);
-                          select.select2({ width: '100%' });
+                          const qtyRec = parseFloat(it.quantity) || 0;
+                          const qtyPlan = !isNaN(outPlanNow) ? (qtyRec * outPlanNow).toFixed(2) : (qtyRec.toFixed ? qtyRec.toFixed(2) : qtyRec);
+                          $wrap.append(buildRow(it.item_id, qtyRec, qtyPlan, null));
                       });
                   }
               })
               .fail(function(){ toastr.error('Gagal mengambil detail resep'); });
+        });
+
+        // auto-calc Qty Plan = Output Plan * Qty Resep
+        $('input[name="output_quantity_plan"]').on('input change', function(){
+            const outPlan = parseFloat($(this).val());
+            $('#components-body .component-row').each(function(){
+                const $row = $(this);
+                const qtyRec = parseFloat($row.find('input[name="components[quantity_recipes][]"]').val());
+                if (!isNaN(outPlan) && !isNaN(qtyRec)) {
+                    $row.find('input[name="components[quantity_plan][]"]').val((outPlan * qtyRec).toFixed(2));
+                }
+            });
         });
 
         // client-side validate: finished item cannot be a component
@@ -191,20 +247,20 @@
             const finished = $(this).val();
             if (!finished) return;
             let found = false;
-            $('#components .component-row').each(function(){
+            $('#components-body .component-row').each(function(){
                 const $comp = $(this).find('select[name="components[item_id][]"]');
                 if (String($comp.val()) === String(finished)) { found = true; clearAndHighlight($comp); }
             });
             if (found) showFinishedComponentConflict();
         });
-        $('#components').on('change', 'select[name="components[item_id][]"]', function(){
+        $('#components-body').on('change', 'select[name="components[item_id][]"]', function(){
             const finished = $('select[name="finished_item_id"]').val();
             const currentVal = $(this).val();
             if (finished && String(currentVal) === String(finished)) { clearAndHighlight($(this)); showFinishedComponentConflict(); return; }
             // prevent duplicate component items
             if (currentVal) {
                 let count = 0;
-                $('#components .component-row select[name="components[item_id][]"]').each(function(){
+                $('#components-body .component-row select[name="components[item_id][]"]').each(function(){
                     if (String($(this).val()) === String(currentVal)) { count++; }
                 });
                 if (count > 1) { clearAndHighlight($(this)); showComponentDuplicate(); }
@@ -232,14 +288,14 @@
                 return;
             }
             let validComponents = true; let duplicate = false; let duplicateItems = false;
-            $('#components .component-row').each(function(){
+            $('#components-body .component-row').each(function(){
                 const item = $(this).find('select[name="components[item_id][]"]').val();
                 const qty = parseFloat($(this).find('input[name="components[quantity_plan][]"]').val());
                 if (!item || !qty || qty <= 0) validComponents = false;
                 if (item && finished && String(item) === String(finished)) duplicate = true;
             });
             const seen = {};
-            $('#components .component-row select[name="components[item_id][]"]').each(function(){
+            $('#components-body .component-row select[name="components[item_id][]"]').each(function(){
                 const v = $(this).val();
                 if (!v) return;
                 if (seen[v]) { duplicateItems = true; }
@@ -250,7 +306,7 @@
             if (duplicateItems) { showComponentDuplicate(); return; }
 
             Swal.fire({ title:'Apakah Anda yakin?', text:'Perubahan akan disimpan.', icon:'warning', showCancelButton:true, confirmButtonText:'Ya, simpan', cancelButtonText:'Batal', reverseButtons:true })
-                .then(function(res){ if (res.isConfirmed) form.submit(); });
+                .then(function(res){ if (res.isConfirmed) { $('select[name="finished_item_id"]').prop('disabled', false); form.submit(); } });
         });
 
         toastr.options = { positionClass: 'toast-top-center', progressBar: true };
