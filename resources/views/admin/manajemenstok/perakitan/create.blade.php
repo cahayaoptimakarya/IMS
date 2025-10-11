@@ -57,7 +57,7 @@
                                 <select name="finished_item_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Item" required>
                                     <option value="">Pilih Item</option>
                                     @foreach($items as $item)
-                                        <option value="{{ $item->id }}" {{ old('finished_item_id') == $item->id ? 'selected' : '' }}>({{ $item->sku }}) {{ $item->nama_barang }}</option>
+                                        <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}" {{ old('finished_item_id') == $item->id ? 'selected' : '' }}>({{ $item->sku }}) {{ $item->nama_barang }}</option>
                                     @endforeach
                                 </select>
                                 @error('finished_item_id')
@@ -130,7 +130,7 @@
                                                 <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>
                                                     <option value="">Pilih Item</option>
                                                     @foreach($items as $item)
-                                                        <option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>
+                                                        <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>
                                                     @endforeach
                                                 </select>
                                             </td>
@@ -183,7 +183,7 @@
                         <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>\
                             <option value="">Pilih Item</option>\
                             @foreach($items as $item)\
-                                <option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
+                                <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
                             @endforeach\
                         </select>\
                     </td>\
@@ -216,7 +216,7 @@
                         <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>\
                             <option value="">Pilih Item</option>\
                             @foreach($items as $item)\
-                                <option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
+                                <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
                             @endforeach\
                         </select>\
                     </td>\
@@ -255,7 +255,7 @@
                             const select = $('<select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required></select>');
                             select.append('<option value="">Pilih Item</option>');
                             @foreach($items as $item)
-                                select.append('<option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>');
+                                select.append('<option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>');
                             @endforeach
                             select.val(String(it.item_id));
                             const qtyRec = $('<input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required />');
@@ -282,16 +282,92 @@
                 .fail(function(){ toastr.error('Gagal mengambil detail resep'); });
         });
 
-        // auto-calc Qty Plan = Output Plan * Qty Resep
-        $('input[name="output_quantity_plan"]').on('input change', function(){
-            const outPlan = parseFloat($(this).val());
+        // auto-calc Qty/Koli Plan for components from Output Plan
+        function recalcComponentsFromOutput() {
+            const outPlan = parseFloat($('input[name="output_quantity_plan"]').val());
             $('#components-body .component-row').each(function(){
                 const $row = $(this);
                 const qtyRec = parseFloat($row.find('input[name="components[quantity_recipes][]"]').val());
                 if (!isNaN(outPlan) && !isNaN(qtyRec)) {
-                    $row.find('input[name="components[quantity_plan][]"]').val((outPlan * qtyRec).toFixed(2));
+                    const planQty = outPlan * qtyRec;
+                    $row.find('input[name="components[quantity_plan][]"]').val(planQty.toFixed(2));
+                    const compOpt = $row.find('select[name="components[item_id][]"]').find('option:selected');
+                    const r = parseFloat(compOpt.data('koli'));
+                    const ratio = isNaN(r) || r <= 0 ? 1 : r;
+                    const planKoli = planQty / ratio;
+                    $row.find('input[name="components[koli_plan][]"]').val(planKoli.toFixed(2));
                 }
             });
+        }
+        $('input[name="output_quantity_plan"]').on('input change', recalcComponentsFromOutput);
+
+        // Auto-calc between Output Plan and Output Koli Plan using item's koli ratio (qty per koli)
+        function getFinishedKoliRatio() {
+            const $opt = $('select[name="finished_item_id"]').find('option:selected');
+            const ratio = parseFloat($opt.data('koli'));
+            return isNaN(ratio) || ratio <= 0 ? 1 : ratio; // default 1 if missing/invalid
+        }
+        let syncingOutput = false;
+        function qtyToKoli() {
+            if (syncingOutput) return; syncingOutput = true;
+            const ratio = getFinishedKoliRatio();
+            const qty = parseFloat($('input[name="output_quantity_plan"]').val());
+            const koli = !isNaN(qty) ? (qty / ratio) : 0;
+            $('input[name="output_koli_plan"]').val(isNaN(koli) ? '' : koli.toFixed(2));
+            recalcComponentsFromOutput();
+            syncingOutput = false;
+        }
+        function koliToQty() {
+            if (syncingOutput) return; syncingOutput = true;
+            const ratio = getFinishedKoliRatio();
+            const koli = parseFloat($('input[name="output_koli_plan"]').val());
+            const qty = !isNaN(koli) ? (koli * ratio) : 0;
+            $('input[name="output_quantity_plan"]').val(isNaN(qty) ? '' : qty.toFixed(2));
+            recalcComponentsFromOutput();
+            syncingOutput = false;
+        }
+        // Bind events for both directions similar to pengadaan/penerimaan logic
+        $('input[name="output_quantity_plan"]').on('input change', qtyToKoli);
+        $('input[name="output_koli_plan"]').on('input change', koliToQty);
+        // Recompute when finished item changes (ratio changed)
+        $('select[name="finished_item_id"]').on('change', function(){
+            // Prefer preserving the field the user just edited: if koli has a value, recompute qty; else recompute koli
+            const koliVal = $('input[name="output_koli_plan"]').val();
+            if (koliVal) {
+                koliToQty();
+            } else {
+                qtyToKoli();
+            }
+        });
+        // Initial sync on page load
+        qtyToKoli();
+
+        // Keep component koli/qty in sync on manual edits and changes
+        function getComponentKoliRatio($row) {
+            const opt = $row.find('select[name="components[item_id][]"]').find('option:selected');
+            const r = parseFloat(opt.data('koli'));
+            return isNaN(r) || r <= 0 ? 1 : r;
+        }
+        $('#components-body').on('input change', 'input[name="components[quantity_plan][]"]', function(){
+            const $row = $(this).closest('.component-row');
+            const qty = parseFloat($(this).val());
+            const r = getComponentKoliRatio($row);
+            if (!isNaN(qty)) $row.find('input[name="components[koli_plan][]"]').val((qty / r).toFixed(2));
+        });
+        $('#components-body').on('input change', 'input[name="components[koli_plan][]"]', function(){
+            const $row = $(this).closest('.component-row');
+            const k = parseFloat($(this).val());
+            const r = getComponentKoliRatio($row);
+            if (!isNaN(k)) $row.find('input[name="components[quantity_plan][]"]').val((k * r).toFixed(2));
+        });
+        $('#components-body').on('change', 'select[name="components[item_id][]"]', function(){
+            const $row = $(this).closest('.component-row');
+            const qty = parseFloat($row.find('input[name="components[quantity_plan][]"]').val());
+            const r = getComponentKoliRatio($row);
+            if (!isNaN(qty)) $row.find('input[name="components[koli_plan][]"]').val((qty / r).toFixed(2));
+        });
+        $('#components-body').on('input change', 'input[name="components[quantity_recipes][]"]', function(){
+            recalcComponentsFromOutput();
         });
 
         // client-side validate: finished item cannot be a component
