@@ -19,11 +19,25 @@ return new class extends Migration {
             $table->decimal('koli', 20, 2)->default(0);
             $table->decimal('stock_before', 20, 2)->default(0);
             $table->decimal('stock_after', 20, 2)->default(0);
-            $table->enum('type', ['stock_in', 'stock_out']);
+            // Include assembly movements to align with PerakitanController
+            $table->enum('type', [
+                'stock_in',
+                'stock_out',   // add finished goods
+            ]);
             $table->mediumText('description')->nullable();
             $table->bigInteger('user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->bigInteger('reference_id')->comment('ID dari dokumen sumber (misal: id dari goods_receipt_details)')->nullable();
-            $table->enum('reference_type', ['goods_receipt_details', 'transfer_request_items', 'stock_out_items', 'adjustment_items', 'stock_opname_items', 'return_receipt_details', 'return_out_details'])->comment('Tipe dokumen sumber (misal: goods_receipt_details atau lainnya)');
+            $table->enum('reference_type', [
+                'goods_receipt_details',
+                'transfer_request_items',
+                'stock_out_items',
+                'adjustment_items',
+                'stock_opname_items',
+                'return_receipt_details',
+                'return_out_details',
+                'assembly_components',     // align: konsumsi komponen
+                'assemblies',              // align: produksi hasil perakitan
+            ])->comment('Tipe dokumen sumber (misal: goods_receipt_details atau lainnya)');
             $table->timestamps();
         });
     }

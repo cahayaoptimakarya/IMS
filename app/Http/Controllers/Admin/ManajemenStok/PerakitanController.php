@@ -459,6 +459,50 @@ class PerakitanController extends Controller
             'completed_date' => 'nullable|date',
         ]);
 
+        // Pre-check stock sufficiency based on intended real consumption
+        $componentsInput = (array) $request->input('components', []);
+        $components = $assembly->components()->with('item')->get();
+        $warehouseId = (int) $assembly->warehouse_id;
+
+        // Aggregate required quantities per item
+        $requiredPerItem = [];
+        foreach ($components as $component) {
+            $cid = (string) $component->id;
+            $need = isset($componentsInput[$cid]['quantity_real'])
+                ? (float) $componentsInput[$cid]['quantity_real']
+                : (float) $component->quantity_plan;
+            if ($need <= 0) continue;
+            $itemId = (int) $component->item_id;
+            if (!isset($requiredPerItem[$itemId])) $requiredPerItem[$itemId] = 0.0;
+            $requiredPerItem[$itemId] += $need;
+        }
+
+        if (!empty($requiredPerItem)) {
+            $itemIds = array_keys($requiredPerItem);
+            $inventories = Inventory::where('warehouse_id', $warehouseId)
+                ->whereIn('item_id', $itemIds)
+                ->get()
+                ->keyBy('item_id');
+            $itemsMeta = Item::whereIn('id', $itemIds)->get()->keyBy('id');
+
+            $shortMsgs = [];
+            foreach ($requiredPerItem as $itemId => $need) {
+                $available = isset($inventories[$itemId]) ? (float) $inventories[$itemId]->quantity : 0.0;
+                if ($available + 1e-9 < $need) { // tolerate tiny floating error
+                    $meta = $itemsMeta[$itemId] ?? null;
+                    $label = ($meta->sku ?? 'SKU?') . ' - ' . ($meta->nama_barang ?? ('Item #' . $itemId));
+                    $shortMsgs[] = $label . ' (butuh ' . number_format($need,2) . ', stok ' . number_format($available,2) . ')';
+                }
+            }
+            if (!empty($shortMsgs)) {
+                $message = 'Stok komponen tidak mencukupi: ' . implode('; ', $shortMsgs);
+                if ($request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $message], 422);
+                }
+                return back()->with('error', $message);
+            }
+        }
+
         DB::beginTransaction();
         try {
             $assembly->output_quantity_real = $request->input('output_quantity_real');
@@ -473,7 +517,6 @@ class PerakitanController extends Controller
             $assembly->save();
 
             // Determine real component usage: use request values if provided; otherwise fallback to plan
-            $componentsInput = (array) $request->input('components', []);
             $components = $assembly->components()->get();
             foreach ($components as $component) {
                 $cid = (string) $component->id;
@@ -517,7 +560,7 @@ class PerakitanController extends Controller
                     'koli' => (float) $component->koli_real,
                     'stock_before' => $before,
                     'stock_after' => $after,
-                    'type' => 'assembly_consumption',
+                    'type' => 'stock_out',
                     'description' => 'Konsumsi komponen perakitan ' . $assembly->code,
                     'user_id' => Auth::id(),
                     'reference_id' => $component->id,
@@ -545,7 +588,7 @@ class PerakitanController extends Controller
                 'koli' => (float) $assembly->output_koli_real,
                 'stock_before' => $beforeProd,
                 'stock_after' => $afterProd,
-                'type' => 'assembly_production',
+                'type' => 'stock_in',
                 'description' => 'Hasil perakitan ' . $assembly->code,
                 'user_id' => Auth::id(),
                 'reference_id' => $assembly->id,
@@ -708,6 +751,43 @@ class PerakitanController extends Controller
                 return response()->json(['success' => false, 'message' => $message], 422);
             }
             return back()->with('error', $message);
+        }
+
+        // Validate stock sufficiency based on planned component quantities
+        $components = $assembly->components()->with('item')->get();
+        $warehouseId = (int) $assembly->warehouse_id;
+        $requiredPerItem = [];
+        foreach ($components as $component) {
+            $need = (float) $component->quantity_plan;
+            if ($need <= 0) continue;
+            $itemId = (int) $component->item_id;
+            if (!isset($requiredPerItem[$itemId])) $requiredPerItem[$itemId] = 0.0;
+            $requiredPerItem[$itemId] += $need;
+        }
+        if (!empty($requiredPerItem)) {
+            $itemIds = array_keys($requiredPerItem);
+            $inventories = Inventory::where('warehouse_id', $warehouseId)
+                ->whereIn('item_id', $itemIds)
+                ->get()
+                ->keyBy('item_id');
+            $itemsMeta = Item::whereIn('id', $itemIds)->get()->keyBy('id');
+
+            $shortMsgs = [];
+            foreach ($requiredPerItem as $itemId => $need) {
+                $available = isset($inventories[$itemId]) ? (float) $inventories[$itemId]->quantity : 0.0;
+                if ($available + 1e-9 < $need) {
+                    $meta = $itemsMeta[$itemId] ?? null;
+                    $label = ($meta->sku ?? 'SKU?') . ' - ' . ($meta->nama_barang ?? ('Item #' . $itemId));
+                    $shortMsgs[] = $label . ' (butuh ' . number_format($need,2) . ', stok ' . number_format($available,2) . ')';
+                }
+            }
+            if (!empty($shortMsgs)) {
+                $message = 'Stok komponen tidak mencukupi untuk memulai proses: ' . implode('; ', $shortMsgs);
+                if ($request->ajax()) {
+                    return response()->json(['success' => false, 'message' => $message], 422);
+                }
+                return back()->with('error', $message);
+            }
         }
 
         DB::beginTransaction();

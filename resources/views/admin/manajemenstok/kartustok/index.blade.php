@@ -192,8 +192,8 @@
                 "hideMethod": "fadeOut"
             };
 
-            function formatNumber(value) {
-                const number = parseFloat(value ?? 0);
+            function formatNumberNoMinus(value) {
+                const number = Math.abs(parseFloat(value ?? 0));
                 if (isNaN(number)) {
                     return '0';
                 }
@@ -281,7 +281,7 @@
                     name: 'sm.stock_before',
                     className: 'text-center',
                     render: function(data) {
-                        return formatNumber(data);
+                        return formatNumberNoMinus(data);
                     }
                 }, {
                     data: 'stock_before_koli',
@@ -289,7 +289,7 @@
                     searchable: false,
                     className: 'text-center',
                     render: function(data) {
-                        return formatNumber(data);
+                        return formatNumberNoMinus(data);
                     }
                 }, {
                     data: 'stock_in',
@@ -297,7 +297,7 @@
                     searchable: false,
                     className: 'text-center',
                     render: function(data) {
-                        return formatNumber(data);
+                        return formatNumberNoMinus(data);
                     }
                 }, {
                     data: 'stock_in_koli',
@@ -305,7 +305,7 @@
                     searchable: false,
                     className: 'text-center',
                     render: function(data) {
-                        return formatNumber(data);
+                        return formatNumberNoMinus(data);
                     }
                 }, {
                     data: 'stock_out',
@@ -313,7 +313,7 @@
                     searchable: false,
                     className: 'text-center',
                     render: function(data) {
-                        return formatNumber(data);
+                        return formatNumberNoMinus(data);
                     }
                 }, {
                     data: 'stock_out_koli',
@@ -321,14 +321,14 @@
                     searchable: false,
                     className: 'text-center',
                     render: function(data) {
-                        return formatNumber(data);
+                        return formatNumberNoMinus(data);
                     }
                 }, {
                     data: 'stock_after',
                     name: 'sm.stock_after',
                     className: 'text-center',
                     render: function(data) {
-                        return formatNumber(data);
+                        return formatNumberNoMinus(data);
                     }
                 }, {
                     data: 'stock_after_koli',
@@ -336,7 +336,7 @@
                     searchable: false,
                     className: 'text-center',
                     render: function(data) {
-                        return formatNumber(data);
+                        return formatNumberNoMinus(data);
                     }
                 }, {
                     data: 'user_name',
