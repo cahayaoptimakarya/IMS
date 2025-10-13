@@ -66,9 +66,11 @@ class AssemblyRecipeController extends Controller
                 'finished_item_id' => 'required|integer|exists:items,id|unique:assembly_recipes,finished_item_id',
                 'is_active' => 'nullable|boolean',
                 'components.item_id' => 'required|array|min:1',
-                'components.item_id.*' => 'required|integer|exists:items,id',
+                'components.item_id.*' => 'required|integer|exists:items,id|distinct',
                 'components.quantity' => 'required|array|min:1',
                 'components.quantity.*' => 'required|numeric|min:0.01',
+            ], [
+                'components.item_id.*.distinct' => 'Item komponen tidak boleh duplikat.',
             ]);
 
         // Server-side check: finished item must not appear in component list
@@ -138,9 +140,11 @@ class AssemblyRecipeController extends Controller
                 'finished_item_id' => 'required|integer|exists:items,id|unique:assembly_recipes,finished_item_id,' . $assemblyrecipe->id,
                 'is_active' => 'nullable|boolean',
                 'components.item_id' => 'required|array|min:1',
-                'components.item_id.*' => 'required|integer|exists:items,id',
+                'components.item_id.*' => 'required|integer|exists:items,id|distinct',
                 'components.quantity' => 'required|array|min:1',
                 'components.quantity.*' => 'required|numeric|min:0.01',
+            ], [
+                'components.item_id.*.distinct' => 'Item komponen tidak boleh duplikat.',
             ]);
 
         // Server-side check: finished item must not appear in component list

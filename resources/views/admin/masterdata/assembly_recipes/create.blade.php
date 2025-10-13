@@ -178,8 +178,8 @@
                 var code = $('input[name="code"]').val().trim();
                 var finished = $('select[name="finished_item_id"]').val();
                 var validComponents = true;
-                var duplicateFound = false;
-                var duplicateRows = [];
+                var finishedConflictFound = false;
+                var finishedConflictRows = [];
 
                 $('#components .component-row').each(function(){
                     var $row = $(this);
@@ -187,8 +187,8 @@
                     var qty = parseFloat($row.find('input[name="components[quantity][]"]').val());
                     if(!item || !qty || qty <= 0){ validComponents = false; }
                     if(item && finished && String(item) === String(finished)){
-                        duplicateFound = true;
-                        duplicateRows.push($row);
+                        finishedConflictFound = true;
+                        finishedConflictRows.push($row);
                     }
                 });
 
@@ -225,10 +225,22 @@
                     $('#components').on('change', 'select[name="components[item_id][]"]', function(){
                         var finished = $('select[name="finished_item_id"]').val();
                         var $sel = $(this);
-                        if(!finished) return;
-                        if(String($sel.val()) === String(finished)){
+                        // finished vs component check
+                        if(finished && String($sel.val()) === String(finished)){
                             clearAndHighlight($sel);
                             showFinishedComponentConflict();
+                            return;
+                        }
+                        // duplicate component check (live)
+                        var current = $sel.val();
+                        if(!current) return;
+                        var dup = false;
+                        $('#components .component-row select[name="components[item_id][]"]').not($sel).each(function(){
+                            if(String($(this).val()) === String(current)) { dup = true; return false; }
+                        });
+                        if(dup){
+                            clearAndHighlight($sel);
+                            Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Item komponen tidak boleh duplikat.' });
                         }
                     });
 
@@ -237,9 +249,29 @@
                     return;
                 }
 
-                if(duplicateFound){
-                    // mark offending selects
+                // Check duplicate component items
+                var seen = {};
+                var duplicateRows = [];
+                $('#components .component-row').each(function(){
+                    var $row = $(this);
+                    var item = $row.find('select[name="components[item_id][]"]').val();
+                    if(!item) return;
+                    if(seen[item]){ duplicateRows.push($row); }
+                    else { seen[item] = true; }
+                });
+
+                if(duplicateRows.length > 0){
                     duplicateRows.forEach(function($r){
+                        $r.find('select[name="components[item_id][]"]').addClass('is-invalid');
+                    });
+                    Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Item komponen tidak boleh duplikat.' });
+                    $('html, body').animate({ scrollTop: $('.is-invalid').first().offset().top - 100 }, 250);
+                    return;
+                }
+
+                if(finishedConflictFound){
+                    // mark offending selects
+                    finishedConflictRows.forEach(function($r){
                         $r.find('select[name="components[item_id][]"]').addClass('is-invalid');
                     });
                     Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Produk jadi tidak boleh sama dengan salah satu komponen.' });

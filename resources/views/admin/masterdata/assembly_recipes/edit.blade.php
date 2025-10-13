@@ -154,17 +154,33 @@
                 }
 
                 // check finished vs components
-                var duplicateFound = false;
-                var duplicateRows = [];
+                var finishedConflictFound = false;
+                var finishedConflictRows = [];
                 $('#components .component-row').each(function(){
                     var $row = $(this);
                     var item = $row.find('select[name="components[item_id][]"]').val();
                     if(item && finished && String(item) === String(finished)){
-                        duplicateFound = true; duplicateRows.push($row);
+                        finishedConflictFound = true; finishedConflictRows.push($row);
                     }
                 });
-                if(duplicateFound){
-                    duplicateRows.forEach(function($r){ $r.find('select[name="components[item_id][]"]').addClass('is-invalid'); });
+                // duplicate component items check
+                var seen = {};
+                var dupRows = [];
+                $('#components .component-row').each(function(){
+                    var $row = $(this);
+                    var item = $row.find('select[name="components[item_id][]"]').val();
+                    if(!item) return;
+                    if(seen[item]){ dupRows.push($row); }
+                    else { seen[item] = true; }
+                });
+                if(dupRows.length > 0){
+                    dupRows.forEach(function($r){ $r.find('select[name="components[item_id][]"]').addClass('is-invalid'); });
+                    Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Item komponen tidak boleh duplikat.' });
+                    $('html, body').animate({ scrollTop: $('.is-invalid').first().offset().top - 100 }, 250);
+                    return;
+                }
+                if(finishedConflictFound){
+                    finishedConflictRows.forEach(function($r){ $r.find('select[name="components[item_id][]"]').addClass('is-invalid'); });
                     Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Produk jadi tidak boleh sama dengan salah satu komponen.' });
                     $('html, body').animate({ scrollTop: $('.is-invalid').first().offset().top - 100 }, 250);
                     return;
@@ -215,9 +231,21 @@
             $('#components').on('change', 'select[name="components[item_id][]"]', function(){
                 var finished = $('select[name="finished_item_id"]').val();
                 var $sel = $(this);
-                if(!finished) return;
-                if(String($sel.val()) === String(finished)){
+                // finished vs component
+                if(finished && String($sel.val()) === String(finished)){
                     clearAndHighlight($sel); showFinishedComponentConflict();
+                    return;
+                }
+                // duplicate component live check
+                var current = $sel.val();
+                if(!current) return;
+                var dup = false;
+                $('#components .component-row select[name="components[item_id][]"]').not($sel).each(function(){
+                    if(String($(this).val()) === String(current)){ dup = true; return false; }
+                });
+                if(dup){
+                    clearAndHighlight($sel);
+                    Swal.fire({ icon:'error', title:'Validasi Gagal', text:'Item komponen tidak boleh duplikat.' });
                 }
             });
         });
