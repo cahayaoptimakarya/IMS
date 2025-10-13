@@ -90,11 +90,11 @@
                                 </div>
                                 <div class="row mb-1">
                                     <div class="col-5 meta-label">Output Rencana</div>
-                                    <div class="col-7 meta-value">{{ number_format((float)$assembly->output_quantity_plan, 2, ',', '.') }} Qty • {{ number_format((float)$assembly->output_koli_plan, 2, ',', '.') }} Koli</div>
+                                    <div class="col-7 meta-value">{{ number_format((float)$assembly->output_quantity_plan, 0, ',', '.') }} Qty • {{ number_format((float)$assembly->output_koli_plan, 2, ',', '.') }} Koli</div>
                                 </div>
                                 <div class="row mb-1">
                                     <div class="col-5 meta-label">Output Real</div>
-                                    <div class="col-7 meta-value">{{ number_format((float)$assembly->output_quantity_real, 2, ',', '.') }} Qty • {{ number_format((float)$assembly->output_koli_real, 2, ',', '.') }} Koli</div>
+                                    <div class="col-7 meta-value">{{ number_format((float)$assembly->output_quantity_real, 0, ',', '.') }} Qty • {{ number_format((float)$assembly->output_koli_real, 2, ',', '.') }} Koli</div>
                                 </div>
                             </div>
                         </div>
@@ -137,12 +137,12 @@
                                                 <div class="fw-bold text-primary">{{ $c->item->sku ?? '-' }}</div>
                                                 <div class="text-muted small">{{ $c->item->nama_barang ?? '' }}</div>
                                             </td>
-                                            <td class="text-end">{{ number_format((float)$c->quantity_recipes, 2, ',', '.') }}</td>
-                                            <td class="text-end">{{ number_format((float)$c->quantity_plan, 2, ',', '.') }}</td>
+                                            <td class="text-end">{{ number_format((float)$c->quantity_recipes, 0, ',', '.') }}</td>
+                                            <td class="text-end">{{ number_format((float)$c->quantity_plan, 0, ',', '.') }}</td>
                                             <td class="text-end">{{ number_format((float)$c->koli_plan, 2, ',', '.') }}</td>
-                                            <td class="text-end">{{ number_format((float)$c->quantity_real, 2, ',', '.') }}</td>
+                                            <td class="text-end">{{ number_format((float)$c->quantity_real, 0, ',', '.') }}</td>
                                             <td class="text-end">{{ number_format((float)$c->koli_real, 2, ',', '.') }}</td>
-                                            <td class="text-end">{{ number_format((float)$c->quantity_rejected, 2, ',', '.') }}</td>
+                                            <td class="text-end">{{ number_format((float)$c->quantity_rejected, 0, ',', '.') }}</td>
                                         </tr>
                                     @empty
                                         <tr><td colspan="8" class="text-center text-muted">Tidak ada komponen</td></tr>
@@ -151,12 +151,12 @@
                                 <tfoot>
                                     <tr>
                                         <th colspan="2" class="text-end">Total</th>
-                                        <th class="text-end">{{ number_format((float)$sumQtyRecipes, 2, ',', '.') }}</th>
-                                        <th class="text-end">{{ number_format((float)$sumQtyPlan, 2, ',', '.') }}</th>
+                                        <th class="text-end">{{ number_format((float)$sumQtyRecipes, 0, ',', '.') }}</th>
+                                        <th class="text-end">{{ number_format((float)$sumQtyPlan, 0, ',', '.') }}</th>
                                         <th class="text-end">{{ number_format((float)$sumKoliPlan, 2, ',', '.') }}</th>
-                                        <th class="text-end">{{ number_format((float)$sumQtyReal, 2, ',', '.') }}</th>
+                                        <th class="text-end">{{ number_format((float)$sumQtyReal, 0, ',', '.') }}</th>
                                         <th class="text-end">{{ number_format((float)$sumKoliReal, 2, ',', '.') }}</th>
-                                        <th class="text-end">{{ number_format((float)$sumRejected, 2, ',', '.') }}</th>
+                                        <th class="text-end">{{ number_format((float)$sumRejected, 0, ',', '.') }}</th>
                                     </tr>
                                 </tfoot>
                             </table>
