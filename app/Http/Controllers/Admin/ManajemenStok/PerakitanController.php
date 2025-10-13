@@ -557,7 +557,7 @@ class PerakitanController extends Controller
                     'warehouse_id' => $warehouseId,
                     'date' => $assembly->date,
                     'quantity' => -$qty,
-                    'koli' => (float) $component->koli_real,
+                    'koli' => (float) -$component->koli_real,
                     'stock_before' => $before,
                     'stock_after' => $after,
                     'type' => 'stock_out',
