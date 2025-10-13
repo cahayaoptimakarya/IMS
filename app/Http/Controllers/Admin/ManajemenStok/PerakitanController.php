@@ -159,7 +159,7 @@ class PerakitanController extends Controller
                 'output_koli_real' => 0,
                 'notes' => $request->input('notes'),
                 'created_by' => Auth::id(),
-                'status' => 'dalam proses',
+                'status' => 'draft',
             ]);
 
             // Save components (plan)
@@ -191,7 +191,7 @@ class PerakitanController extends Controller
             ]);
 
             DB::commit();
-            return redirect()->route('admin.manajemenstok.perakitan.index')->with('success', 'Perakitan berhasil disimpan (dalam proses).');
+            return redirect()->route('admin.manajemenstok.perakitan.index')->with('success', 'Perakitan berhasil disimpan (draft).');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withInput()->with('error', 'Gagal menyimpan perakitan: ' . $e->getMessage());
@@ -332,7 +332,7 @@ class PerakitanController extends Controller
                 'user_id' => Auth::id(),
                 'activity' => 'updated',
                 'menu' => 'perakitan',
-                'description' => 'Mengubah perakitan (dalam proses): ' . $assembly->code,
+                'description' => 'Mengubah perakitan (draft): ' . $assembly->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
             ]);
@@ -467,6 +467,24 @@ class PerakitanController extends Controller
                     'quantity' => (float) $row->quantity,
                 ];
             })->values(),
+        ]);
+    }
+
+    public function stock(Request $request)
+    {
+        $request->validate([
+            'warehouse_id' => 'required|integer|exists:warehouses,id',
+            'item_id' => 'required|integer|exists:items,id',
+        ]);
+        $warehouseId = (int) $request->input('warehouse_id');
+        $itemId = (int) $request->input('item_id');
+        $inv = Inventory::where('warehouse_id', $warehouseId)->where('item_id', $itemId)->first();
+        return response()->json([
+            'success' => true,
+            'warehouse_id' => $warehouseId,
+            'item_id' => $itemId,
+            'quantity' => $inv ? (float) $inv->quantity : 0.0,
+            'koli' => $inv ? (float) $inv->koli : 0.0,
         ]);
     }
 }

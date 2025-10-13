@@ -107,6 +107,7 @@
                                                     <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}" {{ $comp->item_id == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
                                                 @endforeach
                                             </select>
+                                            <div class="text-muted small mt-1 stock-display">Stok: <span class="stock-qty">-</span> | Koli: <span class="stock-koli">-</span></div>
                                         </td>
                                         <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" value="{{ $comp->quantity_recipes }}" required></td>
                                         <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" value="{{ $comp->quantity_plan }}" required></td>
@@ -182,14 +183,22 @@
             try { $body.find('[data-control="select2"]').select2('destroy'); } catch(e) {}
             $body.empty();
             if (initialRows.length === 0) {
-                $body.append(buildRow(null, null, null, null));
+                const $row = buildRow(null, null, null, null);
+                $body.append($row);
+                fetchRowStock($row);
             } else {
                 initialRows.forEach(function(r){
-                    $body.append(buildRow(r.item_id, r.qty_rec, r.qty_plan, r.koli_plan));
+                    const $row = buildRow(r.item_id, r.qty_rec, r.qty_plan, r.koli_plan);
+                    $body.append($row);
+                    fetchRowStock($row);
                 });
             }
         }
-        $('#add-component').on('click', function(){ $('#components-body').append(buildRow(null, null, null, null)); });
+        $('#add-component').on('click', function(){
+            const $row = buildRow(null, null, null, null);
+            $('#components-body').append($row);
+            fetchRowStock($row);
+        });
         $('#components-body').on('click', '.remove-row', function(){ $(this).closest('.component-row').remove(); });
 
         // when choose recipe => prefill finished item and components via AJAX
@@ -222,7 +231,9 @@
                           const r = parseFloat(sel.data('koli'));
                           const ratio = (isNaN(r) || r <= 0) ? 1 : r;
                           const koliPlanNum = qtyPlanNum / ratio;
-                          $wrap.append(buildRow(it.item_id, qtyRec, qtyPlanNum.toFixed(2), isNaN(koliPlanNum) ? '' : koliPlanNum.toFixed(2)));
+                          const $row = buildRow(it.item_id, qtyRec, qtyPlanNum.toFixed(2), isNaN(koliPlanNum) ? '' : koliPlanNum.toFixed(2));
+                          $wrap.append($row);
+                          fetchRowStock($row);
                       });
                   }
               })
@@ -275,9 +286,33 @@
                 });
                 if (count > 1) { clearAndHighlight($(this)); showComponentDuplicate(); }
             }
+            fetchRowStock($(this).closest('.component-row'));
         });
 
         // no auto-scale: user can set plan manually
+
+        // Stock info helpers
+        function updateAllRowsStock() {
+            $('#components-body .component-row').each(function(){ fetchRowStock($(this)); });
+        }
+        function fetchRowStock($row) {
+            const wh = $('select[name="warehouse_id"]').val();
+            const item = $row.find('select[name="components[item_id][]"]').val();
+            const $qty = $row.find('.stock-display .stock-qty');
+            const $koli = $row.find('.stock-display .stock-koli');
+            if (!wh || !item) { $qty.text('-'); $koli.text('-'); return; }
+            const url = '{{ url('/admin/manajemen-stok/perakitan/stock') }}';
+            $.get(url, { warehouse_id: wh, item_id: item })
+                .done(function(resp){
+                    if (resp && resp.success) {
+                        $qty.text(Number(resp.quantity ?? 0).toFixed(2));
+                        $koli.text(Number(resp.koli ?? 0).toFixed(2));
+                    } else { $qty.text('-'); $koli.text('-'); }
+                })
+                .fail(function(){ $qty.text('-'); $koli.text('-'); });
+        }
+        $('select[name="warehouse_id"]').on('change', updateAllRowsStock);
+        updateAllRowsStock();
 
         // submit confirm & basic checks
         $('#assembly-form').on('submit', function(e){

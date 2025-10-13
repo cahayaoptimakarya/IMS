@@ -117,6 +117,7 @@
                                                             <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}" {{ $oi == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
                                                         @endforeach
                                                     </select>
+                                                    <div class="text-muted small mt-1 stock-display">Stok: <span class="stock-qty">-</span> | Koli: <span class="stock-koli">-</span></div>
                                                 </td>
                                                 <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" value="{{ $oldQtyRec[$idx] ?? '' }}" required></td>
                                                 <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" value="{{ $oldQtyPlan[$idx] ?? '' }}" required></td>
@@ -133,6 +134,7 @@
                                                         <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>
                                                     @endforeach
                                                 </select>
+                                                <div class="text-muted small mt-1 stock-display">Stok: <span class="stock-qty">-</span> | Koli: <span class="stock-koli">-</span></div>
                                             </td>
                                             <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required></td>
                                             <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" required></td>
@@ -186,6 +188,7 @@
                                 <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
                             @endforeach\
                         </select>\
+                        <div class="text-muted small mt-1 stock-display">Stok: <span class="stock-qty">-</span> | Koli: <span class="stock-koli">-</span></div>\
                     </td>\
                     <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required></td>\
                     <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" required></td>\
@@ -207,6 +210,7 @@
             const row = buildEmptyRow();
             $wrap.append(row);
             row.find('[data-control="select2"]').select2({ width: '100%' });
+            fetchRowStock(row);
         }
         // add/remove rows
         $('#add-row').on('click', function(){
@@ -219,6 +223,7 @@
                                 <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>\
                             @endforeach\
                         </select>\
+                        <div class="text-muted small mt-1 stock-display">Stok: <span class="stock-qty">-</span> | Koli: <span class="stock-koli">-</span></div>\
                     </td>\
                     <td><input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required></td>\
                     <td><input type="number" step="0.01" name="components[quantity_plan][]" class="form-control form-control-solid text-end" placeholder="Qty Plan" required></td>\
@@ -228,6 +233,7 @@
             );
             $('#components-body').append(row);
             row.find('[data-control="select2"]').select2({width: '100%'});
+            fetchRowStock(row);
         });
         $('#components-body').on('click', '.remove-row', function(){ $(this).closest('.component-row').remove(); });
 
@@ -275,6 +281,7 @@
                             koliPlan.val(isNaN(planKoli) ? '' : planKoli.toFixed(2));
                             const tds = $('<td></td><td></td><td></td><td></td><td></td>');
                             $(tds[0]).append(select);
+                            $(tds[0]).append('<div class="text-muted small mt-1 stock-display">Stok: <span class="stock-qty">-</span> | Koli: <span class="stock-koli">-</span></div>');
                             $(tds[1]).append(qtyRec);
                             $(tds[2]).append(qtyPlan);
                             $(tds[3]).append(koliPlan);
@@ -282,6 +289,7 @@
                             row.append(tds);
                             $wrap.append(row);
                             select.select2({ width: '100%' });
+                            fetchRowStock(row);
                         });
                         // ensure recalculation stays consistent if user adjusted output plan
                         recalcComponentsFromOutput();
@@ -376,10 +384,34 @@
             const qty = parseFloat($row.find('input[name="components[quantity_plan][]"]').val());
             const r = getComponentKoliRatio($row);
             if (!isNaN(qty)) $row.find('input[name="components[koli_plan][]"]').val((qty / r).toFixed(2));
+            fetchRowStock($row);
         });
         $('#components-body').on('input change', 'input[name="components[quantity_recipes][]"]', function(){
             recalcComponentsFromOutput();
         });
+
+        // Stock info helpers
+        function updateAllRowsStock() {
+            $('#components-body .component-row').each(function(){ fetchRowStock($(this)); });
+        }
+        function fetchRowStock($row) {
+            const wh = $('select[name="warehouse_id"]').val();
+            const item = $row.find('select[name="components[item_id][]"]').val();
+            const $qty = $row.find('.stock-display .stock-qty');
+            const $koli = $row.find('.stock-display .stock-koli');
+            if (!wh || !item) { $qty.text('-'); $koli.text('-'); return; }
+            const url = '{{ url('/admin/manajemen-stok/perakitan/stock') }}';
+            $.get(url, { warehouse_id: wh, item_id: item })
+                .done(function(resp){
+                    if (resp && resp.success) {
+                        $qty.text(Number(resp.quantity ?? 0).toFixed(2));
+                        $koli.text(Number(resp.koli ?? 0).toFixed(2));
+                    } else { $qty.text('-'); $koli.text('-'); }
+                })
+                .fail(function(){ $qty.text('-'); $koli.text('-'); });
+        }
+        $('select[name="warehouse_id"]').on('change', updateAllRowsStock);
+        updateAllRowsStock();
 
         // client-side validate: finished item cannot be a component
         function showFinishedComponentConflict() {

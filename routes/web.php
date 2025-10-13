@@ -124,6 +124,7 @@ Route::middleware(['auth', 'permission'])->group(function () {
         Route::post('adjustment/{adjustment}/update-status', [AdjustmentController::class, 'updateStatus'])->name('adjustment.updateStatus');
         // Perakitan
         Route::get('perakitan/recipes/{recipe}', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'recipeDetail'])->name('perakitan.recipe-detail');
+        Route::get('perakitan/stock', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'stock'])->name('perakitan.stock');
         Route::post('perakitan/{assembly}/approve', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'approve'])->name('perakitan.approve');
         Route::resource('perakitan', \App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class)->parameters([
             'perakitan' => 'assembly'

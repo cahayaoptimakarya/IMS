@@ -20,7 +20,7 @@ return new class extends Migration {
             $table->decimal('output_koli_real', 20, 2)->default(0);
             $table->text('notes')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
-            $table->enum('status', ['dalam proses', 'completed'])->default('dalam proses');
+            $table->enum('status', ['draft','dalam proses', 'completed'])->default('dalam proses');
             $table->timestamps();
         });
 
