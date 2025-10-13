@@ -93,6 +93,18 @@ class WarehouseStokController extends Controller
                 'inventories.warehouse_id',
             ]);
             $query->addSelect([
+                'before_qty' => StockMovement::query()
+                    ->selectRaw('COALESCE(SUM(quantity),0)')
+                    ->whereColumn('stock_movements.item_id', 'inventories.item_id')
+                    ->whereColumn('stock_movements.warehouse_id', 'inventories.warehouse_id')
+                    ->where('date', '<', $dateFrom->copy())
+                    ->whereIn('type', ['stock_in', 'stock_out']),
+                'before_koli' => StockMovement::query()
+                    ->selectRaw('COALESCE(SUM(koli),0)')
+                    ->whereColumn('stock_movements.item_id', 'inventories.item_id')
+                    ->whereColumn('stock_movements.warehouse_id', 'inventories.warehouse_id')
+                    ->where('date', '<', $dateFrom->copy())
+                    ->whereIn('type', ['stock_in', 'stock_out']),
                 'within_qty' => StockMovement::query()
                     ->selectRaw('COALESCE(SUM(quantity),0)')
                     ->whereColumn('stock_movements.item_id', 'inventories.item_id')
@@ -129,6 +141,7 @@ class WarehouseStokController extends Controller
                     ->whereColumn('stock_movements.warehouse_id', 'inventories.warehouse_id')
                     ->whereBetween('date', [$dateFrom->copy(), $dateTo->copy()])
                     ->where('type', 'stock_out'),
+                // Keep after_* available if needed later, but not used for opening/closing
                 'after_qty' => StockMovement::query()
                     ->selectRaw('COALESCE(SUM(quantity),0)')
                     ->whereColumn('stock_movements.item_id', 'inventories.item_id')
@@ -149,6 +162,8 @@ class WarehouseStokController extends Controller
                 ->map(function ($row) {
                     $quantity = (float) $row->quantity;
                     $koli = (float) $row->koli;
+                    $beforeQty = (float) ($row->before_qty ?? 0);
+                    $beforeKoli = (float) ($row->before_koli ?? 0);
                     $withinQty = (float) ($row->within_qty ?? 0);
                     $withinKoli = (float) ($row->within_koli ?? 0);
                     $afterQty = (float) ($row->after_qty ?? 0);
@@ -157,10 +172,11 @@ class WarehouseStokController extends Controller
                     $incomingKoli = (float) ($row->incoming_koli ?? 0);
                     $outgoingQty = (float) ($row->outgoing_qty ?? 0);
                     $outgoingKoli = (float) ($row->outgoing_koli ?? 0);
-                    $closingQty = $quantity - $afterQty;
-                    $closingKoli = $koli - $afterKoli;
-                    $openingQty = $closingQty - $withinQty;
-                    $openingKoli = $closingKoli - $withinKoli;
+                    // Movement-based period balances
+                    $openingQty = $beforeQty;
+                    $openingKoli = $beforeKoli;
+                    $closingQty = $openingQty + $withinQty;
+                    $closingKoli = $openingKoli + $withinKoli;
                     return [
                         'warehouse_name' => $row->warehouse_name,
                         'item_name' => $row->item_name,
@@ -267,6 +283,18 @@ public function export(Request $request)
         'inventories.warehouse_id',
     ]);
     $query->addSelect([
+        'before_qty' => StockMovement::query()
+            ->selectRaw('COALESCE(SUM(quantity),0)')
+            ->whereColumn('stock_movements.item_id', 'inventories.item_id')
+            ->whereColumn('stock_movements.warehouse_id', 'inventories.warehouse_id')
+            ->where('date', '<', $dateFrom->copy())
+            ->whereIn('type', ['stock_in', 'stock_out']),
+        'before_koli' => StockMovement::query()
+            ->selectRaw('COALESCE(SUM(koli),0)')
+            ->whereColumn('stock_movements.item_id', 'inventories.item_id')
+            ->whereColumn('stock_movements.warehouse_id', 'inventories.warehouse_id')
+            ->where('date', '<', $dateFrom->copy())
+            ->whereIn('type', ['stock_in', 'stock_out']),
         'within_qty' => StockMovement::query()
             ->selectRaw('COALESCE(SUM(quantity),0)')
             ->whereColumn('stock_movements.item_id', 'inventories.item_id')
@@ -321,6 +349,8 @@ public function export(Request $request)
         ->map(function ($row) {
             $quantity = (float) $row->quantity;
             $koli = (float) $row->koli;
+            $beforeQty = (float) ($row->before_qty ?? 0);
+            $beforeKoli = (float) ($row->before_koli ?? 0);
             $withinQty = (float) ($row->within_qty ?? 0);
             $withinKoli = (float) ($row->within_koli ?? 0);
             $afterQty = (float) ($row->after_qty ?? 0);
@@ -329,10 +359,11 @@ public function export(Request $request)
             $incomingKoli = (float) ($row->incoming_koli ?? 0);
             $outgoingQty = (float) ($row->outgoing_qty ?? 0);
             $outgoingKoli = (float) ($row->outgoing_koli ?? 0);
-            $closingQty = $quantity - $afterQty;
-            $closingKoli = $koli - $afterKoli;
-            $openingQty = $closingQty - $withinQty;
-            $openingKoli = $closingKoli - $withinKoli;
+            // Movement-based period balances
+            $openingQty = $beforeQty;
+            $openingKoli = $beforeKoli;
+            $closingQty = $openingQty + $withinQty;
+            $closingKoli = $openingKoli + $withinKoli;
             return [
                 'warehouse_name' => $row->warehouse_name,
                 'item_name' => $row->item_name,
