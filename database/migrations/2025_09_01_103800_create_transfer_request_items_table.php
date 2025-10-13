@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('remaining_quantity', 20, 2)->default(0);
             $table->decimal('remaining_koli', 20, 2)->default(0);
             $table->mediumText('description')->nullable();
-            $table->enum('status', ['pending', 'on_progress', 'completed'])->default('pending');
+            $table->enum('status', ['pending', 'on_progress', 'completed', 'cancel'])->default('pending');
             $table->timestamps();
         });
     }

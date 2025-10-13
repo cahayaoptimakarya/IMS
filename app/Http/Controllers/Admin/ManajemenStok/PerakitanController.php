@@ -283,7 +283,7 @@ class PerakitanController extends Controller
             UserActivity::create([
                 'user_id' => Auth::id(),
                 'activity' => 'created',
-                'menu' => 'perakitan',
+                'menu' => 'Perakitan',
                 'description' => 'Membuat perakitan (draft): ' . $assembly->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
@@ -430,7 +430,7 @@ class PerakitanController extends Controller
             UserActivity::create([
                 'user_id' => Auth::id(),
                 'activity' => 'updated',
-                'menu' => 'perakitan',
+                'menu' => 'Perakitan',
                 'description' => 'Mengubah perakitan (draft): ' . $assembly->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
@@ -598,7 +598,7 @@ class PerakitanController extends Controller
             UserActivity::create([
                 'user_id' => Auth::id(),
                 'activity' => 'approved',
-                'menu' => 'perakitan',
+                'menu' => 'Perakitan',
                 'description' => 'Menyetujui perakitan: ' . $assembly->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
@@ -729,7 +729,7 @@ class PerakitanController extends Controller
             UserActivity::create([
                 'user_id' => Auth::id(),
                 'activity' => 'deleted',
-                'menu' => 'perakitan',
+                'menu' => 'Perakitan',
                 'description' => 'Menghapus perakitan: ' . $code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
@@ -804,7 +804,7 @@ class PerakitanController extends Controller
             UserActivity::create([
                 'user_id' => Auth::id(),
                 'activity' => 'started',
-                'menu' => 'perakitan',
+                'menu' => 'Perakitan',
                 'description' => 'Memproses perakitan (dalam proses): ' . $assembly->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
