@@ -95,8 +95,17 @@
                         <div class="col-md-6">
                             <div class="fv-row mb-7">
                                 <label for="koli" class="form-label required">Koli</label>
-                                <input type="number" class="form-control form-control-solid" value="{{ old('koli') }}" id="koli" name="koli"
-                                    required>
+                                <input type="number" class="form-control form-control-solid" value="{{ old('koli') }}" id="koli" name="koli" min="0" step="1" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="fv-row mb-7">
+                                <label for="low_stock_threshold" class="form-label">Minimal Stok Menipis</label>
+                                <input type="number" min="0" step="1" class="form-control form-control-solid" id="low_stock_threshold" name="low_stock_threshold"
+                                       value="{{ old('low_stock_threshold', 100) }}" placeholder="Default 100">
+                                @error('low_stock_threshold')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
                             </div>
                         </div>
                     </div>

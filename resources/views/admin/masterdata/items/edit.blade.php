@@ -32,7 +32,7 @@
                         </div>
                         <div class="col-md-6">
                             <div class="fv-row mb-7">
-                                <label for="item_category_id" class="form-label">Kategori Item</label>
+                                <label for="item_category_id" class="form-label required">Kategori Item</label>
                                 <select class="form-select form-select-solid fw-bolder select2-hidden-accessible" id="item_category_id"
                                     name="item_category_id" data-control="select2" data-placeholder="Pilih Kategori Item">
                                     <option></option>
@@ -96,8 +96,18 @@
                         <div class="col-md-6">
                             <div class="fv-row mb-7">
                                 <label for="koli" class="form-label required">Koli</label>
-                                <input type="number" class="form-control form-control-solid" id="koli" name="koli"
-                                    value="{{ old('koli', $item->koli) }}" required>
+                                <input type="number" class="form-control form-control-solid" id="koli" name="koli" min="0" step="1"
+                                       value="{{ old('koli', $item->koli) }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="fv-row mb-7">
+                                <label for="low_stock_threshold" class="form-label">Minimal Stok Menipis</label>
+                                <input type="number" min="0" step="1" class="form-control form-control-solid" id="low_stock_threshold" name="low_stock_threshold"
+                                       value="{{ old('low_stock_threshold', $item->low_stock_threshold ?? 100) }}" placeholder="Default 100">
+                                @error('low_stock_threshold')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
                             </div>
                         </div>
                     </div>

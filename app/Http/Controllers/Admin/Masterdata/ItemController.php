@@ -62,11 +62,14 @@ class ItemController extends Controller
             'nama_barang' => 'required|string',
             'deskripsi' => 'nullable|string',
             'product_code' => 'nullable|string|unique:items,product_code',
+            'low_stock_threshold' => 'nullable|integer|min:0',
         ]);
 
         DB::beginTransaction();
         try {
             $data = $request->all();
+            // Default low stock threshold to 100 if not provided
+            $data['low_stock_threshold'] = $request->input('low_stock_threshold', 100);
             // If product_code is not provided (e.g., from a hidden field or JS generation), generate it
             if (empty($data['product_code'])) {
                 $data['product_code'] = $this->generateProductCode();
@@ -128,11 +131,17 @@ class ItemController extends Controller
             'nama_barang' => 'required|string',
             'deskripsi' => 'nullable|string',
             'product_code' => 'nullable|string|unique:items,product_code,' . $item->id,
+            'low_stock_threshold' => 'nullable|integer|min:0',
         ]);
 
         DB::beginTransaction();
         try {
-            $item->update($request->except(['product_code']));
+            $payload = $request->except(['product_code']);
+            if (!$request->has('low_stock_threshold')) {
+                // keep existing when field not present
+                $payload['low_stock_threshold'] = $item->low_stock_threshold;
+            }
+            $item->update($payload);
 
             UserActivity::create([
                 'user_id' => Auth::id(),
