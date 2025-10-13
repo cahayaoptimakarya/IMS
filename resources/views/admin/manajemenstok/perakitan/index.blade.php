@@ -9,6 +9,7 @@
         .status-metrics .metric { text-align: center; min-width: 88px; }
         .status-metrics .chip { display: inline-block; padding: 6px 12px; border-radius: 10px; font-weight: 700; font-size: 1rem; line-height: 1; }
         .chip-warning { background: #FFF7E6; color: #F59E0B; }
+    .chip-primary { background: #EFF6FF; color: #1D4ED8; }
         .chip-success { background: #ECFDF5; color: #10B981; }
         /* Fix action menu width overflowing full screen inside DataTable */
         #table-on-page .menu-sub.menu-sub-dropdown { width: auto !important; min-width: 150px; max-width: 260px; }
@@ -53,7 +54,7 @@
                             <div class="text-muted fs-8 mt-1">Draft</div>
                         </div>
                         <div class="metric">
-                            <div class="chip chip-warning" id="status_in_progress">
+                            <div class="chip chip-primary" id="status_in_progress">
                                 <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
                             </div>
                             <div class="text-muted fs-8 mt-1">Dalam Proses</div>
