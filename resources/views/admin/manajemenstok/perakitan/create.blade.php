@@ -114,7 +114,7 @@
                                                     <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Item" required>
                                                         <option value="">Pilih Item</option>
                                                         @foreach($items as $item)
-                                                            <option value="{{ $item->id }}" {{ $oi == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
+                                                            <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}" {{ $oi == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
                                                         @endforeach
                                                     </select>
                                                 </td>
@@ -267,6 +267,12 @@
                             }
                             qtyPlan.val(planVal.toFixed(2));
                             const koliPlan = $('<input type="number" step="0.01" name="components[koli_plan][]" class="form-control form-control-solid text-end" placeholder="Koli Plan" />');
+                            // auto-calc koli plan from qty plan and item ratio
+                            const selectedOpt = select.find('option[value="'+String(it.item_id)+'"]');
+                            const r = parseFloat(selectedOpt.data('koli'));
+                            const ratio = (isNaN(r) || r <= 0) ? 1 : r;
+                            const planKoli = planVal / ratio;
+                            koliPlan.val(isNaN(planKoli) ? '' : planKoli.toFixed(2));
                             const tds = $('<td></td><td></td><td></td><td></td><td></td>');
                             $(tds[0]).append(select);
                             $(tds[1]).append(qtyRec);
@@ -277,6 +283,8 @@
                             $wrap.append(row);
                             select.select2({ width: '100%' });
                         });
+                        // ensure recalculation stays consistent if user adjusted output plan
+                        recalcComponentsFromOutput();
                     }
                 })
                 .fail(function(){ toastr.error('Gagal mengambil detail resep'); });
@@ -340,7 +348,10 @@
             }
         });
         // Initial sync on page load
-        qtyToKoli();
+        const RESTORING_OLD = Boolean(@json(count(old('components.item_id', [])) > 0 || session()->has('stock_errors')));
+        if (!RESTORING_OLD) {
+            qtyToKoli();
+        }
 
         // Keep component koli/qty in sync on manual edits and changes
         function getComponentKoliRatio($row) {

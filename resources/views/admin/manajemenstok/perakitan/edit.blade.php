@@ -104,7 +104,7 @@
                                             <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required>
                                                 <option value="">Pilih Item</option>
                                                 @foreach($items as $item)
-                                                    <option value="{{ $item->id }}" {{ $comp->item_id == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
+                                                    <option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}" {{ $comp->item_id == $item->id ? 'selected' : '' }}>{{ $item->sku }} - {{ $item->nama_barang }}</option>
                                                 @endforeach
                                             </select>
                                         </td>
@@ -143,7 +143,7 @@
             const $item = $('<select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" required></select>');
             $item.append('<option value="">Pilih Item</option>');
             @foreach($items as $item)
-                $item.append('<option value="{{ $item->id }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>');
+                $item.append('<option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>');
             @endforeach
             if (itemId) { $item.val(String(itemId)); }
             const $qtyRec = $('<input type="number" step="0.01" name="components[quantity_recipes][]" class="form-control form-control-solid text-end" placeholder="Qty Resep" required />');
@@ -211,8 +211,18 @@
                       const outPlanNow = parseFloat($('input[name="output_quantity_plan"]').val());
                       resp.items.forEach(function(it){
                           const qtyRec = parseFloat(it.quantity) || 0;
-                          const qtyPlan = !isNaN(outPlanNow) ? (qtyRec * outPlanNow).toFixed(2) : (qtyRec.toFixed ? qtyRec.toFixed(2) : qtyRec);
-                          $wrap.append(buildRow(it.item_id, qtyRec, qtyPlan, null));
+                          const qtyPlanNum = !isNaN(outPlanNow) ? (qtyRec * outPlanNow) : qtyRec;
+                          // compute koli plan using item ratio
+                          const opt = $('<select></select>');
+                          @foreach($items as $item)
+                            opt.append('<option value="{{ $item->id }}" data-koli="{{ $item->koli ?? 1 }}">{{ $item->sku }} - {{ $item->nama_barang }}</option>');
+                          @endforeach
+                          opt.val(String(it.item_id));
+                          const sel = opt.find('option[value="'+String(it.item_id)+'"]');
+                          const r = parseFloat(sel.data('koli'));
+                          const ratio = (isNaN(r) || r <= 0) ? 1 : r;
+                          const koliPlanNum = qtyPlanNum / ratio;
+                          $wrap.append(buildRow(it.item_id, qtyRec, qtyPlanNum.toFixed(2), isNaN(koliPlanNum) ? '' : koliPlanNum.toFixed(2)));
                       });
                   }
               })
