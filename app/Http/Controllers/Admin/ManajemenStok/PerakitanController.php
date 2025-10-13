@@ -31,7 +31,90 @@ class PerakitanController extends Controller
 
     public function index(Request $request)
     {
+        // DataTables server-side
+        if ($request->ajax()) {
+            $searchValue = (string) $request->input('search.value', '');
+            $start = (int) $request->input('start', 0);
+            $length = (int) $request->input('length', 10);
+            $draw = (int) $request->input('draw', 0);
+            $statusFilter = (string) $request->input('status');
+            $dateFilter = (string) $request->input('date');
+
+            $columns = [
+                0 => 'a.code',
+                1 => 'a.date',
+                2 => 'w.name',
+                3 => 'i.sku',
+                4 => 'a.status',
+                5 => 'a.id', // actions
+            ];
+            $orderByColumnIndex = (int) $request->input('order.0.column', 0);
+            $orderByColumnName = $columns[$orderByColumnIndex] ?? $columns[0];
+            $orderDirection = (string) $request->input('order.0.dir', 'desc');
+
+            $base = Assembly::query()
+                ->from('assemblies as a')
+                ->leftJoin('warehouses as w', 'a.warehouse_id', '=', 'w.id')
+                ->leftJoin('items as i', 'a.finished_item_id', '=', 'i.id');
+
+            $totalRecords = (clone $base)->count('a.id');
+
+            // Apply filters
+            if ($searchValue !== '') {
+                $base->where(function ($q) use ($searchValue) {
+                    $q->where('a.code', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('a.notes', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('w.name', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('i.sku', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('i.nama_barang', 'LIKE', "%{$searchValue}%");
+                });
+            }
+            if ($statusFilter && $statusFilter !== 'semua') {
+                $mapped = $statusFilter === 'in_progress' ? 'dalam proses' : $statusFilter;
+                $base->where('a.status', $mapped);
+            }
+            if ($dateFilter && $dateFilter !== 'semua') {
+                if (strpos($dateFilter, ' to ') !== false) {
+                    [$startDate, $endDate] = explode(' to ', $dateFilter);
+                    $base->whereBetween('a.date', [$startDate, $endDate]);
+                } else {
+                    $base->whereDate('a.date', $dateFilter);
+                }
+            }
+
+            $totalFiltered = (clone $base)->count('a.id');
+
+            $data = $base->select(
+                    'a.id',
+                    'a.code',
+                    'a.date',
+                    'a.status',
+                    'a.output_quantity_plan',
+                    'a.output_quantity_real',
+                    'a.output_koli_plan',
+                    'a.output_koli_real',
+                    'a.notes',
+                    'w.name as warehouse_name',
+                    'i.sku as finished_sku',
+                    'i.nama_barang as finished_name'
+                )
+                ->orderBy($orderByColumnName, $orderDirection)
+                ->offset($start)
+                ->limit($length)
+                ->get();
+
+            return response()->json([
+                'draw' => $draw,
+                'recordsTotal' => $totalRecords,
+                'recordsFiltered' => $totalFiltered,
+                'data' => $data,
+            ]);
+        }
+
         $search = trim((string) $request->input('search'));
+        $statusFilter = (string) $request->input('status', 'semua');
+        $dateFilter = (string) $request->input('date', 'semua');
+
         $assemblies = Assembly::query()
             ->with(['warehouse', 'finishedItem'])
             ->when($search !== '', function ($q) use ($search) {
@@ -45,12 +128,28 @@ class PerakitanController extends Controller
                       $qw->where('name', 'LIKE', "%{$search}%");
                   });
             })
+            ->when($statusFilter !== '' && $statusFilter !== 'semua', function ($q) use ($statusFilter) {
+                $status = $statusFilter === 'in_progress' ? 'dalam proses' : $statusFilter;
+                $q->where('status', $status);
+            })
+            ->when($dateFilter !== '' && $dateFilter !== 'semua', function ($q) use ($dateFilter) {
+                if (strpos($dateFilter, ' to ') !== false) {
+                    [$start, $end] = explode(' to ', $dateFilter);
+                    $q->whereBetween('date', [$start, $end]);
+                } else {
+                    $q->whereDate('date', $dateFilter);
+                }
+            })
             ->orderByDesc('date')
             ->orderByDesc('id')
             ->paginate(10)
-            ->appends(['search' => $search]);
+            ->appends([
+                'search' => $search,
+                'status' => $statusFilter,
+                'date' => $dateFilter,
+            ]);
 
-        return view('admin.manajemenstok.perakitan.index', compact('assemblies', 'search'));
+        return view('admin.manajemenstok.perakitan.index', compact('assemblies', 'search', 'statusFilter', 'dateFilter'));
     }
 
     public function create()
@@ -486,5 +585,74 @@ class PerakitanController extends Controller
             'quantity' => $inv ? (float) $inv->quantity : 0.0,
             'koli' => $inv ? (float) $inv->koli : 0.0,
         ]);
+    }
+
+    public function getStatusCounts(Request $request)
+    {
+        $dateFilter = (string) $request->input('date', 'semua');
+        $search = trim((string) $request->input('search', ''));
+
+        $base = Assembly::query();
+        if ($search !== '') {
+            $base->where(function ($q) use ($search) {
+                $q->where('code', 'LIKE', "%{$search}%")
+                  ->orWhere('notes', 'LIKE', "%{$search}%");
+            });
+        }
+        if ($dateFilter !== '' && $dateFilter !== 'semua') {
+            if (strpos($dateFilter, ' to ') !== false) {
+                [$start, $end] = explode(' to ', $dateFilter);
+                $base->whereBetween('date', [$start, $end]);
+            } else {
+                $base->whereDate('date', $dateFilter);
+            }
+        }
+
+        $counts = [
+            'draft' => (clone $base)->where('status', 'draft')->count(),
+            'in_progress' => (clone $base)->where('status', 'dalam proses')->count(),
+            'completed' => (clone $base)->where('status', 'completed')->count(),
+        ];
+        return response()->json($counts);
+    }
+
+    public function destroy(Request $request, Assembly $assembly)
+    {
+        if ($assembly->status === 'completed') {
+            $message = 'Dokumen completed tidak dapat dihapus.';
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return back()->with('error', $message);
+        }
+
+        DB::beginTransaction();
+        try {
+            $code = $assembly->code;
+            // Remove components first
+            $assembly->components()->delete();
+            $assembly->delete();
+
+            UserActivity::create([
+                'user_id' => Auth::id(),
+                'activity' => 'deleted',
+                'menu' => 'perakitan',
+                'description' => 'Menghapus perakitan: ' . $code,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->header('User-Agent'),
+            ]);
+
+            DB::commit();
+            if ($request->ajax()) {
+                return response()->json(['success' => true, 'message' => 'Dokumen ' . $code . ' berhasil dihapus.']);
+            }
+            return redirect()->route('admin.manajemenstok.perakitan.index')->with('success', 'Dokumen ' . $code . ' berhasil dihapus.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Gagal menghapus dokumen: ' . $e->getMessage()], 500);
+            }
+            return back()->with('error', 'Gagal menghapus dokumen: ' . $e->getMessage());
+        }
     }
 }
