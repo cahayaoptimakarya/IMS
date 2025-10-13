@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Blade;
 use App\Support\MenuPermissionResolver;
 use App\View\Composers\MenuComposer;
+use App\Models\Shipment;
+use App\Observers\ShipmentObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -30,5 +32,8 @@ class AppServiceProvider extends ServiceProvider
         Blade::if('menuCan', function (string $ability, ?string $routeName = null) {
             return app(MenuPermissionResolver::class)->userCan($ability, $routeName);
         });
+
+        // Observe Shipment model to dispatch notifications when created
+        Shipment::observe(ShipmentObserver::class);
     }
 }

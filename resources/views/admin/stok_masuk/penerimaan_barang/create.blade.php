@@ -57,7 +57,7 @@
                             @if($forcedWarehouseId)
                                 @php($forcedWarehouse = $warehouses->firstWhere('id', $forcedWarehouseId))
                                 <div class="form-control form-control-solid bg-light">{{ $forcedWarehouse->name ?? '-' }}</div>
-                                <input type="hidden" name="warehouse_id" value="{{ $forcedWarehouseId }}">
+                                <input type="hidden" id="warehouse_id" name="warehouse_id" value="{{ $forcedWarehouseId }}">
                             @else
                                 <select name="warehouse_id" id="warehouse_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Gudang">
                                     <option value="">Pilih Gudang</option>
@@ -470,12 +470,7 @@
             $(function () {
                 $('[data-control="select2"]').select2({ width: '100%' });
 
-                // If user has fixed warehouse, preselect and lock the field
-                if (forcedWarehouseId !== null) {
-                    $('#warehouse_id').val(String(forcedWarehouseId)).trigger('change');
-                    $('#warehouse_id').prop('disabled', true);
-                }
-
+                // Bind change handler first so initial triggers are handled
                 $('#warehouse_id').on('change', function () {
                     const type = $('#gr_type').val();
                     if (type === 'transfer') {
@@ -485,6 +480,22 @@
                     }
                     handleShipmentFormVisibility();
                 });
+
+                // If user has fixed warehouse, preselect and lock the field, then fetch initial data
+                if (forcedWarehouseId !== null) {
+                    $('#warehouse_id').val(String(forcedWarehouseId));
+                    const typeInit = $('#gr_type').val();
+                    if (typeInit === 'transfer') {
+                        fetchShipments();
+                    } else if (typeInit === 'pengadaan') {
+                        fetchStockInOrders();
+                    }
+                    handleShipmentFormVisibility();
+                    // Only disable if the element is a <select>; do not disable hidden input
+                    if ($('#warehouse_id').is('select')) {
+                        $('#warehouse_id').prop('disabled', true);
+                    }
+                }
 
                 $('#gr_type').on('change', function() {
                     const type = $(this).val();

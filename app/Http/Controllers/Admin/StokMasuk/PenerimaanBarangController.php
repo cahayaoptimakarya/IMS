@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use App\Support\MenuPermissionResolver;
+use App\Notifications\TransferRequestReceived;
 
 class PenerimaanBarangController extends Controller
 {
@@ -861,6 +862,22 @@ class PenerimaanBarangController extends Controller
             ]);
 
             DB::commit();
+
+            // Send notification to origin warehouse when transfer receipt is completed
+            try {
+                if (isset($shipment) && $shipment && $shipment->reference_type === Shipment::REFERENCE_TYPE_TRANSFER_REQUEST) {
+                    $tr = \App\Models\TransferRequest::find($shipment->reference_id);
+                    if ($tr) {
+                        $recipients = \App\Models\User::where('warehouse_id', $tr->from_warehouse_id)->get();
+                        foreach ($recipients as $user) {
+                            $user->notify(new TransferRequestReceived($goodsReceipt, $shipment, $tr));
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // ignore notification failures
+            }
+
             return response()->json(['success' => true, 'message' => 'Penerimaan barang disetujui dan diselesaikan.']);
         } catch (\Exception $e) {
             DB::rollBack();

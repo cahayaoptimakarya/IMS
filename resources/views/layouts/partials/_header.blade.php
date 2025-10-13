@@ -59,6 +59,76 @@
             <div class="d-flex align-items-stretch flex-shrink-0">
                 <!--begin::Toolbar wrapper-->
                 <div class="topbar d-flex align-items-stretch flex-shrink-0">
+                    <!--begin::Notifications-->
+                    <div class="d-flex align-items-center me-2">
+                        @php
+                            $unreadCount = auth()->user()->unreadNotifications()->count();
+                            $latestNotifications = auth()->user()->notifications()->latest()->limit(10)->get();
+                        @endphp
+                        <div class="btn btn-icon btn-active-light-primary position-relative w-30px h-30px w-md-40px h-md-40px"
+                             data-kt-menu-trigger="click" data-kt-menu-attach="parent" data-kt-menu-placement="bottom-end">
+                            <!-- bell icon -->
+                            <span class="svg-icon svg-icon-2x">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                    <path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16Z" fill="black"/>
+                                </svg>
+                            </span>
+                            @if($unreadCount > 0)
+                            <span class="badge badge-circle bg-danger position-absolute top-0 end-0 translate-middle">{{ $unreadCount }}</span>
+                            @endif
+                        </div>
+                        <!--begin::Dropdown-->
+                        <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg menu-state-primary fw-bold py-4 fs-7 w-375px"
+                             data-kt-menu="true">
+                            <div class="px-5 d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bolder">Notifikasi</span>
+                                <a href="{{ route('admin.notifications.read-all') }}" onclick="event.preventDefault(); this.nextElementSibling.submit();" class="text-primary fs-8">Tandai semua terbaca</a>
+                                <form action="{{ route('admin.notifications.read-all') }}" method="POST" class="d-none">@csrf</form>
+                            </div>
+                            <div class="separator my-2"></div>
+                            <div class="scroll-y mh-300px px-5">
+                                @forelse($latestNotifications as $n)
+                                    @php $data = $n->data ?? []; @endphp
+                                    <div class="d-flex align-items-start mb-4 {{ is_null($n->read_at) ? '' : 'opacity-75' }}">
+                                        <div class="symbol symbol-30px me-3">
+                                            <span class="symbol-label bg-light-primary">
+                                                <span class="svg-icon svg-icon-2">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 22C13.1 22 14 21.1 14 20H10C10 21.1 10.9 22 12 22ZM18 16V11C18 7.93 16.36 5.36 13.5 4.68V4C13.5 3.17 12.83 2.5 12 2.5C11.17 2.5 10.5 3.17 10.5 4V4.68C7.63 5.36 6 7.92 6 11V16L4 18V19H20V18L18 16Z" fill="black"/></svg>
+                                                </span>
+                                            </span>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold">{{ $data['message'] ?? $n->type }}</div>
+                                            <div class="text-muted fs-9">{{ $n->created_at->diffForHumans() }}</div>
+                                            <div class="mt-1 d-flex gap-2 flex-wrap">
+                                                @if(($data['transfer_request_id'] ?? null))
+                                                    <a class="link-primary fs-9" href="{{ route('admin.stok-masuk.request-transfer.show', $data['transfer_request_id']) }}">Lihat Permintaan</a>
+                                                @endif
+                                                @if(($data['shipment_id'] ?? null))
+                                                    <a class="link-info fs-9" href="{{ route('admin.riwayat-pengiriman.show', $data['shipment_id']) }}">Lihat Pengiriman</a>
+                                                @endif
+                                                @if(($data['goods_receipt_id'] ?? null))
+                                                    <a class="link-success fs-9" href="{{ route('admin.stok-masuk.penerimaan-barang.show', $data['goods_receipt_id']) }}">Lihat Penerimaan</a>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <div class="ms-2">
+                                            @if(is_null($n->read_at))
+                                                <a href="{{ route('admin.notifications.read', $n) }}" onclick="event.preventDefault(); this.nextElementSibling.submit();" class="btn btn-xs btn-light">Tandai baca</a>
+                                                <form action="{{ route('admin.notifications.read', $n) }}" method="POST" class="d-none">@csrf</form>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div class="text-muted text-center py-10">Tidak ada notifikasi.</div>
+                                @endforelse
+                            </div>
+                            <div class="separator my-2"></div>
+                            <div class="px-5"><a class="btn btn-sm btn-light-primary w-100" href="{{ route('admin.notifications.index') }}">Lihat semua</a></div>
+                        </div>
+                        <!--end::Dropdown-->
+                    </div>
+                    <!--end::Notifications-->
 
                     <!--begin::User-->
                     <div class="d-flex align-items-center me-n3 ms-1 ms-lg-3" id="kt_header_user_menu_toggle">
@@ -133,4 +203,3 @@
     </div>
     <!--end::Container-->
 </div>
-

@@ -11,6 +11,8 @@ use App\Models\UserActivity;
 use App\Models\Warehouse;
 use App\Models\Item;
 use App\Models\Inventory;
+use App\Models\User;
+use App\Notifications\TransferRequestCreated;
 use Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -166,6 +168,16 @@ class RequestTransferController extends Controller
             ]);
 
             DB::commit();
+
+            // Notify users at source warehouse (gudang diminta) about new transfer request
+            try {
+                $recipients = User::where('warehouse_id', $transferRequest->from_warehouse_id)->get();
+                foreach ($recipients as $user) {
+                    $user->notify(new TransferRequestCreated($transferRequest));
+                }
+            } catch (\Throwable $e) {
+                // swallow notification errors to not block main flow
+            }
 
             return redirect()->route('admin.stok-masuk.request-transfer.index')->with('success', 'Request transfer berhasil dibuat.');
 

@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\StokKeluar\PengeluaranBarangController;
 use App\Http\Controllers\Admin\StokKeluar\PermintaanBarangController;
 use App\Http\Controllers\Admin\StokMasuk\PengadaanController;
 use App\Http\Controllers\Admin\StokMasuk\PenerimaanBarangController;
+use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\StokMasuk\RequestTransferController;
 use App\Http\Controllers\Admin\RiwayatPengirimanController;
 
@@ -137,6 +138,12 @@ Route::middleware(['auth', 'permission'])->group(function () {
     Route::prefix('admin/transfer-gudang')->name('admin.transfergudang.')->group(function () {
         Route::get('surat-jalan/{transferRequest}', [\App\Http\Controllers\Admin\TransferGudang\SuratJalanController::class, 'show'])->name('surat-jalan.show');
     });
+
+    // Notifications
+    Route::get('/admin/notifikasi', [NotificationController::class, 'index'])->name('admin.notifications.index');
+    Route::post('/admin/notifikasi/read-all', [NotificationController::class, 'markAllAsRead'])->name('admin.notifications.read-all');
+    Route::post('/admin/notifikasi/{notification}/read', [NotificationController::class, 'markAsRead'])
+        ->name('admin.notifications.read');
 
     // Riwayat Pengiriman
     Route::get('/admin/riwayat-pengiriman', [RiwayatPengirimanController::class, 'index'])->name('admin.riwayat-pengiriman.index');
