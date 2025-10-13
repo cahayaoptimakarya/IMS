@@ -10,6 +10,9 @@
         .status-metrics .chip { display: inline-block; padding: 6px 12px; border-radius: 10px; font-weight: 700; font-size: 1rem; line-height: 1; }
         .chip-warning { background: #FFF7E6; color: #F59E0B; }
         .chip-success { background: #ECFDF5; color: #10B981; }
+        /* Fix action menu width overflowing full screen inside DataTable */
+        #table-on-page .menu-sub.menu-sub-dropdown { width: auto !important; min-width: 150px; max-width: 260px; }
+        #table-on-page .menu-sub.menu-sub-dropdown .menu-item { white-space: nowrap; }
         @media (max-width: 576px) { .status-metrics { justify-content: flex-start; } .status-metrics .metric { min-width: 70px; } }
     </style>
 @endpush
@@ -98,7 +101,8 @@
                                     <label class="form-label fs-5 fw-bold mb-3">Status:</label>
                                     <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" id="status_filter" data-dropdown-parent="#kt-toolbar-filter">
                                         <option value="semua" {{ ($statusFilter ?? 'semua') === 'semua' ? 'selected' : '' }}>Semua</option>
-                                        <option value="in_progress" {{ ($statusFilter ?? '') === 'in_progress' ? 'selected' : '' }}>Dalam Proses</option>
+                                        <option value="draft" {{ ($statusFilter ?? '') === 'draft' ? 'selected' : '' }}>Draft</option>
+                                        <option value="dalam proses" {{ ($statusFilter ?? '') === 'dalam proses' ? 'selected' : '' }}>Dalam Proses</option>
                                         <option value="completed" {{ ($statusFilter ?? '') === 'completed' ? 'selected' : '' }}>Selesai</option>
                                     </select>
                                 </div>
@@ -122,6 +126,7 @@
                     </div>
                 </div>
                 <div class="text-center mt-6">
+                    <div class="text-dark fw-bolder fs-4">Perakitan</div>
                     <small id="filter-info" class="text-muted"></small>
                 </div>
             </div>
@@ -203,10 +208,18 @@
                     { targets: 5, render: function(data, type, row){
                         let editUrl = "{{ route('admin.manajemenstok.perakitan.edit', ':id') }}".replace(':id', row.id);
                         let destroyUrl = "{{ route('admin.manajemenstok.perakitan.destroy', ':id') }}".replace(':id', row.id);
-                        let approveBtn = (row.status !== 'completed') ? `<div class=\"menu-item px-3\"><button type=\"button\" class=\"menu-link px-3 w-100 text-start border-0 bg-transparent btn-approve\" data-id=\"${row.id}\" data-code=\"${row.code}\" data-default-real=\"${row.output_quantity_plan}\">Approve</button></div>` : '';
-                        let deleteBtn = (canDelete && row.status !== 'completed') ? `
-                            <div class=\"menu-item px-3\">
-                                <form class=\"form-delete\" action=\"${destroyUrl}\" method=\"POST\">
+                        let startBtn = '';
+                        let finishBtn = '';
+                        let editBtn = '';
+                        if (row.status === 'draft') {
+                            startBtn = `<div class=\"menu-item px-3\"><button type=\"button\" class=\"menu-link px-3 w-100 text-start border-0 bg-transparent btn-start\" data-id=\"${row.id}\" data-code=\"${row.code}\">Proses Perakitan</button></div>`;
+                            editBtn = `<div class=\"menu-item px-3\"><a href=\"${editUrl}\" class=\"menu-link px-3\">Edit</a></div>`;
+                        } else if (row.status === 'dalam proses') {
+                            finishBtn = `<div class=\"menu-item px-3\"><button type=\"button\" class=\"menu-link px-3 w-100 text-start border-0 bg-transparent btn-approve\" data-id=\"${row.id}\" data-code=\"${row.code}\" data-default-real=\"${row.output_quantity_plan}\">Selesai</button></div>`;
+                        }
+                        let deleteBtn = (canDelete && row.status === 'draft') ? `
+                            <div class=\"menu-item px-3\"> 
+                                <form class=\"form-delete\" action=\"${destroyUrl}\" method=\"POST\"> 
                                     <input type=\"hidden\" name=\"_token\" value=\"${csrfToken}\"> 
                                     <input type=\"hidden\" name=\"_method\" value=\"DELETE\"> 
                                     <button type=\"submit\" class=\"menu-link px-3 border-0 bg-transparent w-100 text-start\" data-document-code=\"${row.code}\">Delete</button>
@@ -214,9 +227,10 @@
                             </div>` : '';
                         return `
                         <a href=\"#\" class=\"btn btn-sm btn-light btn-active-light-primary\" data-kt-menu-trigger=\"click\" data-kt-menu-placement=\"bottom-end\">Actions <span class=\"svg-icon svg-icon-5 m-0\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M11.4343 12.7344L7.25 8.55005C6.83579 8.13583 6.16421 8.13584 5.75 8.55005C5.33579 8.96426 5.33579 9.63583 5.75 10.05L11.2929 15.5929C11.6834 15.9835 12.3166 15.9835 12.7071 15.5929L18.25 10.05C18.6642 9.63584 18.6642 8.96426 18.25 8.55005C17.8358 8.13584 17.1642 8.13584 16.75 8.55005L12.5657 12.7344C12.2533 13.0468 11.7467 13.0468 11.4343 12.7344Z\" fill=\"black\"></path></svg></span></a>
-                        <div class=\"menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-150px py-4\" data-kt-menu=\"true\">
-                            ${approveBtn}
-                            <div class=\"menu-item px-3\"><a href=\"${editUrl}\" class=\"menu-link px-3\">Edit</a></div>
+                        <div class=\"menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-150px py-4\" data-kt-menu=\"true\"> 
+                            ${startBtn}
+                            ${finishBtn}
+                            ${editBtn}
                             ${deleteBtn}
                         </div>`; 
                     }},
@@ -233,6 +247,28 @@
         // Approve modal handling (dynamic table)
         const $modal = $('#approveModal');
         $('#table-on-page').on('click', '.btn-approve', function(){ const id=$(this).data('id'); const code=$(this).data('code'); const def=$(this).data('default-real')||0; $('#approve_code').text(code); $('#approve_qty').val(def); const action='{{ url('/admin/manajemen-stok/perakitan') }}'+'/'+id+'/approve'; $('#approveForm').attr('action', action); $modal.modal('show'); });
+
+        // Start process handling with confirm
+        $('#table-on-page').on('click', '.btn-start', function(){
+            const id = $(this).data('id');
+            const code = $(this).data('code');
+            const url = '{{ url('/admin/manajemen-stok/perakitan') }}'+'/'+id+'/start';
+            Swal.fire({
+                text: `Apakah anda yakin ingin memproses data ${code} ini?`,
+                icon: 'warning',
+                showCancelButton: true,
+                buttonsStyling: false,
+                confirmButtonText: 'Ya, proses!',
+                cancelButtonText: 'Batal',
+                customClass: { confirmButton: 'btn fw-bold btn-primary', cancelButton: 'btn fw-bold btn-active-light-light' }
+            }).then(function(res){
+                if (res.value) {
+                    $.post(url, { _token: csrfToken })
+                      .done(function(resp){ toastr.success(resp.message || 'Dokumen diproses'); $('#table-on-page').DataTable().ajax.reload(null,false); loadCounts(); })
+                      .fail(function(xhr){ toastr.error(xhr.responseJSON?.message || 'Gagal memproses dokumen'); });
+                }
+            });
+        });
 
         // Delete handling with confirm
         $('#table-on-page').on('submit', '.form-delete', function(e){

@@ -299,8 +299,8 @@ class PerakitanController extends Controller
 
     public function edit(Assembly $assembly)
     {
-        if ($assembly->status === 'completed') {
-            return redirect()->route('admin.manajemenstok.perakitan.index')->with('error', 'Dokumen sudah completed, tidak dapat diedit.');
+        if ($assembly->status === 'completed' || $assembly->status === 'dalam proses') {
+            return redirect()->route('admin.manajemenstok.perakitan.index')->with('error', 'Dokumen sudah '. $assembly->status .', tidak dapat diedit.');
         }
         $assembly->load('components', 'finishedItem', 'warehouse', 'recipe');
         $warehouses = Warehouse::orderBy('name')->get();
@@ -653,6 +653,46 @@ class PerakitanController extends Controller
                 return response()->json(['success' => false, 'message' => 'Gagal menghapus dokumen: ' . $e->getMessage()], 500);
             }
             return back()->with('error', 'Gagal menghapus dokumen: ' . $e->getMessage());
+        }
+    }
+
+    public function start(Request $request, Assembly $assembly)
+    {
+        if ($assembly->status !== 'draft') {
+            $message = 'Hanya dokumen berstatus draft yang dapat diproses.';
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => $message], 422);
+            }
+            return back()->with('error', $message);
+        }
+
+        DB::beginTransaction();
+        try {
+            $assembly->status = 'dalam proses';
+            $assembly->save();
+
+            UserActivity::create([
+                'user_id' => Auth::id(),
+                'activity' => 'started',
+                'menu' => 'perakitan',
+                'description' => 'Memproses perakitan (dalam proses): ' . $assembly->code,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->header('User-Agent'),
+            ]);
+
+            DB::commit();
+            $message = 'Perakitan telah diproses (status: dalam proses).';
+            if ($request->ajax()) {
+                return response()->json(['success' => true, 'message' => $message]);
+            }
+            return back()->with('success', $message);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $message = 'Gagal memproses perakitan: ' . $e->getMessage();
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => $message], 500);
+            }
+            return back()->with('error', $message);
         }
     }
 }

@@ -134,6 +134,10 @@
 @push('scripts')
 <script>
     $(function(){
+        // Date picker
+        if (typeof flatpickr !== 'undefined') {
+            $('#date').flatpickr({ dateFormat: 'Y-m-d' });
+        }
         $('[data-control="select2"]').select2({ width: '100%' });
         if ($('#recipe_id').length) {
             $('#recipe_id').select2({ width: '100%', placeholder: 'Pilih Resep', allowClear: true });
