@@ -245,8 +245,69 @@
         $('#search_input').on('keyup', debounce(function(){ loadDataTable(); loadCounts(); }, 500));
 
         // Approve modal handling (dynamic table)
-        const $modal = $('#approveModal');
-        $('#table-on-page').on('click', '.btn-approve', function(){ const id=$(this).data('id'); const code=$(this).data('code'); const def=$(this).data('default-real')||0; $('#approve_code').text(code); $('#approve_qty').val(def); const action='{{ url('/admin/manajemen-stok/perakitan') }}'+'/'+id+'/approve'; $('#approveForm').attr('action', action); $modal.modal('show'); });
+       const $modal = $('#approveModal');
+       $('#table-on-page').on('click', '.btn-approve', function(){
+            const id = $(this).data('id');
+            const code = $(this).data('code');
+            const def = $(this).data('default-real') || 0;
+            $('#approve_code').text(code);
+            $('#approve_qty').val(def);
+            $('#plan_output_qty').text('-');
+            $('#plan_output_koli').text('-');
+            $('#finished_info').html('-');
+           $('#approve_components_body').html('<tr><td colspan="6" class="text-center text-muted">Memuat data komponen...</td></tr>');
+           const action='{{ url('/admin/manajemen-stok/perakitan') }}'+'/'+id+'/approve';
+           $('#approveForm').attr('action', action);
+
+            // Init completion date picker (default today)
+            if (typeof flatpickr !== 'undefined') {
+                try { if ($('#approve_completed_date')[0]._flatpickr) { $('#approve_completed_date')[0]._flatpickr.destroy(); } } catch(e) {}
+                $('#approve_completed_date').flatpickr({ dateFormat: 'Y-m-d', defaultDate: new Date() });
+            }
+
+            const detailUrl = '{{ url('/admin/manajemen-stok/perakitan') }}'+'/'+id+'/detail';
+            $.get(detailUrl)
+              .done(function(resp){
+                 $('#plan_output_qty').text(Number(resp.output_quantity_plan ?? 0).toFixed(2));
+                 $('#plan_output_koli').text(Number(resp.output_koli_plan ?? 0).toFixed(2));
+                 const fsku = resp.finished_sku || '-';
+                 const fname = resp.finished_name || '';
+                 $('#finished_info').html(`<div class=\"fw-bold text-primary\">${fsku}</div><div class=\"text-muted small\">${fname}</div>`);
+                 // Prefill initial Output Koli Real based on ratio (plan or finished item ratio)
+                 (function(){
+                     const qtyVal = parseFloat($('#approve_qty').val());
+                     const planQty = Number(resp.output_quantity_plan || 0);
+                     const planKoli = Number(resp.output_koli_plan || 0);
+                     let ratio = planKoli > 0 ? (planQty / planKoli) : (Number(resp.finished_koli_ratio || 1) || 1);
+                     if (!isFinite(ratio) || ratio <= 0) ratio = 1;
+                     if (!isNaN(qtyVal)) {
+                         const initKoli = qtyVal / ratio;
+                         $('#approve_koli').val(isFinite(initKoli) ? initKoli.toFixed(2) : '');
+                     }
+                 })();
+                 const rows = [];
+                 (resp.components || []).forEach(function(c){
+                    const sku = c.sku || '-';
+                    const name = c.name || '';
+                    rows.push(`
+                        <tr>
+                          <td><div class=\"fw-bold text-primary\">${sku}</div><div class=\"text-muted small\">${name}</div></td>
+                          <td class=\"text-end\">${Number(c.quantity_recipes||0).toFixed(2)}</td>
+                          <td class=\"text-end\">${Number(c.quantity_plan||0).toFixed(2)}</td>
+                          <td class=\"text-end\">${Number(c.koli_plan||0).toFixed(2)}</td>
+                          <td style=\"width:140px\"><input type=\"number\" step=\"0.01\" class=\"form-control form-control-sm form-control-solid text-end\" name=\"components[${c.id}][quantity_real]\" value=\"${Number(c.quantity_plan||0).toFixed(2)}\"></td>
+                          <td style=\"width:140px\"><input type=\"number\" step=\"0.01\" class=\"form-control form-control-sm form-control-solid text-end\" name=\"components[${c.id}][koli_real]\" value=\"${Number(c.koli_plan||0).toFixed(2)}\"></td>
+                        </tr>
+                    `);
+                 });
+                 $('#approve_components_body').html(rows.join('') || '<tr><td colspan="6" class="text-center text-muted">Tidak ada komponen</td></tr>');
+              })
+              .fail(function(){
+                 $('#approve_components_body').html('<tr><td colspan="6" class="text-center text-danger">Gagal memuat data komponen</td></tr>');
+              });
+
+            $modal.modal('show');
+        });
 
         // Start process handling with confirm
         $('#table-on-page').on('click', '.btn-start', function(){
@@ -291,12 +352,63 @@
                 }
             });
         });
+
+        // Sync qty <-> koli on modal (output + components)
+        let _syncing = false;
+        function getNumber(txt){ const n = parseFloat((txt||'').toString().replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
+        function getOutputRatio(){
+            const pq = getNumber($('#plan_output_qty').text());
+            const pk = getNumber($('#plan_output_koli').text());
+            const ratio = pk > 0 ? (pq / pk) : 1;
+            return ratio > 0 ? ratio : 1;
+        }
+        $('#approveForm').on('input', '#approve_qty', function(){
+            if(_syncing) return; _syncing = true;
+            const ratio = getOutputRatio();
+            const qty = parseFloat($(this).val());
+            const koli = !isNaN(qty) ? (qty / ratio) : 0;
+            $('#approve_koli').val(isNaN(koli) ? '' : koli.toFixed(2));
+            _syncing = false;
+        });
+        $('#approveForm').on('input', '#approve_koli', function(){
+            if(_syncing) return; _syncing = true;
+            const ratio = getOutputRatio();
+            const koli = parseFloat($(this).val());
+            const qty = !isNaN(koli) ? (koli * ratio) : 0;
+            $('#approve_qty').val(isNaN(qty) ? '' : qty.toFixed(2));
+            _syncing = false;
+        });
+
+        function getRowRatio($tr){
+            const planQty = getNumber($tr.find('td:nth-child(3)').text());
+            const planKoli = getNumber($tr.find('td:nth-child(4)').text());
+            const ratio = planKoli > 0 ? (planQty / planKoli) : 1;
+            return ratio > 0 ? ratio : 1;
+        }
+        $('#approve_components_body').on('input', 'input[name^="components"][name$="[quantity_real]"]', function(){
+            if(_syncing) return; _syncing = true;
+            const $tr = $(this).closest('tr');
+            const ratio = getRowRatio($tr);
+            const qty = parseFloat($(this).val());
+            const koli = !isNaN(qty) ? (qty / ratio) : 0;
+            $tr.find('input[name^="components"][name$="[koli_real]"]').val(isNaN(koli)?'':koli.toFixed(2));
+            _syncing = false;
+        });
+        $('#approve_components_body').on('input', 'input[name^="components"][name$="[koli_real]"]', function(){
+            if(_syncing) return; _syncing = true;
+            const $tr = $(this).closest('tr');
+            const ratio = getRowRatio($tr);
+            const koli = parseFloat($(this).val());
+            const qty = !isNaN(koli) ? (koli * ratio) : 0;
+            $tr.find('input[name^="components"][name$="[quantity_real]"]').val(isNaN(qty)?'':qty.toFixed(2));
+            _syncing = false;
+        });
     });
 </script>
  
  <!-- Approve Modal -->
- <div class="modal fade" id="approveModal" tabindex="-1">
-   <div class="modal-dialog">
+<div class="modal fade" id="approveModal" tabindex="-1">
+  <div class="modal-dialog mw-800px">
      <div class="modal-content">
        <div class="modal-header">
          <h5 class="modal-title">Approval Perakitan <span id="approve_code"></span></h5>
@@ -304,14 +416,42 @@
        </div>
        <form id="approveForm" method="POST" action="#">
          @csrf
-         <div class="modal-body">
+       <div class="modal-body">
+          <div class="mb-5">
+            <div class="fw-bold">Produk Jadi</div>
+            <div id="finished_info" class="mb-3 text-gray-800">-</div>
+            <div class="fw-bold">Rencana Output</div>
+            <div class="text-muted small">Qty Plan: <span id="plan_output_qty">-</span> | Koli Plan: <span id="plan_output_koli">-</span></div>
+          </div>
+          <div class="mb-5">
+            <label class="form-label required">Tanggal Selesai</label>
+            <input type="text" name="completed_date" id="approve_completed_date" class="form-control form-control-solid" placeholder="YYYY-MM-DD" required>
+          </div>
+          <div class="mb-5">
+            <label class="form-label required">Output Quantity Real</label>
+            <input type="number" step="0.01" name="output_quantity_real" id="approve_qty" class="form-control form-control-solid" required>
+          </div>
            <div class="mb-5">
-             <label class="form-label required">Output Quantity Real</label>
-             <input type="number" step="0.01" name="output_quantity_real" id="approve_qty" class="form-control form-control-solid" required>
-           </div>
+            <label class="form-label">Output Koli Real</label>
+            <input type="number" step="0.01" name="output_koli_real" id="approve_koli" class="form-control form-control-solid">
+          </div>
            <div class="mb-5">
-             <label class="form-label">Output Koli Real</label>
-             <input type="number" step="0.01" name="output_koli_real" class="form-control form-control-solid">
+             <div class="fw-bold mb-2">Komponen (Resep)</div>
+             <div class="table-responsive" style="max-height: 320px; overflow:auto;">
+               <table class="table table-sm align-middle">
+                 <thead>
+                   <tr>
+                     <th>Item</th>
+                     <th class="text-end">Qty Resep</th>
+                     <th class="text-end">Qty Plan</th>
+                     <th class="text-end">Koli Plan</th>
+                     <th class="text-end">Qty Real</th>
+                     <th class="text-end">Koli Real</th>
+                   </tr>
+                 </thead>
+                 <tbody id="approve_components_body"></tbody>
+               </table>
+             </div>
            </div>
            <div class="text-muted">Komponen akan dikurangkan dan produk jadi akan ditambahkan ke stok saat disetujui.</div>
          </div>

@@ -19,6 +19,7 @@ return new class extends Migration {
             $table->decimal('output_koli_plan', 20, 2)->default(0);
             $table->decimal('output_koli_real', 20, 2)->default(0);
             $table->text('notes')->nullable();
+            $table->date('completed_at')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->enum('status', ['draft','dalam proses', 'completed'])->default('draft');
             $table->timestamps();

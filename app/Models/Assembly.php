@@ -19,6 +19,7 @@ class Assembly extends Model
         'output_koli_plan',
         'output_koli_real',
         'notes',
+        'completed_at',
         'created_by',
         'status',
     ];
@@ -29,6 +30,7 @@ class Assembly extends Model
         'output_quantity_real' => 'decimal:2',
         'output_koli_plan' => 'decimal:2',
         'output_koli_real' => 'decimal:2',
+        'completed_at' => 'date',
     ];
 
     public function warehouse()

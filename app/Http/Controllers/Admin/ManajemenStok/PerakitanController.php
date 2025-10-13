@@ -453,24 +453,41 @@ class PerakitanController extends Controller
         $request->validate([
             'output_quantity_real' => 'required|numeric|min:0.01',
             'output_koli_real' => 'nullable|numeric|min:0',
+            'components' => 'sometimes|array',
+            'components.*.quantity_real' => 'nullable|numeric|min:0',
+            'components.*.koli_real' => 'nullable|numeric|min:0',
+            'completed_date' => 'nullable|date',
         ]);
 
         DB::beginTransaction();
         try {
             $assembly->output_quantity_real = $request->input('output_quantity_real');
             $assembly->output_koli_real =  $request->input('output_koli_real', 0);
+            $completedDate = $request->input('completed_date');
+            if ($completedDate) {
+                $assembly->completed_at = $completedDate;
+            } else {
+                $assembly->completed_at = now()->toDateString();
+            }
             $assembly->status = 'completed';
             $assembly->save();
 
-            // Determine real component usage: fallback to plan if none provided
+            // Determine real component usage: use request values if provided; otherwise fallback to plan
+            $componentsInput = (array) $request->input('components', []);
             $components = $assembly->components()->get();
             foreach ($components as $component) {
-                if (!$component->quantity_real || $component->quantity_real <= 0) {
-                    $component->quantity_real = $component->quantity_plan;
+                $cid = (string) $component->id;
+                $realQty = isset($componentsInput[$cid]['quantity_real']) ? (float) $componentsInput[$cid]['quantity_real'] : null;
+                $realKoli = isset($componentsInput[$cid]['koli_real']) ? (float) $componentsInput[$cid]['koli_real'] : null;
+
+                if ($realQty === null || $realQty <= 0) {
+                    $realQty = (float) $component->quantity_plan;
                 }
-                if (!$component->koli_real || $component->koli_real <= 0) {
-                    $component->koli_real = $component->koli_plan;
+                if ($realKoli === null || $realKoli < 0) {
+                    $realKoli = (float) $component->koli_plan;
                 }
+                $component->quantity_real = $realQty;
+                $component->koli_real = $realKoli;
                 $component->save();
             }
 
@@ -614,6 +631,33 @@ class PerakitanController extends Controller
             'completed' => (clone $base)->where('status', 'completed')->count(),
         ];
         return response()->json($counts);
+    }
+
+    public function detail(Assembly $assembly)
+    {
+        $assembly->load(['components.item', 'finishedItem']);
+        return response()->json([
+            'id' => $assembly->id,
+            'code' => $assembly->code,
+            'status' => $assembly->status,
+            'output_quantity_plan' => (float) $assembly->output_quantity_plan,
+            'output_koli_plan' => (float) $assembly->output_koli_plan,
+            'finished_sku' => $assembly->finishedItem->sku ?? null,
+            'finished_name' => $assembly->finishedItem->nama_barang ?? null,
+            'finished_koli_ratio' => isset($assembly->finishedItem) ? (float) ($assembly->finishedItem->koli ?? 1) : 1,
+            'components' => $assembly->components->map(function ($c) {
+                return [
+                    'id' => $c->id,
+                    'item_id' => $c->item_id,
+                    'sku' => $c->item->sku ?? null,
+                    'name' => $c->item->nama_barang ?? null,
+                    'quantity_recipes' => (float) $c->quantity_recipes,
+                    'quantity_plan' => (float) $c->quantity_plan,
+                    'koli_plan' => (float) $c->koli_plan,
+                    'koli_ratio' => isset($c->item) ? (float) ($c->item->koli ?? 1) : 1,
+                ];
+            })->values(),
+        ]);
     }
 
     public function destroy(Request $request, Assembly $assembly)
