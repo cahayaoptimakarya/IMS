@@ -676,6 +676,12 @@ class PerakitanController extends Controller
         return response()->json($counts);
     }
 
+    public function show(Assembly $assembly)
+    {
+        $assembly->load(['warehouse', 'finishedItem', 'components.item', 'recipe']);
+        return view('admin.manajemenstok.perakitan.show', compact('assembly'));
+    }
+
     public function detail(Assembly $assembly)
     {
         $assembly->load(['components.item', 'finishedItem']);
