@@ -452,10 +452,22 @@
         // toast
         toastr.options = { positionClass: 'toast-top-center', progressBar: true };
         @if ($errors->any())
-            @php $errs = json_encode($errors->all()); @endphp
             JSON.parse(@json($errors->all())).forEach(function(m){ toastr.error(m); });
         @endif
         @if (Session::has('error')) toastr.error("{{ session('error') }}"); @endif
+        @if (Session::has('stock_errors'))
+            (function(){
+                const list = @json(session('stock_errors')) || [];
+                const title = @json(session('stock_error_title') ?? 'Stok tidak mencukupi');
+                let html = '<div style="text-align:left">Berikut komponen yang stoknya kurang:<ul style="margin-top:8px">';
+                list.forEach(function(it){
+                    const sku = it.sku ? '('+it.sku+') ' : '';
+                    html += '<li>'+sku+ (it.name || ('Item #'+it.item_id)) + ': butuh ' + (Number(it.required).toFixed(2)) + ', tersedia ' + (Number(it.available).toFixed(2)) + '</li>';
+                });
+                html += '</ul></div>';
+                Swal.fire({ icon:'error', title: title, html: html });
+            })();
+        @endif
     });
 </script>
 @endpush

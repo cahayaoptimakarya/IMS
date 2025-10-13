@@ -106,15 +106,37 @@ class PerakitanController extends Controller
         $quantitiesPlan = $request->input('components.quantity_plan', []);
         $kolisPlan = $request->input('components.koli_plan', []);
 
-        // Validate stock sufficiency
-        foreach ($itemIds as $idx => $itemId) {
-            $qty = (float) ($quantitiesPlan[$idx] ?? 0);
-            if (!$itemId || $qty <= 0) continue;
-            $inv = Inventory::where('warehouse_id', $warehouseId)->where('item_id', $itemId)->first();
-            $available = $inv ? (float) $inv->quantity : 0.0;
-            if ($available < $qty) {
-                return back()->withInput()->withErrors(['components.quantity_plan.' . $idx => 'Stok komponen tidak mencukupi untuk perakitan.']);
+        // Validate stock sufficiency (aggregate and return SweetAlert-friendly payload)
+        $shortages = [];
+        $uniqItemIds = collect($itemIds)->filter()->unique()->values()->all();
+        if (!empty($uniqItemIds)) {
+            $inventories = Inventory::where('warehouse_id', $warehouseId)
+                ->whereIn('item_id', $uniqItemIds)
+                ->get()
+                ->keyBy('item_id');
+            $itemsMeta = Item::whereIn('id', $uniqItemIds)->get()->keyBy('id');
+            foreach ($itemIds as $idx => $itemId) {
+                $qty = (float) ($quantitiesPlan[$idx] ?? 0);
+                if (!$itemId || $qty <= 0) continue;
+                $available = isset($inventories[$itemId]) ? (float) $inventories[$itemId]->quantity : 0.0;
+                if ($available < $qty) {
+                    $meta = $itemsMeta[$itemId] ?? null;
+                    $shortages[] = [
+                        'item_id' => (int) $itemId,
+                        'sku' => $meta->sku ?? null,
+                        'name' => $meta->nama_barang ?? 'Item #' . $itemId,
+                        'required' => $qty,
+                        'available' => $available,
+                        'row_index' => $idx,
+                    ];
+                }
             }
+        }
+        if (!empty($shortages)) {
+            return back()
+                ->withInput()
+                ->with('stock_errors', $shortages)
+                ->with('stock_error_title', 'Stok komponen tidak mencukupi');
         }
 
         DB::beginTransaction();
@@ -230,6 +252,42 @@ class PerakitanController extends Controller
             $seen[$compId] = true;
         }
 
+        // Validate stock sufficiency prior to persisting changes
+        $warehouseId = (int) $request->input('warehouse_id');
+        $itemIds = $request->input('components.item_id', []);
+        $quantitiesPlan = $request->input('components.quantity_plan', []);
+        $shortages = [];
+        $uniqItemIds = collect($itemIds)->filter()->unique()->values()->all();
+        if (!empty($uniqItemIds)) {
+            $inventories = Inventory::where('warehouse_id', $warehouseId)
+                ->whereIn('item_id', $uniqItemIds)
+                ->get()
+                ->keyBy('item_id');
+            $itemsMeta = Item::whereIn('id', $uniqItemIds)->get()->keyBy('id');
+            foreach ($itemIds as $idx => $itemId) {
+                $qty = (float) ($quantitiesPlan[$idx] ?? 0);
+                if (!$itemId || $qty <= 0) continue;
+                $available = isset($inventories[$itemId]) ? (float) $inventories[$itemId]->quantity : 0.0;
+                if ($available < $qty) {
+                    $meta = $itemsMeta[$itemId] ?? null;
+                    $shortages[] = [
+                        'item_id' => (int) $itemId,
+                        'sku' => $meta->sku ?? null,
+                        'name' => $meta->nama_barang ?? 'Item #' . $itemId,
+                        'required' => $qty,
+                        'available' => $available,
+                        'row_index' => $idx,
+                    ];
+                }
+            }
+        }
+        if (!empty($shortages)) {
+            return back()
+                ->withInput()
+                ->with('stock_errors', $shortages)
+                ->with('stock_error_title', 'Stok komponen tidak mencukupi');
+        }
+
         DB::beginTransaction();
         try {
             $recipeId = $request->input('assembly_recipe_id');
@@ -301,7 +359,7 @@ class PerakitanController extends Controller
         DB::beginTransaction();
         try {
             $assembly->output_quantity_real = $request->input('output_quantity_real');
-            $assembly->output_koli_real = (float) $request->input('output_koli_real', 0);
+            $assembly->output_koli_real =  $request->input('output_koli_real', 0);
             $assembly->status = 'completed';
             $assembly->save();
 
