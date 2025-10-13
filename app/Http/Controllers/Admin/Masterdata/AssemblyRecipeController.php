@@ -15,7 +15,7 @@ class AssemblyRecipeController extends Controller
 {
     private function generateCode(): string
     {
-        $prefix = 'P_RKT';
+    $prefix = 'PRKT';
         $date = now()->format('Ymd');
         $latest = AssemblyRecipe::where('code', 'LIKE', "$prefix-$date-%")->latest('id')->first();
         $seq = 1;

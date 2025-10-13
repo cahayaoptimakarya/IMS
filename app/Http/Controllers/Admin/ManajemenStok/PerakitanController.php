@@ -300,7 +300,7 @@ class PerakitanController extends Controller
 
         DB::beginTransaction();
         try {
-            $assembly->output_quantity_real = (float) $request->input('output_quantity_real');
+            $assembly->output_quantity_real = $request->input('output_quantity_real');
             $assembly->output_koli_real = (float) $request->input('output_koli_real', 0);
             $assembly->status = 'completed';
             $assembly->save();

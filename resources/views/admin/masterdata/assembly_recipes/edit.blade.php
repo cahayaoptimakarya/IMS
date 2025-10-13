@@ -29,7 +29,7 @@
                                 <select name="finished_item_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Item" required>
                                     <option value="">Pilih Item</option>
                                     @foreach($items as $item)
-                                        <option value="{{ $item->id }}" {{ old('finished_item_id', $recipe->finished_item_id) == $item->id ? 'selected' : '' }}>{{ $item->nama_barang }} ({{ $item->sku }})</option>
+                                        <option value="{{ $item->id }}" {{ old('finished_item_id', $recipe->finished_item_id) == $item->id ? 'selected' : '' }}>({{ $item->sku }}) {{ $item->nama_barang }}</option>
                                     @endforeach
                                 </select>
                                 @error('finished_item_id')
@@ -55,7 +55,7 @@
                                             <select name="components[item_id][]" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Item" required>
                                                 <option value="">Pilih Item</option>
                                                 @foreach($items as $item)
-                                                    <option value="{{ $item->id }}" {{ $oi == $item->id ? 'selected' : '' }}>{{ $item->nama_barang }} ({{ $item->sku }})</option>
+                                                    <option value="{{ $item->id }}" {{ $oi == $item->id ? 'selected' : '' }}>({{ $item->sku }}) {{ $item->nama_barang }}</option>
                                                 @endforeach
                                             </select>
                                             <input type="number" step="0.01" name="components[quantity][]" class="form-control form-control-solid" placeholder="Qty" value="{{ $oldQtys[$idx] ?? '' }}" required>
@@ -68,7 +68,7 @@
                                             <select name="components[item_id][]" class="form-select form-select-solid" required>
                                                 <option value="">Pilih Item</option>
                                                 @foreach($items as $item)
-                                                    <option value="{{ $item->id }}" {{ $ri->item_id == $item->id ? 'selected' : '' }}>{{ $item->nama_barang }} ({{ $item->sku }})</option>
+                                                    <option value="{{ $item->id }}" {{ $ri->item_id == $item->id ? 'selected' : '' }}>({{ $item->sku }}) {{ $item->nama_barang }}</option>
                                                 @endforeach
                                             </select>
                                             <input type="number" step="0.01" name="components[quantity][]" class="form-control form-control-solid" placeholder="Qty" value="{{ $ri->quantity }}" required>
@@ -85,7 +85,7 @@
                                     <select name="components[item_id][]" class="form-select form-select-solid" data-placeholder="Pilih Item" required>
                                         <option value="">Pilih Item</option>
                                         @foreach($items as $item)
-                                            <option value="{{ $item->id }}">{{ $item->nama_barang }} ({{ $item->sku }})</option>
+                                            <option value="{{ $item->id }}">({{ $item->sku }}) {{ $item->nama_barang }}</option>
                                         @endforeach
                                     </select>
                                     <input type="number" step="0.01" name="components[quantity][]" class="form-control form-control-solid" placeholder="Qty" required>
