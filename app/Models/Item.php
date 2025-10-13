@@ -17,7 +17,9 @@ class Item extends Model
         'deskripsi',
         'product_code',
         'item_category_id',
+        'low_stock_threshold',
     ];
+
 
     public function uom()
     {

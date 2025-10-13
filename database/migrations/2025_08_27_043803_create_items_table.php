@@ -16,6 +16,7 @@ return new class extends Migration
             $table->integer('koli');
             $table->string('sku')->unique();
             $table->foreignId('uom_id')->constrained('uoms')->onDelete('cascade');
+            $table->integer('low_stock_threshold')->default(100);
             $table->timestamps();
         });
     }
