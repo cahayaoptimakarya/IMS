@@ -4,10 +4,9 @@ namespace App\Notifications;
 
 use App\Models\TransferRequest;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class TransferRequestCreated extends Notification implements ShouldQueue
+class TransferRequestCreated extends Notification
 {
     use Queueable;
 
@@ -39,4 +38,3 @@ class TransferRequestCreated extends Notification implements ShouldQueue
         ];
     }
 }
-

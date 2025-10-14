@@ -9,10 +9,12 @@ use App\Models\ShipmentItemDetail;
 use App\Models\StockMovement;
 use App\Models\TransferRequestItem;
 use App\Models\UserActivity;
+use App\Models\User;
 use Auth;
 use Illuminate\Http\Request;
 use App\Models\TransferRequest;
 use App\Models\Warehouse;
+use App\Notifications\TransferRequestApproved;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -200,6 +202,16 @@ class PermintaanBarangController extends Controller
             ]);
 
             DB::commit();
+
+            // Notify requesting warehouse users that the request was approved
+            try {
+                $recipients = User::where('warehouse_id', $transferRequest->to_warehouse_id)->get();
+                foreach ($recipients as $user) {
+                    $user->notify(new TransferRequestApproved($transferRequest));
+                }
+            } catch (\Throwable $e) {
+                // Do not block the response on notification failures
+            }
 
             return response()->json(['success' => true, 'message' => 'Status berhasil diperbarui.']);
         } catch (\Exception $e) {

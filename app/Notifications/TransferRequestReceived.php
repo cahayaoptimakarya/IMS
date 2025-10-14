@@ -6,10 +6,9 @@ use App\Models\GoodsReceipt;
 use App\Models\Shipment;
 use App\Models\TransferRequest;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class TransferRequestReceived extends Notification implements ShouldQueue
+class TransferRequestReceived extends Notification
 {
     use Queueable;
 
@@ -47,4 +46,3 @@ class TransferRequestReceived extends Notification implements ShouldQueue
         ];
     }
 }
-
