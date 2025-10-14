@@ -181,23 +181,7 @@
                         <div class="notes-box fw-semibold text-gray-800">{{ $adjustment->notes ?? '-' }}</div>
                     </div>
 
-                    <div class="row g-10 mt-10">
-                        <div class="col-sm-4 text-center">
-                            <div class="fw-bold text-gray-700">Dibuat Oleh</div>
-                            <div class="signature-line"></div>
-                            <div class="signature-caption">Nama & Tanda Tangan</div>
-                        </div>
-                        <div class="col-sm-4 text-center">
-                            <div class="fw-bold text-gray-700">Diperiksa Oleh</div>
-                            <div class="signature-line"></div>
-                            <div class="signature-caption">Nama & Tanda Tangan</div>
-                        </div>
-                        <div class="col-sm-4 text-center">
-                            <div class="fw-bold text-gray-700">Disetujui Oleh</div>
-                            <div class="signature-line"></div>
-                            <div class="signature-caption">Nama & Tanda Tangan</div>
-                        </div>
-                    </div>
+                    <!-- Signature blocks removed as requested -->
 
                     <div class="d-flex justify-content-between align-items-center mt-10 d-print-none">
                         <a href="{{ route('admin.manajemenstok.adjustment.index') }}" class="btn btn-secondary">Kembali</a>
