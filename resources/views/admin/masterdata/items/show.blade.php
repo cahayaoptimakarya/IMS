@@ -31,10 +31,6 @@
                     <p class="form-control-static">{{ $item->deskripsi }}</p>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Product Code:</label>
-                    <p class="form-control-static">{{ $item->product_code }}</p>
-                </div>
-                <div class="mb-3">
                     <label class="form-label fw-bold">UOM:</label>
                     <p class="form-control-static">{{ $item->uom->name ?? '' }}</p>
                 </div>

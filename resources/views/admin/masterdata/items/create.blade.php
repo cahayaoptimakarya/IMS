@@ -16,20 +16,11 @@
                 <h3 class="card-title">Tambah Item</h3>
             </div>
             <div class="card-body">
+
                 <form id="item-form" action="{{ route('admin.masterdata.items.store') }}" method="POST">
                     @csrf
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="fv-row mb-7">
-                                <label for="product_code" class="form-label required">Product Code</label>
-                                <input type="text" class="form-control form-control-solid" id="product_code" name="product_code"
-                                    value="{{ old('product_code', $generatedProductCode) }}" readonly required>
-                                @error('product_code')
-                                    <span class="text-danger">{{ $message }}</span>
-                                @enderror
-                            </div>
-                        </div>
-                        <div class="col-md-6">
+                    <div class="row gx-6">
+                        <div class="col-lg-6">
                             <div class="fv-row mb-7">
                                 <label for="item_category_id" class="form-label required">Kategori Item</label>
                                 <select class="form-select form-select-solid fw-bolder select2-hidden-accessible"
@@ -47,11 +38,7 @@
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
-                        </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="col-md-6">
                             <div class="fv-row mb-7">
                                 <label for="sku" class="form-label required">SKU</label>
                                 <input type="text" class="form-control form-control-solid" id="sku" name="sku"
@@ -61,21 +48,7 @@
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="fv-row mb-7">
-                                <label for="nama_barang" class="form-label required">Nama Barang</label>
-                                <input type="text" class="form-control form-control-solid" id="nama_barang" name="nama_barang"
-                                    value="{{ old('nama_barang') }}" required>
-                                @error('nama_barang')
-                                    <span class="text-danger">{{ $message }}</span>
-                                @enderror
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="row">
-                        <div class="col-md-6">
                             <div class="fv-row mb-7">
                                 <label for="uom_id" class="form-label required">UOM</label>
                                 <select class="form-select form-select-solid fw-bolder select2-hidden-accessible" id="uom_id"
@@ -92,13 +65,22 @@
                                 @enderror
                             </div>
                         </div>
-                        <div class="col-md-6">
+
+                        <div class="col-lg-6">
+                            <div class="fv-row mb-7">
+                                <label for="nama_barang" class="form-label required">Nama Barang</label>
+                                <input type="text" class="form-control form-control-solid" id="nama_barang" name="nama_barang"
+                                    value="{{ old('nama_barang') }}" required>
+                                @error('nama_barang')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+
                             <div class="fv-row mb-7">
                                 <label for="koli" class="form-label required">Koli</label>
                                 <input type="number" class="form-control form-control-solid" value="{{ old('koli') }}" id="koli" name="koli" min="0" step="1" required>
                             </div>
-                        </div>
-                        <div class="col-md-6">
+
                             <div class="fv-row mb-7">
                                 <label for="low_stock_threshold" class="form-label">Minimal Stok Menipis</label>
                                 <input type="number" min="0" step="1" class="form-control form-control-solid" id="low_stock_threshold" name="low_stock_threshold"

@@ -24,7 +24,6 @@ class ItemSeeder extends Seeder
         $items = [
             // Elektronik
             [
-                'product_code' => 'EL-LAP-001',
                 'nama_barang' => 'Laptop Super Canggih',
                 'sku' => 'EL-LAP-001',
                 'item_category_id' => $elektronikCategory->id,
@@ -32,7 +31,6 @@ class ItemSeeder extends Seeder
                 'koli' => 22
             ],
             [
-                'product_code' => 'EL-LAP-002',
                 'nama_barang' => 'Smartphone Keren',
                 'sku' => 'EL-SMA-001',
                 'item_category_id' => $elektronikCategory->id,
@@ -41,7 +39,6 @@ class ItemSeeder extends Seeder
             ],
             // Peralatan Rumah
             [
-                'product_code' => 'EL-LAP-003',
                 'nama_barang' => 'Panci Anti Lengket',
                 'sku' => 'PR-PAN-001',
                 'item_category_id' => $peralatanRumahCategory->id,
@@ -49,7 +46,6 @@ class ItemSeeder extends Seeder
                 'koli' => 12
             ],
             [
-                'product_code' => 'EL-LAP-004',
                 'nama_barang' => 'Sapu Otomatis',
                 'sku' => 'PR-SAP-001',
                 'item_category_id' => $peralatanRumahCategory->id,
@@ -57,7 +53,6 @@ class ItemSeeder extends Seeder
                 'koli' => 4
             ],
             [
-                'product_code' => 'EL-LAP-005',
                 'nama_barang' => 'Setrika Uap',
                 'sku' => 'PR-SET-001',
                 'item_category_id' => $peralatanRumahCategory->id,

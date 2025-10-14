@@ -45,8 +45,7 @@ class ItemController extends Controller
     {
         $uoms = Uom::all();
         $itemcategories = ItemCategory::all();
-        $generatedProductCode = $this->generateProductCode();
-        return view('admin.masterdata.items.create', compact('uoms', 'generatedProductCode', 'itemcategories'));
+        return view('admin.masterdata.items.create', compact('uoms', 'itemcategories'));
     }
 
     /**
@@ -61,7 +60,6 @@ class ItemController extends Controller
             'item_category_id' => 'required|exists:item_categories,id|not_in:null',
             'nama_barang' => 'required|string',
             'deskripsi' => 'nullable|string',
-            'product_code' => 'nullable|string|unique:items,product_code',
             'low_stock_threshold' => 'nullable|integer|min:0',
         ]);
 
@@ -70,10 +68,6 @@ class ItemController extends Controller
             $data = $request->all();
             // Default low stock threshold to 100 if not provided
             $data['low_stock_threshold'] = $request->input('low_stock_threshold', 100);
-            // If product_code is not provided (e.g., from a hidden field or JS generation), generate it
-            if (empty($data['product_code'])) {
-                $data['product_code'] = $this->generateProductCode();
-            }
 
             $item = Item::create($data);
 
@@ -130,13 +124,12 @@ class ItemController extends Controller
             'item_category_id' => 'required|exists:item_categories,id|not_in:null',
             'nama_barang' => 'required|string',
             'deskripsi' => 'nullable|string',
-            'product_code' => 'nullable|string|unique:items,product_code,' . $item->id,
             'low_stock_threshold' => 'nullable|integer|min:0',
         ]);
 
         DB::beginTransaction();
         try {
-            $payload = $request->except(['product_code']);
+            $payload = $request->all();
             if (!$request->has('low_stock_threshold')) {
                 // keep existing when field not present
                 $payload['low_stock_threshold'] = $item->low_stock_threshold;
@@ -193,37 +186,7 @@ class ItemController extends Controller
         }
     }
 
-    /**
-     * Generate a unique product code.
-     *
-     * @return string
-     */
-    private function generateProductCode()
-    {
-        $prefix = 'PROD';
-        $date = date('Ymd');
-
-        $lastItem = Item::where('product_code', 'like', $prefix . $date . '%')
-                        ->orderBy('product_code', 'desc')
-                        ->first();
-
-        if ($lastItem) {
-            $lastCode = $lastItem->product_code;
-            // Extract the numeric part from the end of the product code
-            // Assuming the format is PRODYYYYMMDDXXXX where XXXX is the number
-            $numericPart = substr($lastCode, -4); // Get the last 4 characters
-            if (is_numeric($numericPart)) {
-                $lastNumber = (int) $numericPart;
-                $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-                return $prefix . $date . $newNumber;
-            } else {
-                // If the last 4 characters are not numeric, generate a new random 4-digit number
-                return $prefix . $date . str_pad(mt_rand(0, 9999), 4, '0', STR_PAD_LEFT);
-            }
-        } else {
-            return $prefix . $date . str_pad(mt_rand(0, 9999), 4, '0', STR_PAD_LEFT);
-        }
-    }
+    
 
     public function checkSkuUniqueness(Request $request)
     {

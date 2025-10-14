@@ -13,10 +13,13 @@ return new class extends Migration
     {
         Schema::create('items', function (Blueprint $table) {
             $table->id();
-            $table->integer('koli');
+            $table->integer('koli')->default(10);
             $table->string('sku')->unique();
-            $table->foreignId('uom_id')->constrained('uoms')->onDelete('cascade');
+            $table->foreignId('uom_id');
+            $table->foreignId('item_category_id')->nullable()->constrained('item_categories')->onDelete('set null');
             $table->integer('low_stock_threshold')->default(100);
+            $table->string('nama_barang');
+            $table->text('deskripsi')->nullable();
             $table->timestamps();
         });
     }

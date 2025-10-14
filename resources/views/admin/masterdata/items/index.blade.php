@@ -2,6 +2,13 @@
 
 @push('styles')
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    <style>
+        /* Improve Item/SKU cell appearance */
+        .item-sku-cell { display:flex; align-items:center; gap:12px; }
+        .item-sku-badge { background:#e6f0ff; color:#1e40af; font-weight:700; padding:6px 8px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Helvetica Neue', monospace; }
+        .item-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:320px; }
+        @media (max-width: 576px) { .item-name { max-width:140px; } }
+    </style>
 @endpush
 
 @push('toolbar')
@@ -68,9 +75,8 @@
                             <thead>
                                 <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
                                     <th class="sorting">No</th>
-                                    <th class="min-w-125px sorting">Item</th>
-                                    <th class="min-w-125px sorting">SKU</th>
-                                    <th class="min-w-125px sorting">Kategori</th>
+                                    <th class="min-w-250px sorting">Item / SKU</th>
+                                    <th class="min-w-125px sorting">Minimal Stok Menipis</th>
                                     <th class="min-w-125px sorting">Koli</th>
                                     <th class="min-w-125px sorting">UOM</th>
                                     <th class="min-w-125px sorting">Deskripsi</th>
@@ -82,11 +88,15 @@
                                     <tr>
                                         <td>{{ $loop->iteration }}</td>
                                         <td>
-                                            {{ $item->nama_barang }}<br>
-                                            <span class="text-muted fs-7">{{ $item->product_code }}</span>
+                                            <div class="item-sku-cell">
+                                                <div class="item-sku-badge">{{ $item->sku }}</div>
+                                                <div>
+                                                    <div class="fw-bold text-dark item-name" title="{{ $item->nama_barang }}">{{ $item->nama_barang }}</div>
+                                                    <div class="text-muted small">{{ $item->itemCategory->name ?? '' }}</div>
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td>{{ $item->sku }}</td>
-                                        <td>{{ $item->itemCategory->name ?? '' }}</td>
+                                        <td>{{ isset($item->low_stock_threshold) ? number_format((int)$item->low_stock_threshold, 0, ',', '.') : '-' }}</td>
                                         <td>{{ $item->koli }}</td>
                                         <td>{{ $item->uom->name ?? '' }}</td>
                                         <td>{{ $item->deskripsi }}</td>
@@ -169,12 +179,12 @@
                 toastr.error("{{ session('error') }}");
             @endif
 
-            var table = $('#table-on-page').DataTable({
+                var table = $('#table-on-page').DataTable({
                 "info": false,
                 'order': [],
                 'columnDefs': [{
                     orderable: false,
-                    targets: 7 // Adjusted target for Actions column
+                    targets: 6 // Adjusted target for Actions column
                 }, ]
             });
 
