@@ -9,6 +9,40 @@
 
 @section('content')
     <div class="content flex-row-fluid" id="kt_content">
+        <!--begin::Top Filters-->
+        <div class="card mb-7">
+            <div class="card-body">
+                <div class="row g-6 g-xl-9 align-items-end">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label fw-bold">Item</label>
+                        <select id="item_filter" class="form-select form-select-solid" data-kt-select2="true" data-placeholder="Pilih item (opsional)">
+                            <option value="">Semua Item</option>
+                            @foreach ($items as $it)
+                                <option value="{{ $it->id }}">{{ $it->sku }} - {{ $it->nama_barang }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @if(!$hideWarehouseFilter)
+                    <div class="col-12 col-md-3">
+                        <label class="form-label fw-bold">Gudang</label>
+                        <select id="warehouse_filter" class="form-select form-select-solid" data-kt-select2="true" data-placeholder="Pilih Gudang (opsional)">
+                            <option value=""></option>
+                            <option value="semua">Semua Gudang</option>
+                            @foreach ($warehouses as $warehouse)
+                                <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
+                    
+                    <div class="col-12 col-md-3 text-md-end">
+                        <button type="button" class="btn btn-light me-3" id="reset_filter">Reset</button>
+                        <button type="button" class="btn btn-primary" id="apply_filter_top">Terapkan</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--end::Top Filters-->
         <!--begin::Row-->
         <div class="row g-5 g-xl-8">
             <div class="col-xl-4">
@@ -35,6 +69,7 @@
                         </span>
                         <div class="text-white fw-bolder fs-2 mb-2 mt-5" id="total_stock_quantity">-</div>
                         <div class="fw-bold text-white">Total Stok Keseluruhan</div>
+                        <div class="text-white fw-bold fs-6 mt-3">Total Koli: <span id="total_stock_koli">-</span></div>
                     </div>
                 </div>
             </div>
@@ -48,7 +83,7 @@
 							</svg>
                         </span>
                         <div class="text-white fw-bolder fs-2 mb-2 mt-5" id="low_stock_items">-</div>
-                        <div class="fw-bold text-white">Item Stok Menipis (<= 10)</div>
+                        <div class="fw-bold text-white">Item Stok Menipis</div>
                     </div>
                 </a>
             </div>
@@ -104,52 +139,6 @@
                             placeholder="Cari Stok by SKU/Nama">
                     </div>
                 </div>
-                <div class="card-toolbar">
-                    <button type="button" class="btn btn-light-primary me-3" data-kt-menu-trigger="click"
-                        data-kt-menu-placement="bottom-end">
-                        <span class="svg-icon svg-icon-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                fill="none">
-                                <path
-                                    d="M19.0759 3H4.72777C3.95892 3 3.47768 3.83148 3.86067 4.49814L8.56967 12.6949C9.17923 13.7559 9.5 14.9582 9.5 16.1819V19.5072C9.5 20.2189 10.2223 20.7028 10.8805 20.432L13.8805 19.1977C14.2553 19.0435 14.5 18.6783 14.5 18.273V13.8372C14.5 12.8089 14.8171 11.8056 15.408 10.964L19.8943 4.57465C20.3596 3.912 19.8856 3 19.0759 3Z"
-                                    fill="black" />
-                            </svg>
-                        </span>
-                        Filter
-                    </button>
-                    <div class="menu menu-sub menu-sub-dropdown w-300px w-md-325px" data-kt-menu="true">
-                        <div class="px-7 py-5">
-                            <div class="fs-4 text-dark fw-bolder">Filter Options</div>
-                        </div>
-                        <div class="separator border-gray-200"></div>
-                        <div class="px-7 py-5">
-                            @if (!$hideWarehouseFilter)
-                                <div class="mb-10">
-                                    <label class="form-label fs-5 fw-bold mb-3">Gudang:</label>
-                                    <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" id="warehouse_filter">
-                                        <option value="semua">Semua Gudang</option>
-                                        @foreach ($warehouses as $warehouse)
-                                            <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @endif
-                            <div class="mb-10">
-                                <label class="form-label fs-5 fw-bold mb-3">Kategori Item:</label>
-                                <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" id="category_filter">
-                                    <option value="semua">Semua Kategori</option>
-                                    @foreach ($categories as $category)
-                                        <option value="{{ $category->id }}">{{ $category->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="d-flex justify-content-end">
-                                <button type="button" class="btn btn-light btn-active-light-primary me-2" data-kt-menu-dismiss="true">Reset</button>
-                                <button type="button" class="btn btn-primary" id="apply_filter">Apply</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
             <div class="card-body pt-4">
                 <div class="table-responsive">
@@ -162,8 +151,19 @@
                                 <th>SKU</th>
                                 <th>Nama Item</th>
                                 <th>Kategori</th>
-                                <th>Stok</th>
+                                <th>Stok Saat Ini</th>
+                                <th>Koli Saat Ini</th>
                                 <th>UOM</th>
+                                <th>Saldo Awal</th>
+                                <th>Koli Awal</th>
+                                <th>Masuk</th>
+                                <th>Koli Masuk</th>
+                                <th>Keluar</th>
+                                <th>Koli Keluar</th>
+                                <th>Saldo Akhir</th>
+                                <th>Koli Akhir</th>
+                                <th>Turnover</th>
+                                <th>Terakhir Gerak</th>
                             </tr>
                         </thead>
                         <tbody class="fw-bold text-gray-600">
@@ -181,6 +181,13 @@
         $(document).ready(function() {
             let stockMovementChart, topItemsChart;
             let table;
+
+            // Initialize Select2 with clear button (X)
+            const select2Options = { allowClear: true, width: '100%' };
+            $('#item_filter').select2(Object.assign({}, select2Options, { placeholder: $('#item_filter').data('placeholder') || 'Pilih item (opsional)' }));
+            @if(!$hideWarehouseFilter)
+            $('#warehouse_filter').select2(Object.assign({}, select2Options, { placeholder: $('#warehouse_filter').data('placeholder') || 'Pilih Gudang (opsional)' }));
+            @endif
 
             function initCharts(trendData, topItemsData) {
                 if (stockMovementChart) stockMovementChart.destroy();
@@ -233,12 +240,12 @@
                     type: "GET",
                     data: {
                         warehouse_filter: $('#warehouse_filter').val(),
-                        category_filter: $('#category_filter').val(),
-                        // You might want to add date filters for summary data as well
+                        item_filter: $('#item_filter').val(),
                     },
                     success: function(response) {
                         $('#total_unique_items').text(response.totalUniqueItems);
                         $('#total_stock_quantity').text(response.totalStockQuantity);
+                        $('#total_stock_koli').text(response.totalStockKoli);
                         $('#low_stock_items').text(response.lowStockItems);
                         initCharts(response.trendData, response.topItemsData);
                     },
@@ -257,7 +264,8 @@
                         type: "GET",
                         data: function(d) {
                             d.warehouse_filter = $('#warehouse_filter').val();
-                            d.category_filter = $('#category_filter').val();
+                            d.item_filter = $('#item_filter').val();
+                            
                             d.search = { value: $('#search_input').val() };
                         }
                     },
@@ -270,24 +278,75 @@
                         cols.push({ data: 'item.nama_barang', name: 'item.nama_barang' });
                         cols.push({ data: 'item.item_category.name', name: 'item.item_category.name' });
                         cols.push({ data: 'quantity', name: 'quantity' });
+                        cols.push({ data: 'koli', name: 'koli' });
                         cols.push({ data: 'item.uom.name', name: 'item.uom.name' });
+                        cols.push({ data: 'opening_qty', name: 'opening_qty' });
+                        cols.push({ data: 'opening_koli', name: 'opening_koli' });
+                        cols.push({ data: 'moved_in_qty', name: 'moved_in_qty' });
+                        cols.push({ data: 'moved_in_koli', name: 'moved_in_koli' });
+                        cols.push({ data: 'moved_out_qty', name: 'moved_out_qty' });
+                        cols.push({ data: 'moved_out_koli', name: 'moved_out_koli' });
+                        cols.push({ data: 'closing_qty', name: 'closing_qty' });
+                        cols.push({ data: 'closing_koli', name: 'closing_koli' });
+                        cols.push({ data: 'stock_turnover', name: 'stock_turnover' });
+                        cols.push({ data: 'last_movement_date', name: 'last_movement_date' });
                         return cols;
                     })(),
                     columnDefs: [
                         {
-                            targets: -2, // Quantity column
-                            render: function(data, type, row) {
-                                return data ? parseFloat(data).toLocaleString('id-ID') : '0';
+                            targets: (function(){
+                                const hasWh = @json(!$hideWarehouseFilter);
+                                let idx = [];
+                                // quantity & koli
+                                let qtyIndex = hasWh ? 4 : 3;
+                                let koliIndex = hasWh ? 5 : 4;
+                                idx.push(qtyIndex);
+                                idx.push(koliIndex);
+                                // opening_qty..closing_koli (8 columns) start index
+                                let base = hasWh ? 7 : 6;
+                                for (let i = 0; i < 8; i++) idx.push(base + i);
+                                return idx;
+                            })(),
+                            render: function(data) {
+                                return data ? parseFloat(data).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00';
+                            }
+                        },
+                        {
+                            targets: (function(){
+                                const hasWh = @json(!$hideWarehouseFilter);
+                                return [(hasWh ? 15 : 14)];
+                            })(),
+                            render: function(data) {
+                                return data ? parseFloat(data).toFixed(4) : '0.0000';
+                            }
+                        },
+                        {
+                            targets: (function(){
+                                const hasWh = @json(!$hideWarehouseFilter);
+                                return [(hasWh ? 16 : 15)];
+                            })(),
+                            render: function(data) {
+                                return data ? new Date(data).toLocaleDateString('id-ID') : '-';
                             }
                         }
                     ]
                 });
             }
 
-            $('#apply_filter').on('click', function() {
+            function applyAll() {
                 table.ajax.reload();
                 loadSummaryData();
-                $('[data-kt-menu-dismiss="true"]').click();
+            }
+
+            $('#apply_filter_top').on('click', applyAll);
+
+            $('#reset_filter').on('click', function(){
+                $('#item_filter').val('').trigger('change');
+                @if(!$hideWarehouseFilter)
+                $('#warehouse_filter').val('semua').trigger('change');
+                @endif
+                
+                applyAll();
             });
 
             const debounce = (callback, wait) => {

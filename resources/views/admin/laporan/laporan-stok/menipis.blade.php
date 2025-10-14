@@ -77,6 +77,7 @@
                                 <th>Nama Item</th>
                                 <th>Kategori</th>
                                 <th>Stok</th>
+                                <th>Koli</th>
                                 <th>UOM</th>
                             </tr>
                         </thead>
@@ -88,11 +89,12 @@
                                     <td>{{ $inventory->item->nama_barang ?? '-' }}</td>
                                     <td>{{ $inventory->item->itemCategory->name ?? '-' }}</td>
                                     <td><span class="badge badge-light-danger">{{ number_format($inventory->quantity, 2, ',', '.') }}</span></td>
+                                    <td>{{ number_format($inventory->koli, 2, ',', '.') }}</td>
                                     <td>{{ $inventory->item->uom->name ?? '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="text-center">Tidak ada data stok menipis</td>
+                                    <td colspan="7" class="text-center">Tidak ada data stok menipis</td>
                                 </tr>
                             @endforelse
                         </tbody>
