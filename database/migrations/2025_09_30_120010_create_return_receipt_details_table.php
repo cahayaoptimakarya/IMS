@@ -12,11 +12,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('return_receipt_id')->constrained('return_receipts')->onDelete('cascade');
             $table->foreignId('item_id')->constrained('items')->onDelete('restrict');
-            $table->integer('quantity')->default(0);
+            $table->decimal('quantity',20,2)->default(0);
             $table->decimal('koli', 20, 2)->default(0);
-            $table->integer('accepted_quantity')->default(0);
+            $table->decimal('accepted_quantity',20,2)->default(0);
             $table->decimal('accepted_koli', 20, 2)->default(0);
-            $table->integer('rejected_quantity')->default(0);
+            $table->decimal('rejected_quantity',20,2)->default(0);
             $table->decimal('rejected_koli', 20, 2)->default(0);
             $table->mediumText('notes')->nullable();
             $table->timestamps();
