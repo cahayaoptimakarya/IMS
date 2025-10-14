@@ -60,8 +60,24 @@
                 <div class="card-toolbar">
                     <!--begin::Toolbar-->
                     @if ($canCreate)
-                        <div class="d-flex justify-content-end">
-                            <a href="{{ route('admin.masterdata.items.create') }}" class="btn btn-primary">Tambah Item</a>
+                        <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                            <div class="me-2">
+                                <a href="{{ route('admin.masterdata.items.create') }}" class="btn btn-primary">Tambah Item</a>
+                            </div>
+
+                            <form id="import-form" action="{{ route('admin.masterdata.items.import') }}" method="POST" enctype="multipart/form-data" class="d-flex align-items-center">
+                                @csrf
+                                <div class="input-group input-group-sm">
+                                    <label class="btn btn-sm btn-outline-secondary mb-0" style="position:relative; overflow:hidden">
+                                        <span id="csv-label-text">Pilih CSV</span>
+                                        <input id="csv-input" type="file" name="csv_file" accept="text/csv" class="form-control form-control-sm" style="position:absolute; left:0; top:0; opacity:0; width:100%; height:100%; cursor:pointer;" required>
+                                    </label>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary ms-2">Import</button>
+                                </div>
+                                <div id="csv-filename" class="text-muted small ms-3 d-none" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
+                            </form>
+
+                            <div class="w-100 d-block d-md-inline-block text-muted small mt-2 mt-md-0">CSV columns: A=SKU, B=Nama Barang, C=Koli (default 10), D=Low Stock (default 100), E=Item Category ID (default 1), F=UOM ID (default 1)</div>
                         </div>
                     @endif
                     <!--end::Toolbar-->
@@ -71,7 +87,7 @@
             <div class="card-body pt-4">
                 <div class="dataTables_wrapper dt-bootstrap4 no-footer">
                     <div class="table-responsive min-h-500px">
-                        <table class="table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer" id="table-on-page">
+                        <table class="table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer w-100" id="table-on-page">
                             <thead>
                                 <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
                                     <th class="sorting">No</th>
@@ -80,67 +96,10 @@
                                     <th class="min-w-125px sorting">Koli</th>
                                     <th class="min-w-125px sorting">UOM</th>
                                     <th class="min-w-125px sorting">Deskripsi</th>
-                                    <th class="min-w-125px sorting">Actions</th>
+                                    <th class="text-center min-w-125px sorting_disabled">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="fw-bold text-gray-600">
-                                @foreach ($items as $item)
-                                    <tr>
-                                        <td>{{ $loop->iteration }}</td>
-                                        <td>
-                                            <div class="item-sku-cell">
-                                                <div class="item-sku-badge">{{ $item->sku }}</div>
-                                                <div>
-                                                    <div class="fw-bold text-dark item-name" title="{{ $item->nama_barang }}">{{ $item->nama_barang }}</div>
-                                                    <div class="text-muted small">{{ $item->itemCategory->name ?? '' }}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>{{ isset($item->low_stock_threshold) ? number_format((int)$item->low_stock_threshold, 0, ',', '.') : '-' }}</td>
-                                        <td>{{ $item->koli }}</td>
-                                        <td>{{ $item->uom->name ?? '' }}</td>
-                                        <td>{{ $item->deskripsi }}</td>
-                                        <td>
-                                            @if ($canEdit || $canDelete)
-                                                <a href="#" class="btn btn-sm btn-light btn-active-light-primary"
-                                                    data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">Actions
-                                                    <span class="svg-icon svg-icon-5 m-0">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                            viewBox="0 0 24 24" fill="none">
-                                                            <path
-                                                                d="M11.4343 12.7344L7.25 8.55005C6.83579 8.13583 6.16421 8.13584 5.75 8.55005C5.33579 8.96426 5.33579 9.63583 5.75 10.05L11.2929 15.5929C11.6834 15.9835 12.3166 15.9835 12.7071 15.5929L18.25 10.05C18.6642 9.63584 18.6642 8.96426 18.25 8.55005C17.8358 8.13584 17.1642 8.13584 16.75 8.55005L12.5657 12.7344C12.2533 13.0468 11.7467 13.0468 11.4343 12.7344Z"
-                                                                fill="black"></path>
-                                                        </svg>
-                                                    </span></a>
-                                                <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-125px py-4"
-                                                    data-kt-menu="true" style="">
-                                                    @if ($canEdit)
-                                                        <div class="menu-item px-3">
-                                                            <a href="{{ route('admin.masterdata.items.edit', $item->id) }}"
-                                                                class="menu-link px-3">Edit</a>
-                                                        </div>
-                                                    @endif
-                                                    @if ($canDelete)
-                                                        <div class="menu-item px-3">
-                                                            <form class="form-delete"
-                                                                action="{{ route('admin.masterdata.items.destroy', $item->id) }}" method="POST"
-                                                                style="display: inline-block;">
-                                                                @csrf
-                                                                @method('DELETE')
-                                                                <button type="submit"
-                                                                    class="menu-link px-3 border-0 bg-transparent w-100 text-start"
-                                                                    data-item-sku="{{ $item->sku }}">
-                                                                    Delete
-                                                                </button>
-                                                            </form>
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
+                            <tbody class="fw-bold text-gray-600"></tbody>
                         </table>
                     </div>
                 </div>
@@ -179,20 +138,85 @@
                 toastr.error("{{ session('error') }}");
             @endif
 
-                var table = $('#table-on-page').DataTable({
-                "info": false,
-                'order': [],
-                'columnDefs': [{
-                    orderable: false,
-                    targets: 6 // Adjusted target for Actions column
-                }, ]
+            var canEdit = @json((bool) $canEdit);
+            var canDelete = @json((bool) $canDelete);
+            function escapeHtml(t){ return $('<div/>').text(t ?? '').html(); }
+
+            var table = $('#table-on-page').DataTable({
+                processing: true,
+                serverSide: true,
+                responsive: true,
+                searchDelay: 300,
+                lengthMenu: [10, 25, 50, 100],
+                ajax: {
+                    url: '{{ route('admin.masterdata.items.data') }}',
+                    data: function(d){
+                        d.category_id = $('#category_filter').val();
+                    }
+                },
+                order: [[1, 'asc']],
+                columns: [
+                    { data: 'no', name: 'no', orderable: false, searchable: false },
+                    { data: 'item_sku', name: 'nama_barang', render: function(data, type, row){
+                        var sku = data && data.sku ? data.sku : '-';
+                        var nama = data && data.nama_barang ? data.nama_barang : '';
+                        return '<div class="item-sku-cell">'
+                                + '<span class="item-sku-badge">'+escapeHtml(sku)+'</span>'
+                                + '<span class="item-name" title="'+escapeHtml(nama)+'">'+escapeHtml(nama)+'</span>'
+                                + '</div>';
+                    }},
+                    { data: 'low_stock_threshold', name: 'low_stock_threshold' },
+                    { data: 'koli', name: 'koli' },
+                    { data: 'uom', name: 'uom' },
+                    { data: 'deskripsi', name: 'deskripsi', render: function(d){ return escapeHtml(d); } },
+                    { data: 'id', orderable: false, searchable: false, render: function(id, type, row){
+                        if (!(canEdit || canDelete)) return '';
+                        var btn = ''
+                          + '<a href="#" class="btn btn-sm btn-light btn-active-light-primary"'
+                          + ' data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">'
+                          + 'Actions'
+                          + ' <span class="svg-icon svg-icon-5 m-0">'
+                          + '   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">'
+                          + '     <path d="M11.4343 12.7344L7.25 8.55005C6.83579 8.13583 6.16421 8.13584 5.75 8.55005C5.33579 8.96426 5.33579 9.63583 5.75 10.05L11.2929 15.5929C11.6834 15.9835 12.3166 15.9835 12.7071 15.5929L18.25 10.05C18.6642 9.63584 18.6642 8.96426 18.25 8.55005C17.8358 8.13584 17.1642 8.13584 16.75 8.55005L12.5657 12.7344C12.2533 13.0468 11.7467 13.0468 11.4343 12.7344Z" fill="black"></path>'
+                          + '   </svg>'
+                          + ' </span>'
+                          + '</a>';
+                        var menu = ''
+                          + '<div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-125px py-4" data-kt-menu="true">';
+                        var viewUrl = '{{ route('admin.masterdata.items.show', ':id') }}'.replace(':id', id);
+                        menu += '<div class="menu-item px-3"><a href="'+viewUrl+'" class="menu-link px-3">View</a></div>';
+                        if (canEdit) {
+                          menu += '<div class="menu-item px-3"><a href="{{ route('admin.masterdata.items.edit', ':id') }}" class="menu-link px-3">Edit</a></div>'.replace(':id', id);
+                        }
+                        if (canDelete) {
+                          var form = '<div class="menu-item px-3">'
+                            + '<form class="form-delete" action="{{ route('admin.masterdata.items.destroy', ':id') }}" method="POST" style="display:inline-block;">'
+                            + '<input type="hidden" name="_token" value="{{ csrf_token() }}">'
+                            + '<input type="hidden" name="_method" value="DELETE">'
+                            + '<button type="submit" class="menu-link px-3 border-0 bg-transparent w-100 text-start" data-item-sku="'+escapeHtml(row.item_sku.sku)+'">Delete</button>'
+                            + '</form>'
+                            + '</div>';
+                          menu += form.replace(':id', id);
+                        }
+                        menu += '</div>';
+                        return btn + menu;
+                    }}
+                ],
+                columnDefs: [
+                    { targets: [6], orderable: false, className: 'text-center' }
+                ]
+            });
+
+            // Re-init KTMenu for dynamically added action menus after table draw
+            table.on('draw', function(){
+                if (typeof KTMenu !== 'undefined' && KTMenu.createInstances) {
+                    KTMenu.createInstances();
+                }
             });
 
             $('#item_search_input').on('keyup', function() {
                 table.search(this.value).draw();
             });
-
-            const canDelete = @json((bool) $canDelete);
 
             if (canDelete) {
                 $('#table-on-page').on('submit', '.form-delete', function(e) {
@@ -223,7 +247,7 @@
                                 success: function(response) {
 
                                     toastr.success("Data " + n + " berhasil dihapus.");
-                                    table.row(form.closest('tr')).remove().draw();
+                                    table.ajax.reload(null, false);
                                 },
                                 error: function(xhr) {
 
@@ -240,14 +264,20 @@
             }
 
             $('#category_filter').on('change', function() {
-                var categoryId = $(this).val();
-                var url = new URL(window.location.href);
-                if (categoryId) {
-                    url.searchParams.set('category_id', categoryId);
+                table.ajax.reload();
+            });
+
+            // Show selected CSV filename and update label
+            $('#csv-input').on('change', function() {
+                var file = this.files && this.files[0];
+                if (file) {
+                    var name = file.name;
+                    $('#csv-filename').text(name).removeClass('d-none');
+                    $('#csv-label-text').text('Ubah CSV');
                 } else {
-                    url.searchParams.delete('category_id');
+                    $('#csv-filename').text('').addClass('d-none');
+                    $('#csv-label-text').text('Pilih CSV');
                 }
-                window.location.href = url.toString();
             });
         });
     </script>

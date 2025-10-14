@@ -47,7 +47,10 @@ Route::middleware(['auth', 'permission'])->group(function () {
         Route::resource('menus', MenuController::class);
         Route::resource('itemcategories', ItemCategoryController::class);
         Route::resource('uoms', UomController::class);
+        // Put data route BEFORE resource to avoid binding 'data' as {item}
+        Route::get('items/data', [ItemController::class, 'data'])->name('items.data');
         Route::resource('items', ItemController::class);
+    Route::post('items/import', [ItemController::class, 'import'])->name('items.import');
         Route::resource('assemblyrecipes', AssemblyRecipeController::class)->parameters([
             'assemblyrecipes' => 'assemblyrecipe'
         ]);
