@@ -24,9 +24,9 @@
         <!--begin::Header Logo-->
         <div class="header-logo me-5 me-md-10 flex-grow-1 flex-lg-grow-0">
             <a href="/admin/dashboard">
-                <img alt="Logo" src="/metronic/assets/media/logos/logo-demo2.png" class="logo-default h-25px" />
-                <img alt="Logo" src="/metronic/assets/media/logos/logo-demo2.png"
-                    class="logo-sticky h-25px" />
+                <img alt="Logo" src="/metronic/assets/media/logos/logo-demo3.png" class="logo-default h-50px" />
+                <img alt="Logo" src="/metronic/assets/media/logos/logo-demo3.png"
+                    class="logo-sticky h-50px" />
             </a>
         </div>
         <!--end::Header Logo-->
