@@ -7,6 +7,12 @@
     ])
 @endpush
 
+@push('styles')
+    <style>
+        .item-cell .sku { font-size: 0.75rem; color: #a1a5b7; }
+    </style>
+@endpush
+
 @section('content')
     <div class="content flex-row-fluid" id="kt_content">
         <!--begin::Top Filters-->
@@ -144,26 +150,28 @@
                 <div class="table-responsive">
                     <table class="table align-middle table-row-dashed fs-6 gy-5" id="inventory_table">
                         <thead>
-                            <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                            <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0 text-center">
                                 @if(!$hideWarehouseFilter)
-                                <th>Gudang</th>
+                                <th rowspan="2">Gudang</th>
                                 @endif
-                                <th>SKU</th>
-                                <th>Nama Item</th>
-                                <th>Kategori</th>
-                                <th>Stok Saat Ini</th>
-                                <th>Koli Saat Ini</th>
-                                <th>UOM</th>
-                                <th>Saldo Awal</th>
-                                <th>Koli Awal</th>
-                                <th>Masuk</th>
-                                <th>Koli Masuk</th>
-                                <th>Keluar</th>
-                                <th>Koli Keluar</th>
-                                <th>Saldo Akhir</th>
-                                <th>Koli Akhir</th>
-                                <th>Turnover</th>
-                                <th>Terakhir Gerak</th>
+                                <th rowspan="2">Item</th>
+                                <th rowspan="2">Kategori</th>
+                                <th rowspan="2">UOM</th>
+                                <th colspan="2">Stok Saat Ini</th>
+                                <th colspan="2">Saldo Awal</th>
+                                <th colspan="2">Stok Masuk</th>
+                                <th colspan="2">Stok Keluar</th>
+                                <th rowspan="2">Terakhir Gerak</th>
+                            </tr>
+                            <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0 text-center">
+                                <th>Qty</th>
+                                <th>Koli</th>
+                                <th>Qty</th>
+                                <th>Koli</th>
+                                <th>Qty</th>
+                                <th>Koli</th>
+                                <th>Qty</th>
+                                <th>Koli</th>
                             </tr>
                         </thead>
                         <tbody class="fw-bold text-gray-600">
@@ -269,67 +277,62 @@
                             d.search = { value: $('#search_input').val() };
                         }
                     },
-                    columns: (function() {
-                        let cols = [];
-                        if (@json(!$hideWarehouseFilter)) {
-                            cols.push({ data: 'warehouse.name', name: 'warehouse.name' });
-                        }
-                        cols.push({ data: 'item.sku', name: 'item.sku' });
+                    columns: (function(){
+                        const cols = [];
+                        const hasWh = @json(!$hideWarehouseFilter);
+                        if (hasWh) cols.push({ data: 'warehouse.name', name: 'warehouse.name' });
                         cols.push({ data: 'item.nama_barang', name: 'item.nama_barang' });
                         cols.push({ data: 'item.item_category.name', name: 'item.item_category.name' });
+                        cols.push({ data: 'item.uom.name', name: 'item.uom.name' });
                         cols.push({ data: 'quantity', name: 'quantity' });
                         cols.push({ data: 'koli', name: 'koli' });
-                        cols.push({ data: 'item.uom.name', name: 'item.uom.name' });
                         cols.push({ data: 'opening_qty', name: 'opening_qty' });
                         cols.push({ data: 'opening_koli', name: 'opening_koli' });
                         cols.push({ data: 'moved_in_qty', name: 'moved_in_qty' });
                         cols.push({ data: 'moved_in_koli', name: 'moved_in_koli' });
                         cols.push({ data: 'moved_out_qty', name: 'moved_out_qty' });
                         cols.push({ data: 'moved_out_koli', name: 'moved_out_koli' });
-                        cols.push({ data: 'closing_qty', name: 'closing_qty' });
-                        cols.push({ data: 'closing_koli', name: 'closing_koli' });
-                        cols.push({ data: 'stock_turnover', name: 'stock_turnover' });
                         cols.push({ data: 'last_movement_date', name: 'last_movement_date' });
                         return cols;
                     })(),
-                    columnDefs: [
-                        {
-                            targets: (function(){
-                                const hasWh = @json(!$hideWarehouseFilter);
-                                let idx = [];
-                                // quantity & koli
-                                let qtyIndex = hasWh ? 4 : 3;
-                                let koliIndex = hasWh ? 5 : 4;
-                                idx.push(qtyIndex);
-                                idx.push(koliIndex);
-                                // opening_qty..closing_koli (8 columns) start index
-                                let base = hasWh ? 7 : 6;
-                                for (let i = 0; i < 8; i++) idx.push(base + i);
-                                return idx;
-                            })(),
-                            render: function(data) {
-                                return data ? parseFloat(data).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00';
+                    columnDefs: (function(){
+                        const defs = [];
+                        const hasWh = @json(!$hideWarehouseFilter);
+                        const itemIdx = hasWh ? 1 : 0;
+                        const metricsStart = itemIdx + 3; // after category+uom
+                        const metricIndices = [];
+                        for(let i=0;i<8;i++){ metricIndices.push(metricsStart + i); }
+
+                        // Render Item as SKU + Name stacked
+                        defs.push({
+                            targets: itemIdx,
+                            render: function(data, type, row){
+                                const sku = row.item && row.item.sku ? row.item.sku : '-';
+                                const name = data || (row.item?.nama_barang) || '-';
+                                return `<div class="d-flex flex-column item-cell"><span class="text-primary fw-bold mb-1">${sku}</span><span class="sku">${name}</span></div>`;
                             }
-                        },
-                        {
-                            targets: (function(){
-                                const hasWh = @json(!$hideWarehouseFilter);
-                                return [(hasWh ? 15 : 14)];
-                            })(),
-                            render: function(data) {
-                                return data ? parseFloat(data).toFixed(4) : '0.0000';
+                        });
+
+                        // Numeric formatting for qty/koli metrics including current qty/koli
+                        defs.push({
+                            targets: metricIndices,
+                            className: 'text-center',
+                            render: function(data){
+                                const num = parseFloat(data || 0);
+                                return isNaN(num) ? '0' : num.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
                             }
-                        },
-                        {
-                            targets: (function(){
-                                const hasWh = @json(!$hideWarehouseFilter);
-                                return [(hasWh ? 16 : 15)];
-                            })(),
-                            render: function(data) {
+                        });
+
+                        // Last movement date formatting
+                        defs.push({
+                            targets: metricsStart + 8,
+                            render: function(data){
                                 return data ? new Date(data).toLocaleDateString('id-ID') : '-';
                             }
-                        }
-                    ]
+                        });
+
+                        return defs;
+                    })()
                 });
             }
 
