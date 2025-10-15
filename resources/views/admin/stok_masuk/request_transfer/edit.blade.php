@@ -41,7 +41,7 @@
                         </div>
                         <div class="col-md-4 mb-5">
                             <label class="form-label required">Tanggal Request</label>
-                            <input type="date" name="date" class="form-control form-control-solid @error('date') is-invalid @enderror"
+                            <input type="text" id="date" name="date" class="form-control form-control-solid @error('date') is-invalid @enderror"
                                 value="{{ old('date', (new DateTime($transferRequest->date))->format('Y-m-d')) }}">
                         </div>
                     </div>
@@ -138,10 +138,10 @@
                 <div class="form-text text-muted koli-info"></div>
             </td>
             <td>
-                <input type="number" class="form-control form-control-solid available-stock" readonly>
+                <div class="text-end fw-semibold available-stock-display">-</div>
             </td>
             <td>
-                <input type="number" class="form-control form-control-solid available-koli-stock" readonly>
+                <div class="text-end fw-semibold available-koli-stock-display">-</div>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]" class="form-control form-control-solid quantity-input" min="1" step="1" value="1" required>
@@ -164,6 +164,10 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            $("#date").flatpickr({
+                dateFormat: "Y-m-d",
+                defaultDate: "{{ old('date', (new DateTime($transferRequest->date))->format('Y-m-d')) }}"
+            });
             let itemIndex = 0;
             let availableItems = [];
 
@@ -205,7 +209,7 @@
                 availableItems.forEach(function(inventoryItem) {
                     if(inventoryItem.item_id == currentVal) savedItemInAvailableList = true;
                     let option = new Option(
-                        `${inventoryItem.item.nama_barang} (SKU: ${inventoryItem.item.sku})`,
+                        `${inventoryItem.item.sku} - ${inventoryItem.item.nama_barang}`,
                         inventoryItem.item_id,
                         false,
                         false
@@ -221,7 +225,7 @@
                     let itemDetails = existingItemData[currentVal];
                     if(itemDetails && itemDetails.item) {
                         let option = new Option(
-                            `${itemDetails.item.nama_barang} (SKU: ${itemDetails.item.sku}) - Stok Habis`,
+                            `${itemDetails.item.sku} - ${itemDetails.item.nama_barang} - Stok Habis`,
                             itemDetails.item_id,
                             true,
                             true
@@ -376,15 +380,15 @@
                 const quantity = selectedOption.data('quantity');
                 const koliStock = selectedOption.data('koliStock');
                 const row = $(this).closest('tr');
-                const stockQtyInput = row.find('.available-stock');
-                const stockKoliInput = row.find('.available-koli-stock');
+                const stockQtyDisplay = row.find('.available-stock-display');
+                const stockKoliDisplay = row.find('.available-koli-stock-display');
                 const quantityInput = row.find('.quantity-input');
                 const koliInput = row.find('.koli-input');
                 const itemKoli = parseFloat(selectedOption.data('koliPerUnit')) || 0;
                 const koliInfo = row.find('.koli-info');
 
-                if (quantity !== undefined) { stockQtyInput.val(formatInt(quantity)); } else { stockQtyInput.val(''); }
-                if (koliStock !== undefined) { stockKoliInput.val(koliStock); } else { stockKoliInput.val(''); }
+                if (quantity !== undefined) { stockQtyDisplay.text(formatInt(quantity)); } else { stockQtyDisplay.text('-'); }
+                if (koliStock !== undefined) { stockKoliDisplay.text(parseLocaleNumber(koliStock).toFixed(2)); } else { stockKoliDisplay.text('-'); }
 
                 // adjust qty/koli based on selected item conversion
                 const currentQty = parseLocaleNumber(quantityInput.val()) || 0;

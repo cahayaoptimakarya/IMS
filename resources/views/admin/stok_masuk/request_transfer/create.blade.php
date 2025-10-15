@@ -154,16 +154,16 @@
                     <option></option>
                     @foreach ($items as $item)
                         <option value="{{ $item->id }}" data-koli-per-unit="{{ $item->koli ?? 1 }}">
-                            {{ $item->nama_barang }} (SKU: {{ $item->sku }})</option>
+                            {{ $item->sku }} - {{ $item->nama_barang }}</option>
                     @endforeach
                 </select>
                 <div class="form-text text-muted koli-info"></div>
             </td>
             <td>
-                <input type="number" class="form-control form-control-solid available-stock" readonly>
+                <div class="text-end fw-semibold available-stock-display">-</div>
             </td>
             <td>
-                <input type="number" class="form-control form-control-solid available-koli-stock" readonly>
+                <div class="text-end fw-semibold available-koli-stock-display">-</div>
             </td>
             <td>
                 <input type="number" name="items[__INDEX__][quantity]"
@@ -237,7 +237,7 @@
                 $(selectElement).empty().append($('<option></option>'));
                 availableItems.forEach(function(inventoryItem) {
                     let option = new Option(
-                        `${inventoryItem.item.nama_barang} (SKU: ${inventoryItem.item.sku})`,
+                        `${inventoryItem.item.sku} - ${inventoryItem.item.nama_barang}`,
                         inventoryItem.item_id,
                         false,
                         false
@@ -366,23 +366,23 @@
                 const quantity = selectedOption.data('quantity');
                 const koliStock = selectedOption.data('koliStock');
                 const row = $(this).closest('tr');
-                const stockQtyInput = row.find('.available-stock');
-                const stockKoliInput = row.find('.available-koli-stock');
+                const stockQtyDisplay = row.find('.available-stock-display');
+                const stockKoliDisplay = row.find('.available-koli-stock-display');
                 const quantityInput = row.find('.quantity-input');
                 const koliInput = row.find('.koli-input');
                 const itemKoli = parseFloat(selectedOption.data('koliPerUnit')) || 0;
                 const koliInfo = row.find('.koli-info');
 
                 if (quantity !== undefined) {
-                    stockQtyInput.val(formatInt(quantity));
+                    stockQtyDisplay.text(formatInt(quantity));
                 } else {
-                    stockQtyInput.val('');
+                    stockQtyDisplay.text('-');
                 }
 
                 if (koliStock !== undefined) {
-                    stockKoliInput.val(koliStock);
+                    stockKoliDisplay.text(parseLocaleNumber(koliStock).toFixed(2));
                 } else {
-                    stockKoliInput.val('');
+                    stockKoliDisplay.text('-');
                 }
 
                 // Sesuaikan qty dan/atau koli sesuai item yang baru dipilih
