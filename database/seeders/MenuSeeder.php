@@ -127,6 +127,17 @@ class MenuSeeder extends Seeder
             ]
         );
 
+        // Employees & Vehicles
+        Menu::updateOrCreate(
+            ['name' => 'Karyawan & Kendaraan'],
+            [
+                'url' => '/admin/masterdata/employees-vehicles',
+                'icon' => 'fas fa-id-card',
+                'parent_id' => $masterdata->id,
+                'order' => 10,
+            ]
+        );
+
         // Perakitan (top-level under admin)
         Menu::updateOrCreate(
             ['name' => 'Perakitan'],

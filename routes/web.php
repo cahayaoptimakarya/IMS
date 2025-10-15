@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\Masterdata\UomController;
 use App\Http\Controllers\Admin\Masterdata\UserController;
 use App\Http\Controllers\Admin\Masterdata\WarehouseController;
 use App\Http\Controllers\Admin\Masterdata\AssemblyRecipeController;
+use App\Http\Controllers\Admin\Masterdata\EmployeeVehicleController;
 use App\Http\Controllers\Admin\StokKeluar\PengeluaranBarangController;
 use App\Http\Controllers\Admin\StokKeluar\PermintaanBarangController;
 use App\Http\Controllers\Admin\StokMasuk\PengadaanController;
@@ -55,6 +56,13 @@ Route::middleware(['auth', 'permission'])->group(function () {
             'assemblyrecipes' => 'assemblyrecipe'
         ]);
         Route::post('items/check-sku', [ItemController::class, 'checkSkuUniqueness'])->name('items.checkSkuUniqueness');
+
+        // Employees & Vehicles (combined page)
+        Route::get('employees-vehicles', [EmployeeVehicleController::class, 'index'])->name('employees-vehicles.index');
+        Route::get('employees-vehicles/data', [EmployeeVehicleController::class, 'data'])->name('employees-vehicles.data');
+        Route::post('employees-vehicles', [EmployeeVehicleController::class, 'store'])->name('employees-vehicles.store');
+        Route::put('employees-vehicles/{type}/{id}', [EmployeeVehicleController::class, 'update'])->name('employees-vehicles.update');
+        Route::delete('employees-vehicles/{type}/{id}', [EmployeeVehicleController::class, 'destroy'])->name('employees-vehicles.destroy');
 
         Route::get('permissions', [PermissionController::class, 'index'])->name('permissions.index');
         Route::post('permissions/update', [PermissionController::class, 'update'])->name('permissions.update');
