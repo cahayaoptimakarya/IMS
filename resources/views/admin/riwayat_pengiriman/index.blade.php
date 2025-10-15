@@ -216,7 +216,8 @@
                     { data: 'driver', name: 's.driver_name' },
                     { data: 'id', orderable: false, searchable: false, render: function(data, type, row){
                         const showUrl = "{{ route('admin.riwayat-pengiriman.show', ['shipment' => 'SHIPMENT_ID']) }}".replace('SHIPMENT_ID', data);
-                        return `
+                        const editUrl = "{{ route('admin.riwayat-pengiriman.edit', ['shipment' => 'SHIPMENT_ID']) }}".replace('SHIPMENT_ID', data);
+                        let menu = `
                             <div class="text-center">
                                 <a href="#" class="btn btn-sm btn-light btn-active-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">Actions
                                     <span class="svg-icon svg-icon-5 m-0">
@@ -226,9 +227,14 @@
                                 <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-150px py-4" data-kt-menu="true">
                                     <div class="menu-item px-3">
                                         <a href="${showUrl}" class="menu-link px-3">Detail</a>
-                                    </div>
-                                </div>
-                            </div>`;
+                                    </div>`;
+                        @if($canEdit)
+                        if (String(row.status).toLowerCase() !== 'selesai' && String(row.status).toLowerCase() !== 'completed') {
+                            menu += `<div class="menu-item px-3"><a href="${editUrl}" class="menu-link px-3">Edit</a></div>`;
+                        }
+                        @endif
+                        menu += `</div></div>`;
+                        return menu;
                     }}
                 ],
                 order: [[1, 'desc']],
