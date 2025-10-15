@@ -38,7 +38,7 @@
                                 <option></option>
                                 <option value="import" {{ old('type', 'import') == 'import' ? 'selected' : '' }}>Import</option>
                                 <option value="produksi" {{ old('type') == 'produksi' ? 'selected' : '' }}>Produksi</option>
-                                <option value="lainnya" {{ old('type') == 'lainnya' ? 'selected' : '' }}>Lainnya</option>
+                                {{-- <option value="lainnya" {{ old('type') == 'lainnya' ? 'selected' : '' }}>Lainnya</option> --}}
                             </select>
                             @error('type')
                                 <div class="invalid-feedback">{{ $message }}</div>

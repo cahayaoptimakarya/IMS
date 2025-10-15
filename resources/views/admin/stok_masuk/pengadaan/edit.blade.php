@@ -40,7 +40,7 @@
                                 <option></option>
                                 <option value="import" {{ old('type', $stockInOrder->type ?? 'import') == 'import' ? 'selected' : '' }}>Import</option>
                                 <option value="produksi" {{ old('type', $stockInOrder->type) == 'produksi' ? 'selected' : '' }}>Produksi</option>
-                                <option value="lainnya" {{ old('type', $stockInOrder->type) == 'lainnya' ? 'selected' : '' }}>Lainnya</option>
+                                {{-- <option value="lainnya" {{ old('type', $stockInOrder->type) == 'lainnya' ? 'selected' : '' }}>Lainnya</option> --}}
                             </select>
                             @error('type')
                                 <div class="invalid-feedback">{{ $message }}</div>
