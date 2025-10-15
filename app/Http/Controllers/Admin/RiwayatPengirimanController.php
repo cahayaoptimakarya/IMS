@@ -10,6 +10,8 @@ use App\Models\TransferRequestItem;
 use App\Models\Inventory;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
+use App\Models\Vehicle;
+use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -264,7 +266,9 @@ class RiwayatPengirimanController extends Controller
             }
         }
 
-        return view('admin.riwayat_pengiriman.edit', compact('shipment', 'referenceCode', 'fromWarehouse', 'toWarehouse', 'fromWarehouseId', 'lineMax'));
+        $vehicles = Vehicle::all();
+        $employees = Employee::all();
+        return view('admin.riwayat_pengiriman.edit', compact('shipment', 'referenceCode', 'fromWarehouse', 'toWarehouse', 'fromWarehouseId', 'lineMax', 'vehicles', 'employees'));
     }
 
     public function update(Request $request, Shipment $shipment)

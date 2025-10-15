@@ -3,9 +3,14 @@
 @push('styles')
     <style>
         .items-toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap}
-        .badge-sku{background:#eef2ff;color:#3730a3;padding:.25rem .5rem;border-radius:.375rem;font-weight:700}
-        .items-scroll{max-height:420px;overflow:auto;border:1px solid #e5e7eb;border-radius:.5rem}
-        .input-group.input-group-sm .btn{min-width:34px}
+        .badge-sku{background:#F1F5F9;color:#0F172A;padding:.25rem .5rem;border-radius:.375rem;font-weight:700}
+        .items-scroll{max-height:420px;overflow:auto;border:1px solid #EFF2F5;border-radius:.5rem}
+        .items-scroll .table thead th{position:sticky;top:0;background:#fff;z-index:1}
+        /* Match modal: remove hover + borders */
+        .items-scroll .table tbody tr:hover{background-color:transparent!important;box-shadow:none}
+        .items-scroll .table> :not(caption)>*>*{border-bottom:0!important}
+        /* Align numeric inputs like modal */
+        .qty-input,.koli-input{text-align:right}
         .meta{color:#6b7280;font-size:.875rem}
     </style>
 @endpush
@@ -31,34 +36,58 @@
                     @method('PUT')
 
                             <div class="row g-4">
-                                <div class="col-md-6">
-                                    <label class="form-label required">Tanggal Kirim</label>
-                                    <input type="text" id="shipping_date" class="form-control @error('shipping_date') is-invalid @enderror" name="shipping_date" value="{{ old('shipping_date', $shipment->shipping_date ? \Carbon\Carbon::parse($shipment->shipping_date)->format('Y-m-d') : '') }}" required>
-                                    @error('shipping_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                 <div class="col-md-6">
+                                    <label class="form-label">Pilih Kendaraan (Opsional)</label>
+                                    <select class="form-select form-select-solid" id="select_vehicle" data-control="select2">
+                                        <option value="">-- Pilih Kendaraan --</option>
+                                        @isset($vehicles)
+                                            @foreach($vehicles as $vehicle)
+                                                <option value="{{ $vehicle->id }}" data-type="{{ $vehicle->type }}" data-license="{{ $vehicle->license_plate }}">{{ $vehicle->type .' - ' . $vehicle->model }} ({{ $vehicle->license_plate }})</option>
+                                            @endforeach
+                                        @endisset
+                                    </select>
+                                </div>
+                                 <div class="col-md-6">
+                                    <label class="form-label">Pilih Karyawan (Opsional)</label>
+                                    <select class="form-select form-select-solid" id="select_employee" data-control="select2">
+                                        <option value="">-- Pilih Karyawan --</option>
+                                        @isset($employees)
+                                            @foreach($employees as $employee)
+                                                <option value="{{ $employee->id }}" data-name="{{ $employee->name }}" data-contact="{{ $employee->phone }}">{{ $employee->name }}</option>
+                                            @endforeach
+                                        @endisset
+                                    </select>
                                 </div>
                                 <div class="col-md-6">
+                                    <label class="form-label required">Tanggal Kirim</label>
+                                    <input type="text" id="shipping_date" class="form-control form-control-solid @error('shipping_date') is-invalid @enderror" name="shipping_date" value="{{ old('shipping_date', $shipment->shipping_date ? \Carbon\Carbon::parse($shipment->shipping_date)->format('Y-m-d') : '') }}" required>
+                                    @error('shipping_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                               
+                                <div class="col-md-6">
                                     <label class="form-label required">Tipe Kendaraan</label>
-                                    <input type="text" class="form-control @error('vehicle_type') is-invalid @enderror" name="vehicle_type" value="{{ old('vehicle_type', $shipment->vehicle_type) }}" required>
+                                    <input type="text" id="vehicle_type" class="form-control form-control-solid @error('vehicle_type') is-invalid @enderror" name="vehicle_type" value="{{ old('vehicle_type', $shipment->vehicle_type) }}" required>
                                     @error('vehicle_type')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label required">Plat Nomor</label>
-                                    <input type="text" class="form-control @error('license_plate') is-invalid @enderror" name="license_plate" value="{{ old('license_plate', $shipment->license_plate) }}" required>
+                                    <input type="text" id="license_plate" class="form-control form-control-solid @error('license_plate') is-invalid @enderror" name="license_plate" value="{{ old('license_plate', $shipment->license_plate) }}" required>
                                     @error('license_plate')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
+                               
                                 <div class="col-md-6">
                                     <label class="form-label required">Nama Pengemudi</label>
-                                    <input type="text" class="form-control @error('driver_name') is-invalid @enderror" name="driver_name" value="{{ old('driver_name', $shipment->driver_name) }}" required>
+                                    <input type="text" id="driver_name" class="form-control form-control-solid @error('driver_name') is-invalid @enderror" name="driver_name" value="{{ old('driver_name', $shipment->driver_name) }}" required>
                                     @error('driver_name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Kontak Pengemudi</label>
-                                    <input type="text" class="form-control @error('driver_contact') is-invalid @enderror" name="driver_contact" value="{{ old('driver_contact', $shipment->driver_contact) }}">
+                                    <input type="text" id="driver_contact" class="form-control form-control-solid @error('driver_contact') is-invalid @enderror" name="driver_contact" value="{{ old('driver_contact', $shipment->driver_contact) }}">
                                     @error('driver_contact')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label">Deskripsi / Catatan</label>
-                                    <textarea class="form-control @error('description') is-invalid @enderror" name="description" rows="2">{{ old('description', $shipment->description) }}</textarea>
+                                    <textarea class="form-control form-control-solid @error('description') is-invalid @enderror" name="description" rows="2">{{ old('description', $shipment->description) }}</textarea>
                                     @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                             </div>
@@ -69,7 +98,7 @@
                                 <div id="summary" class="text-muted"></div>
                             </div>
                             <div class="items-scroll">
-                                <table class="table align-middle table-sm table-hover">
+                                <table class="table align-middle table-sm table-borderless">
                                     <thead>
                                         <tr>
                                             <th>Item</th>
@@ -97,23 +126,17 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <div class="input-group input-group-sm">
-                                                        <button type="button" class="btn btn-light minus-btn" data-type="qty" aria-label="Kurangi Qty">-</button>
-                                                        <input type="number" step="any" class="form-control text-center qty-input @error('items.'.$detail->id.'.quantity') is-invalid @enderror" name="items[{{ $detail->id }}][quantity]" value="{{ $currentQty }}" min="0" max="{{ $max['max_qty'] }}" placeholder="Qty">
-                                                        <button type="button" class="btn btn-light plus-btn" data-type="qty" aria-label="Tambah Qty">+</button>
-                                                    </div>
+                                                    <input type="number" step="any" class="form-control form-control-sm form-control-solid qty-input @error('items.'.$detail->id.'.quantity') is-invalid @enderror" name="items[{{ $detail->id }}][quantity]" value="{{ $currentQty }}" min="0" max="{{ $max['max_qty'] }}" placeholder="Qty">
+                                                    <div class="text-muted small mt-1">Maks: {{ number_format($max['max_qty'], 0) }} Qty</div>
                                                     @error('items.'.$detail->id.'.quantity')<div class="text-danger small">{{ $message }}</div>@enderror
                                                 </td>
                                                 <td>
-                                                    <div class="input-group input-group-sm">
-                                                        <button type="button" class="btn btn-light minus-btn" data-type="koli" aria-label="Kurangi Koli">-</button>
-                                                        <input type="number" step="any" class="form-control text-center koli-input @error('items.'.$detail->id.'.koli') is-invalid @enderror" name="items[{{ $detail->id }}][koli]" value="{{ $currentKoli }}" min="0" max="{{ $max['max_koli'] }}" placeholder="Koli">
-                                                        <button type="button" class="btn btn-light plus-btn" data-type="koli" aria-label="Tambah Koli">+</button>
-                                                    </div>
+                                                    <input type="number" step="any" class="form-control form-control-sm form-control-solid koli-input @error('items.'.$detail->id.'.koli') is-invalid @enderror" name="items[{{ $detail->id }}][koli]" value="{{ $currentKoli }}" min="0" max="{{ $max['max_koli'] }}" placeholder="Koli">
+                                                    <div class="text-muted small mt-1">Maks: {{ number_format($max['max_koli'], 2) }} Koli</div>
                                                     @error('items.'.$detail->id.'.koli')<div class="text-danger small">{{ $message }}</div>@enderror
                                                 </td>
                                                 <td>
-                                                    <input type="text" class="form-control form-control-sm" name="items[{{ $detail->id }}][description]" value="{{ old('items.'.$detail->id.'.description', $detail->description) }}" placeholder="Keterangan">
+                                                    <input type="text" class="form-control form-control-sm form-control-solid" name="items[{{ $detail->id }}][description]" value="{{ old('items.'.$detail->id.'.description', $detail->description) }}" placeholder="Keterangan">
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -138,6 +161,31 @@
         const summary = document.getElementById('summary');
         const form = document.getElementById('shipment_edit_form');
         const shipDate = document.getElementById('shipping_date');
+        const selectVehicle = document.getElementById('select_vehicle');
+        const selectEmployee = document.getElementById('select_employee');
+
+        if (selectVehicle) {
+            selectVehicle.addEventListener('change', function(){
+                const opt = this.options[this.selectedIndex];
+                const type = opt ? opt.getAttribute('data-type') : '';
+                const license = opt ? opt.getAttribute('data-license') : '';
+                const vt = document.getElementById('vehicle_type');
+                const lp = document.getElementById('license_plate');
+                if (vt) vt.value = type || '';
+                if (lp) lp.value = license || '';
+            });
+        }
+        if (selectEmployee) {
+            selectEmployee.addEventListener('change', function(){
+                const opt = this.options[this.selectedIndex];
+                const name = opt ? opt.getAttribute('data-name') : '';
+                const contact = opt ? opt.getAttribute('data-contact') : '';
+                const dn = document.getElementById('driver_name');
+                const dc = document.getElementById('driver_contact');
+                if (dn) dn.value = name || '';
+                if (dc) dc.value = contact || '';
+            });
+        }
 
         function updateSummary(){
             let totalQty = 0, totalKoli = 0, count = 0;
@@ -189,19 +237,7 @@
             updateSummary();
         });
 
-        tbody.addEventListener('click', function(e){
-            const btn = e.target.closest('.plus-btn, .minus-btn');
-            if (!btn) return;
-            const tr = btn.closest('tr');
-            const type = btn.getAttribute('data-type');
-            const input = tr.querySelector(type === 'qty' ? '.qty-input' : '.koli-input');
-            const max = parseFloat(input.getAttribute('max'));
-            let val = parseFloat(input.value || '0');
-            const delta = btn.classList.contains('plus-btn') ? 1 : -1;
-            val = clamp(val + delta, 0, max);
-            input.value = val;
-            input.dispatchEvent(new Event('input'));
-        });
+        // Removed plus/minus stepper controls (match modal behavior)
 
         updateSummary();
 
@@ -235,3 +271,6 @@
     })();
 </script>
 @endpush
+
+
+
