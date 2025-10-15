@@ -18,12 +18,12 @@
                     @method('PUT')
                     <div class="row">
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Kode Dokumen</label>
+                            <label class="form-label required">Kode Dokumen</label>
                             <input type="text" name="code" class="form-control form-control-solid"
                                 value="{{ old('code', $adjustment->code) }}" readonly>
                         </div>
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Tanggal</label>
+                            <label class="form-label required">Tanggal</label>
                             <input type="text" name="adjustment_date"
                                 class="form-control form-control-solid flatpickr-input @error('adjustment_date') is-invalid @enderror"
                                 value="{{ old('adjustment_date', $adjustment->adjustment_date) }}" required>
@@ -35,7 +35,7 @@
 
                     <div class="row">
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Gudang</label>
+                            <label class="form-label required">Gudang</label>
                             @if(auth()->user()->warehouse_id)
                                 <input type="hidden" name="warehouse_id" value="{{ auth()->user()->warehouse_id }}">
                                 <input type="text" class="form-control form-control-solid" value="{{ auth()->user()->warehouse->name }}" readonly>
@@ -56,20 +56,20 @@
                             @endif
                         </div>
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Catatan</label>
+                            <label class="form-label">Catatan</label>
                             <textarea name="notes" class="form-control form-control-solid">{{ old('notes', $adjustment->notes) }}</textarea>
                         </div>
                     </div>
 
                     <h3 class="mt-5">Item</h3>
-                    <table class="table table-bordered" id="items-table">
+                    <table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4" id="items-table">
                         <thead>
-                            <tr>
-                                <th>Item</th>
+                            <tr class="fw-bolder text-muted">
+                                <th class="required">Item</th>
                                 <th>Satuan</th>
                                 <th width="150px">Stok</th>
-                                <th width="150px">Quantity</th>
-                                <th width="150px">Koli</th>
+                                <th width="150px" class="required">Quantity</th>
+                                <th width="150px" class="required">Koli</th>
                                 <th width="50px">Aksi</th>
                             </tr>
                         </thead>

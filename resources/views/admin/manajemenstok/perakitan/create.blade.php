@@ -16,15 +16,15 @@
                     <div class="row g-5">
                         <div class="col-lg-6">
                             <div class="mb-5">
-                                <label class="form-label fs-6 fw-bolder text-dark">Kode</label>
+                                <label class="form-label required">Kode</label>
                                 <input type="text" name="code" class="form-control form-control-solid" value="{{ old('code', $nextCode ?? '') }}" readonly>
                             </div>
                             <div class="mb-5">
-                                <label class="form-label fs-6 fw-bolder text-dark required">Tanggal</label>
+                                <label class="form-label required">Tanggal</label>
                                 <input type="text" id="date" name="date" class="form-control form-control-solid" value="{{ old('date', now()->format('Y-m-d')) }}" required>
                             </div>
                             <div class="mb-5">
-                                <label class="form-label fs-6 fw-bolder text-dark required">Gudang</label>
+                                <label class="form-label required">Gudang</label>
                                 <select name="warehouse_id" class="form-select form-select-solid" data-control="select2" required>
                                     <option value="">Pilih Gudang</option>
                                     @foreach($warehouses as $w)
@@ -36,7 +36,7 @@
                                 @enderror
                             </div>
                             <div class="mb-5">
-                                <label class="form-label fs-6 fw-bolder text-dark">Resep (Opsional)</label>
+                                <label class="form-label">Resep (Opsional)</label>
                                 <div class="d-flex align-items-center gap-2">
                                     <select name="assembly_recipe_id" id="recipe_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Resep" style="flex:1">
                                         <option value="">Pilih Resep</option>
@@ -53,7 +53,7 @@
 
                         <div class="col-lg-6">
                             <div class="mb-5">
-                                <label class="form-label fs-6 fw-bolder text-dark required">Produk Jadi</label>
+                                <label class="form-label required">Produk Jadi</label>
                                 <select name="finished_item_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Item" required>
                                     <option value="">Pilih Item</option>
                                     @foreach($items as $item)
@@ -66,21 +66,21 @@
                                 <input type="hidden" id="finished_item_id_hidden" value="{{ old('finished_item_id') }}">
                             </div>
                             <div class="mb-5">
-                                <label class="form-label fs-6 fw-bolder text-dark required">Output Plan</label>
+                                <label class="form-label required">Output Plan</label>
                                 <input type="number" step="0.01" name="output_quantity_plan" class="form-control form-control-solid" value="{{ old('output_quantity_plan', 1) }}" required>
                                 @error('output_quantity_plan')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
                             <div class="mb-5">
-                                <label class="form-label fs-6 fw-bolder text-dark">Output Koli Plan</label>
+                                <label class="form-label required">Output Koli Plan</label>
                                 <input type="number" step="0.01" name="output_koli_plan" class="form-control form-control-solid" value="{{ old('output_koli_plan', 0) }}">
                                 @error('output_koli_plan')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
                             <div class="mb-5">
-                                <label class="form-label fs-6 fw-bolder text-dark">Catatan</label>
+                                <label class="form-label">Catatan</label>
                                 <textarea name="notes" class="form-control form-control-solid" rows="3" placeholder="Keterangan">{{ old('notes') }}</textarea>
                             </div>
                         </div>
@@ -88,15 +88,15 @@
 
                     {{-- Dynamic components section placed below the main row --}}
                     <div class="mt-6">
-                        <label class="form-label fs-6 fw-bolder text-dark">Komponen (Plan)</label>
+                        <label class="form-label">Komponen (Plan)</label>
                         <div class="table-responsive">
                             <table class="table align-middle table-row-dashed fs-6 gy-4" id="components-table">
                                 <thead>
                                     <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                        <th style="width:35%">Item</th>
-                                        <th class="text-end" style="width:15%">Qty Resep</th>
-                                        <th class="text-end" style="width:15%">Qty Plan</th>
-                                        <th class="text-end" style="width:15%">Koli Plan</th>
+                                        <th style="width:35%" class="required">Item</th>
+                                        <th class="text-end required" style="width:15%">Qty Resep</th>
+                                        <th class="text-end required" style="width:15%">Qty Plan</th>
+                                        <th class="text-end required" style="width:15%">Koli Plan</th>
                                         <th style="width:10%">Aksi</th>
                                     </tr>
                                 </thead>
