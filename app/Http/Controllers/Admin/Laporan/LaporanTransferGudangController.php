@@ -56,12 +56,12 @@ class LaporanTransferGudangController extends Controller
         $totalCompleted = (clone $baseQuery)->where('status', 'completed')->count();
         $successRate = $totalTransfers ? round(($totalCompleted / $totalTransfers) * 100, 2) : 0;
 
-        // Average fulfillment time (minutes) between request date and completed_at for completed transfers
-        $avgFulfillmentMinutes = (clone $baseQuery)
+        // Average fulfillment time in days (request date -> completed_at)
+        $avgFulfillmentDays = (clone $baseQuery)
             ->whereNotNull('completed_at')
             ->where('status', 'completed')
-            ->selectRaw('COALESCE(AVG(TIMESTAMPDIFF(MINUTE, date, completed_at)),0) as avg_minutes')
-            ->value('avg_minutes');
+            ->selectRaw('COALESCE(AVG(TIMESTAMPDIFF(SECOND, date, completed_at)) / 86400, 0) as avg_days')
+            ->value('avg_days');
 
         // Top origin-destination pairs
         $topOriginDestination = (clone $baseQuery)
@@ -117,7 +117,7 @@ class LaporanTransferGudangController extends Controller
 
         return view('admin.laporan.laporan-transfer-gudang', compact(
             'stats', 'trendData', 'pieChartData', 'warehouses', 'dateRange', 'statusFilter', 'fromWarehouseFilter', 'toWarehouseFilter',
-            'successRate', 'avgFulfillmentMinutes', 'topOriginDestination', 'avgItemsPerTransfer', 'agingPending'
+            'successRate', 'avgFulfillmentDays', 'topOriginDestination', 'avgItemsPerTransfer', 'agingPending'
         ));
     }
 

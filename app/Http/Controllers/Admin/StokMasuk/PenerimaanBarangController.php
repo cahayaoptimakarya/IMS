@@ -722,6 +722,7 @@ class PenerimaanBarangController extends Controller
                 $transferRequest = TransferRequest::find($referenceId);
                 if ($transferRequest) {
                     $totalRemainingQty = $transferRequest->items()->sum('remaining_quantity');
+                    $transferRequest->completed_at = $receiptDate = $goodsReceipt->receipt_date ?: now()->toDateString();
                     $transferRequest->status = ($totalRemainingQty <= 0) ? 'completed' : 'on_progress';
                     $transferRequest->save();
                 }

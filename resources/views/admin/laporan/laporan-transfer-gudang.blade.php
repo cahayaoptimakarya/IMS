@@ -116,8 +116,14 @@
                 <div class="card card-xl-stretch mb-5 mb-xl-8">
                     <div class="card-body">
                         <div class="text-muted fs-7">Rata-rata Waktu Penyelesaian</div>
-                        <div class="text-dark fw-bolder fs-2 mt-3">{{ round(($avgFulfillmentMinutes ?? 0) / 60, 2) }} jam</div>
-                        <div class="text-muted fs-8">Rata-rata waktu (jam) untuk menyelesaikan permintaan transfer</div>
+                        <div class="text-dark fw-bolder fs-2 mt-3">
+                            @if(($avgFulfillmentDays ?? 0) < 1 && ($stats['total_completed'] ?? 0) > 0)
+                                Kurang dari satu hari
+                            @else
+                                {{ number_format(($avgFulfillmentDays ?? 0), 2, ',', '.') }} hari
+                            @endif
+                        </div>
+                        <div class="text-muted fs-8">Rata-rata waktu (hari) dari tanggal permintaan sampai selesai</div>
                     </div>
                 </div>
             </div>
