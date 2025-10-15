@@ -95,10 +95,18 @@
                         </div>
                     </div>
 
-                    <h3 class="mt-5">Item</h3>
-                    <table class="table table-bordered" id="items-table">
+                    <h3 class="mt-5">Daftar Item</h3>
+                    <div class="items-toolbar mb-3" style="display:flex;gap:.75rem;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+                        <div class="items-search flex-grow-1" style="max-width:520px;flex:1 1 320px;">
+                            <div class="position-relative">
+                                <i class="fas fa-search text-gray-400 position-absolute ms-3 mt-2"></i>
+                                <input type="text" id="items-search" class="form-control form-control-solid form-control-sm ps-10" placeholder="Cari item (SKU/Nama)">
+                            </div>
+                        </div>
+                    </div>
+                    <table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4" id="items-table">
                         <thead>
-                            <tr>
+                            <tr class="fw-bolder text-muted">
                                 <th>Item</th>
                                 <th width="150px">Quantity</th>
                                 <th width="150px">Koli</th>
@@ -118,6 +126,7 @@
                                                     {{ $item->sku . ' - ' . $item->nama_barang }}</option>
                                             @endforeach
                                         </select>
+                                        <div class="form-text text-muted koli-info"></div>
                                     </td>
                                     <td><input type="number" name="items[{{ $index }}][quantity]"
                                             class="form-control form-control-solid quantity-input" value="{{ (int) $existingItem->quantity }}"
@@ -207,6 +216,7 @@
                     <tr data-index="${itemIndex}">
                         <td>
                             <select name="items[${itemIndex}][item_id]" class="form-select form-control-select form-select-solid item-select" data-control="select2" required></select>
+                            <div class=\"form-text text-muted koli-info\"></div>
                         </td>
                         <td><input type="number" name="items[${itemIndex}][quantity]" class="form-control form-control-solid quantity-input" value="1" min="1" step="1" required></td>
                         <td><input type="number" name="items[${itemIndex}][koli]" class="form-control form-control-solid koli-input" value="0" min="0" step="any"></td>
@@ -246,6 +256,7 @@
                     let calculatedKoli = quantity / productKoli;
                     row.find('.koli-input').val(calculatedKoli.toFixed(2));
                 }
+                row.find('.koli-info').text(`Konversi: 1 koli = ${productKoli} qty`);
             });
 
             // Kalkulasi otomatis Koli -> Quantity (dibulatkan ke integer)
@@ -282,9 +293,36 @@
                     });
                     current.val(null).trigger('change');
                 } else {
-                    current.trigger('input');
+                    // Update conversion info and recalc koli from quantity
+                    const row = current.closest('tr');
+                    const productKoli = parseFloat(current.find('option:selected').data('koli')) || 1;
+                    row.find('.koli-info').text(`Konversi: 1 koli = ${productKoli} qty`);
+                    // Recalculate koli based on current quantity
+                    const qty = parseFloat(row.find('.quantity-input').val()) || 0;
+                    if (productKoli > 0) {
+                        row.find('.koli-input').val((qty / productKoli).toFixed(2));
+                    }
                 }
             });
+
+            // Initialize conversion info for existing rows on load
+            $('#items-table tbody tr').each(function(){
+                const row = $(this);
+                const productKoli = parseFloat(row.find('.item-select option:selected').data('koli')) || 1;
+                row.find('.koli-info').text(`Konversi: 1 koli = ${productKoli} qty`);
+            });
+
+            // Filter search
+            function applyTableFilter(){
+                const q = ($('#items-search').val() || '').toString().toLowerCase().trim();
+                if (!q) { $('#items-table tbody tr').show(); return; }
+                $('#items-table tbody tr').each(function(){
+                    const selText = ($(this).find('.item-select option:selected').text() || '').toString().toLowerCase();
+                    $(this).toggle(selText.includes(q));
+                });
+            }
+            const debounce = (fn, d=200) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),d); }; };
+            $('#items-search').on('input', debounce(applyTableFilter, 150));
 
             // SweetAlert for form submission
             $('#pengadaan-form').on('submit', function(e) {
