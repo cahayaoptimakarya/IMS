@@ -229,6 +229,7 @@ class PengadaanController extends Controller
     {
         $request->validate([
             'date' => 'required|date',
+            'estimated_received_date' => 'nullable|date',
             'warehouse_id' => 'required|exists:warehouses,id',
             'type' => 'required|in:import,produksi,lainnya',
             'from_warehouse_id' => 'nullable|required_unless:type,import|exists:warehouses,id',
@@ -247,6 +248,7 @@ class PengadaanController extends Controller
             $stockInOrder = StockInOrder::create([
                 'code' => $code,
                 'date' => $request->date,
+                'estimated_received_date' => $request->estimated_received_date,
                 'warehouse_id' => $request->warehouse_id,
                 'type' => $request->type,
                 'from_warehouse_id' => $request->type === 'import' ? null : $request->from_warehouse_id,
@@ -306,6 +308,7 @@ class PengadaanController extends Controller
         $request->validate([
             'code' => 'required|unique:stock_in_orders,code,' . $stockInOrder->id,
             'date' => 'required|date',
+            'estimated_received_date' => 'nullable|date',
             'warehouse_id' => 'required|exists:warehouses,id',
             'type' => 'required|in:import,produksi,lainnya',
             'from_warehouse_id' => 'nullable|required_unless:type,import|exists:warehouses,id',
@@ -326,6 +329,7 @@ class PengadaanController extends Controller
             $stockInOrder->update([
                 'code' => $request->code,
                 'date' => $request->date,
+                'estimated_received_date' => $request->estimated_received_date,
                 'warehouse_id' => $request->warehouse_id,
                 'type' => $request->type,
                 'from_warehouse_id' => $request->type === 'import' ? null : $request->from_warehouse_id,

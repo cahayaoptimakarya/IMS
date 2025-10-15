@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->string('code')->unique();
             $table->date('date');
+            $table->date('estimated_received_date')->nullable();
             $table->foreignId('warehouse_id')->constrained('warehouses')->onDelete('cascade');
             $table->enum('type', ['import', 'produksi', 'lainnya'])->default('produksi');
             // Jika type = produksi/lainnya, tentukan asal gudang (dari warehouse mana)

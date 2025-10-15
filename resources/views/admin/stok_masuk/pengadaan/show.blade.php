@@ -92,6 +92,9 @@
                                     <div class="doc-title">Dokumen Pengadaan</div>
                                     <div class="doc-sub">Kode: {{ $stockInOrder->code }}</div>
                                     <div class="doc-sub">Tanggal: {{ \Carbon\Carbon::parse($stockInOrder->date)->format('d M Y') }}</div>
+                                    @if(!empty($stockInOrder->estimated_received_date))
+                                        <div class="doc-sub">Estimasi Diterima: {{ \Carbon\Carbon::parse($stockInOrder->estimated_received_date)->format('d M Y') }}</div>
+                                    @endif
                                 </div>
                                 @php
                                     $badgeClassTop = 'primary';

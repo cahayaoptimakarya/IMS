@@ -18,24 +18,24 @@
                     @method('PUT')
                     <div class="row">
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Kode Dokumen</label>
+                            <label class="form-label fs-6 fw-bolder text-dark required">Kode Dokumen</label>
                             <input type="text" name="code" class="form-control form-control-solid"
                                 value="{{ old('code', $stockInOrder->code) }}" readonly>
                         </div>
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Tanggal</label>
+                            <label class="form-label fs-6 fw-bolder text-dark required">Tanggal</label>
                             <input type="text" name="date"
                                 class="form-control form-control-solid flatpickr-input @error('date') is-invalid @enderror"
                                 value="{{ old('date', $stockInOrder->date) }}" required>
                             @error('date')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
-                        </div>
+                        </div>                       
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Tipe</label>
+                            <label class="form-label fs-6 fw-bolder text-dark required">Tipe</label>
                             <select name="type" id="order-type" class="form-select form-select-solid @error('type') is-invalid @enderror" data-control="select2" data-placeholder="Pilih Tipe" required>
                                 <option></option>
                                 <option value="import" {{ old('type', $stockInOrder->type ?? 'import') == 'import' ? 'selected' : '' }}>Import</option>
@@ -46,17 +46,26 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
+                         <div class="col-md-6 mb-5">
+                            <label class="form-label fs-6 fw-bolder text-dark">Estimasi Tanggal Diterima <span class="text-muted">(Opsional)</span></label>
+                            <input type="text" name="estimated_received_date"
+                                class="form-control form-control-solid flatpickr-input @error('estimated_received_date') is-invalid @enderror"
+                                value="{{ old('estimated_received_date', $stockInOrder->estimated_received_date) }}">
+                            @error('estimated_received_date')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-5">
                             @if (auth()->user()->warehouse_id)
                                 <input type="hidden" name="warehouse_id" value="{{ auth()->user()->warehouse_id }}">
-                                <label class="form-label fs-6 fw-bolder text-dark">Gudang</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Gudang</label>
                                 <input type="text" class="form-control form-control-solid"
                                     value="{{ auth()->user()->warehouse->name }}" readonly>
                             @else
-                                <label class="form-label fs-6 fw-bolder text-dark">Gudang</label>
+                                <label class="form-label fs-6 fw-bolder text-dark required">Gudang</label>
                                 <select name="warehouse_id"
                                     class="form-select form-select-solid @error('warehouse_id') is-invalid @enderror"
                                     data-control="select2" data-placeholder="Pilih Gudang" required>
@@ -80,7 +89,7 @@
 
                     <div class="row" id="from-warehouse-row" style="display:none;">
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Dari Gudang</label>
+                            <label class="form-label fs-6 fw-bolder text-dark required">Dari Gudang</label>
                             <select name="from_warehouse_id" id="from-warehouse-id" class="form-select form-select-solid @error('from_warehouse_id') is-invalid @enderror" data-control="select2" data-placeholder="Pilih Gudang Asal">
                                 <option></option>
                                 @foreach ($warehouses as $warehouse)
@@ -107,9 +116,9 @@
                     <table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4" id="items-table">
                         <thead>
                             <tr class="fw-bolder text-muted">
-                                <th>Item</th>
-                                <th width="150px">Quantity</th>
-                                <th width="150px">Koli</th>
+                                <th class="required">Item</th>
+                                <th width="150px" class="required">Quantity</th>
+                                <th width="150px" class="required">Koli</th>
                                 <th width="50px">Aksi</th>
                             </tr>
                         </thead>

@@ -12,6 +12,7 @@ class StockInOrder extends Model
     protected $fillable = [
         'code',
         'date',
+        'estimated_received_date',
         'warehouse_id',
         'type',
         'from_warehouse_id',
