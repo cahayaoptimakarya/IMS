@@ -14,6 +14,80 @@
     </div>
 
     <div class="content flex-row-fluid" id="kt_content">
+        <div class="card mb-7">
+            <div class="card-header">
+                <div class="card-title">
+                    <h3 class="card-label fw-bolder text-dark">Informasi Filter</h3>
+                </div>
+            </div>
+            <div class="card-body">
+                <form id="filter_form" class="d-flex flex-wrap align-items-center gap-2">
+                    <!--begin::Daterangepicker-->
+                    <div class="input-group w-250px">
+                        <span class="input-group-text">
+                            <i class="fas fa-calendar-alt"></i>
+                        </span>
+                        <input class="form-control form-control-solid" placeholder="Pilih Rentang Tanggal" id="kt_daterangepicker" name="date_range" value="{{ $dateRange ?? '' }}"/>
+                    </div>
+                    <!--end::Daterangepicker-->
+
+                    <!--begin::Filter menu-->
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+                            <span class="svg-icon svg-icon-2">
+                                <i class="fas fa-filter"></i>
+                            </span>
+                            Filter
+                        </button>
+                        <div class="menu menu-sub menu-sub-dropdown w-300px w-md-325px" data-kt-menu="true">
+                            <div class="px-7 py-5">
+                                <div class="fs-4 text-dark fw-bolder">Opsi Filter</div>
+                            </div>
+                            <div class="separator border-gray-200"></div>
+                            <div class="px-7 py-5">
+                                <div class="mb-10">
+                                    <label class="form-label fs-5 fw-bold mb-3">Status:</label>
+                                    <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" data-hide-search="true" data-placeholder="Pilih Status" name="status_filter" form="filter_form">
+                                        <option value="semua" {{ ($statusFilter ?? 'semua') === 'semua' ? 'selected' : '' }}>Semua Status</option>
+                                        <option value="pending" {{ ($statusFilter ?? '') == 'pending' ? 'selected' : '' }}>Pending</option>
+                                        <option value="approved" {{ ($statusFilter ?? '') == 'approved' ? 'selected' : '' }}>Approved</option>
+                                        <option value="rejected" {{ ($statusFilter ?? '') == 'rejected' ? 'selected' : '' }}>Rejected</option>
+                                        <option value="shipped" {{ ($statusFilter ?? '') == 'shipped' ? 'selected' : '' }}>Shipped</option>
+                                        <option value="completed" {{ ($statusFilter ?? '') == 'completed' ? 'selected' : '' }}>Completed</option>
+                                    </select>
+                                </div>
+
+                                @if (!auth()->user()->warehouse_id)
+                                    <div class="mb-10">
+                                        <label class="form-label fs-5 fw-bold mb-3">Dari Gudang:</label>
+                                        <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" name="from_warehouse_filter" form="filter_form">
+                                            <option value="">Semua</option>
+                                            @foreach ($warehouses as $warehouse)
+                                                <option value="{{ $warehouse->id }}" {{ request('from_warehouse_filter') == $warehouse->id ? 'selected' : '' }}>{{ $warehouse->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="mb-10">
+                                        <label class="form-label fs-5 fw-bold mb-3">Ke Gudang:</label>
+                                        <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" name="to_warehouse_filter" form="filter_form">
+                                            <option value="">Semua</option>
+                                            @foreach ($warehouses as $warehouse)
+                                                <option value="{{ $warehouse->id }}" {{ request('to_warehouse_filter') == $warehouse->id ? 'selected' : '' }}>{{ $warehouse->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
+                                <div class="d-flex justify-content-end">
+                                    <a href="{{ route('admin.laporan.laporan-transfer-gudang') }}" class="btn btn-light btn-active-light-primary me-2">Atur Ulang</a>
+                                    <button type="submit" class="btn btn-primary" form="filter_form">Terapkan</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!--end::Filter menu-->
+                </form>
+            </div>
+        </div>
         <div id="stats_wrapper" class="row g-5 g-xl-8">
             <div class="col-xl-4">
                 <a href="#" class="card bg-body-white hoverable card-xl-stretch mb-xl-8 bgi-no-repeat" style="background-position: right top; background-size: 30% auto; background-image: url({{ asset('metronic/assets/media/svg/shapes/abstract-4.svg') }})">
@@ -185,66 +259,7 @@
         <div class="card">
             <div class="card-header border-0 pt-6">
                 <div class="card-title">
-                    <form id="filter_form" class="d-flex align-items-center position-relative my-1">
-                        <div class="d-flex align-items-center position-relative my-1">
-                            <span class="svg-icon svg-icon-1 position-absolute ms-6">
-                                <i class="fas fa-calendar-alt"></i>
-                            </span>
-                            <input class="form-control form-control-solid w-350px ps-15" placeholder="Pilih Rentang Tanggal" id="kt_daterangepicker" name="date_range" value="{{ $dateRange ?? '' }}"/>
-                        </div>
-                    </form>
-                </div>
-                <div class="card-toolbar">
-                    <button type="button" class="btn btn-light-primary me-3" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
-                        <span class="svg-icon svg-icon-2">
-                            <i class="fas fa-filter"></i>
-                        </span>
-                        Filter
-                    </button>
-                    <div class="menu menu-sub menu-sub-dropdown w-300px w-md-325px" data-kt-menu="true">
-                        <div class="px-7 py-5">
-                            <div class="fs-4 text-dark fw-bolder">Opsi Filter</div>
-                        </div>
-                        <div class="separator border-gray-200"></div>
-                        <div class="px-7 py-5">
-                            <div class="mb-10">
-                                <label class="form-label fs-5 fw-bold mb-3">Status:</label>
-                                <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" data-hide-search="true" data-placeholder="Pilih Status" name="status_filter" form="filter_form">
-                                    <option value="semua" {{ ($statusFilter ?? 'semua') === 'semua' ? 'selected' : '' }}>Semua Status</option>
-                                    <option value="pending" {{ ($statusFilter ?? '') == 'pending' ? 'selected' : '' }}>Pending</option>
-                                    <option value="approved" {{ ($statusFilter ?? '') == 'approved' ? 'selected' : '' }}>Approved</option>
-                                    <option value="rejected" {{ ($statusFilter ?? '') == 'rejected' ? 'selected' : '' }}>Rejected</option>
-                                    <option value="shipped" {{ ($statusFilter ?? '') == 'shipped' ? 'selected' : '' }}>Shipped</option>
-                                    <option value="completed" {{ ($statusFilter ?? '') == 'completed' ? 'selected' : '' }}>Completed</option>
-                                </select>
-                            </div>
-
-                            @if (!auth()->user()->warehouse_id)
-                                <div class="mb-10">
-                                    <label class="form-label fs-5 fw-bold mb-3">Dari Gudang:</label>
-                                    <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" name="from_warehouse_filter" form="filter_form">
-                                        <option value="">Semua</option>
-                                        @foreach ($warehouses as $warehouse)
-                                            <option value="{{ $warehouse->id }}" {{ request('from_warehouse_filter') == $warehouse->id ? 'selected' : '' }}>{{ $warehouse->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="mb-10">
-                                    <label class="form-label fs-5 fw-bold mb-3">Ke Gudang:</label>
-                                    <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" name="to_warehouse_filter" form="filter_form">
-                                        <option value="">Semua</option>
-                                        @foreach ($warehouses as $warehouse)
-                                            <option value="{{ $warehouse->id }}" {{ request('to_warehouse_filter') == $warehouse->id ? 'selected' : '' }}>{{ $warehouse->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @endif
-                            <div class="d-flex justify-content-end">
-                                <a href="{{ route('admin.laporan.laporan-transfer-gudang') }}" class="btn btn-light btn-active-light-primary me-2">Atur Ulang</a>
-                                <button type="submit" class="btn btn-primary" form="filter_form">Terapkan</button>
-                            </div>
-                        </div>
-                    </div>
+                    <h3 class="card-label fw-bolder text-dark">Detail Laporan Transfer</h3>
                 </div>
             </div>
             <div class="card-body pt-4" id="table_wrapper">
