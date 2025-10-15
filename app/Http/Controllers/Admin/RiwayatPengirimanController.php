@@ -54,6 +54,15 @@ class RiwayatPengirimanController extends Controller
                 })
                 ->leftJoin('warehouses as wio', 'sio.warehouse_id', '=', 'wio.id');
 
+            if (auth()->user() && auth()->user()->warehouse_id) {
+                $wid = (int) auth()->user()->warehouse_id;
+                // Only show shipments originating from the user's warehouse (transfer requests only)
+                $base->where(function ($q) use ($wid) {
+                    $q->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
+                      ->where('tr.from_warehouse_id', $wid);
+                });
+            }
+
             $totalRecords = (clone $base)->count();
 
             if ($statusFilter && $statusFilter !== 'semua') {
@@ -135,7 +144,19 @@ class RiwayatPengirimanController extends Controller
         $refTypeFilter = $request->input('reference_type');
         $dateFilter = $request->input('date');
 
-        $base = Shipment::query()->from('shipments as s');
+        $base = Shipment::query()->from('shipments as s')
+            ->leftJoin('transfer_requests as tr', function ($j) {
+                $j->on('s.reference_id', '=', 'tr.id')
+                    ->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST);
+            });
+
+        if (auth()->user() && auth()->user()->warehouse_id) {
+            $wid = (int) auth()->user()->warehouse_id;
+            $base->where(function ($q) use ($wid) {
+                $q->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
+                  ->where('tr.from_warehouse_id', $wid);
+            });
+        }
 
         if ($refTypeFilter && $refTypeFilter !== 'semua') {
             $base->where('s.reference_type', $refTypeFilter);
