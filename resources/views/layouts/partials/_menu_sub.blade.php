@@ -11,6 +11,8 @@
         </a>
     </div>
 @else
+    @php($childrenCount = is_iterable($menu->children ?? []) ? collect($menu->children)->count() : 0)
+    @php($isTopMega = ($level === 0 && $childrenCount > 5))
     {{-- Parent node (dropdown) --}}
     <div data-kt-menu-trigger="click" data-kt-menu-placement="bottom-start" class="menu-item menu-lg-down-accordion @if($level == 0) me-lg-1 @endif">
         <span class="menu-link py-3">
@@ -22,10 +24,27 @@
             <span class="menu-title">{{ $menu->name }}</span>
             <span class="menu-arrow @if($level == 0) d-lg-none @endif"></span>
         </span>
-        <div class="menu-sub menu-sub-lg-down-accordion menu-sub-lg-dropdown menu-rounded-0 py-lg-4 w-lg-225px">
-            @foreach ($menu->children as $child)
-                @include('layouts.partials._menu_sub', ['menu' => $child, 'level' => $level + 1])
-            @endforeach
-        </div>
+        @if($isTopMega)
+            {{-- Mega menu (3 columns) when children > 5 --}}
+            <div class="menu-sub menu-sub-lg-down-accordion menu-sub-lg-dropdown w-100 w-lg-600px p-5 p-lg-5">
+                <div class="row" data-kt-menu-dismiss="true">
+                    @foreach(collect($menu->children)->chunk(ceil($childrenCount / 3)) as $chunk)
+                        <div class="col-lg-4 border-left-lg-1">
+                            <div class="menu-inline menu-column menu-active-bg">
+                                @foreach ($chunk as $child)
+                                    @include('layouts.partials._menu_sub', ['menu' => $child, 'level' => $level + 1])
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @else
+            <div class="menu-sub menu-sub-lg-down-accordion menu-sub-lg-dropdown menu-rounded-0 py-lg-4 w-lg-225px">
+                @foreach ($menu->children as $child)
+                    @include('layouts.partials._menu_sub', ['menu' => $child, 'level' => $level + 1])
+                @endforeach
+            </div>
+        @endif
     </div>
 @endif
