@@ -12,7 +12,7 @@
     </div>
 @else
     @php($childrenCount = is_iterable($menu->children ?? []) ? collect($menu->children)->count() : 0)
-    @php($isTopMega = ($level === 0 && $childrenCount > 5))
+    @php($isTopMega = ($level === 0 && $childrenCount > 6))
     {{-- Parent node (dropdown) --}}
     <div data-kt-menu-trigger="click" data-kt-menu-placement="bottom-start" class="menu-item menu-lg-down-accordion @if($level == 0) me-lg-1 @endif">
         <span class="menu-link py-3">
