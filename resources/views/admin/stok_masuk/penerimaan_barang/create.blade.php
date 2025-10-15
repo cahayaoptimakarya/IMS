@@ -104,7 +104,7 @@
                                 <select id="select_vehicle_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Kendaraan" data-allow-clear="true">
                                     <option></option>
                                     @foreach ($vehicles as $vehicle)
-                                        <option value="{{ $vehicle->id }}">{{ $vehicle->license_plate }} - {{ $vehicle->type }}</option>
+                                        <option value="{{ $vehicle->id }}">{{ $vehicle->type . ' - ' . $vehicle->model }} {{ $vehicle->license_plate }}</option>
                                     @endforeach
                                 </select>
                             </div>

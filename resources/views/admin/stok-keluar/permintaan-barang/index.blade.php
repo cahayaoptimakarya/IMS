@@ -242,19 +242,39 @@
                         <h6 class="mb-4">Detail Pengiriman</h6>
                         <div class="mb-3">
                             <label for="shipping_date" class="form-label required">Tanggal Kirim</label>
-                            <input type="text" class="form-control" id="shipping_date" name="shipping_date" required>
+                            <input type="text" class="form-control form-control-solid" id="shipping_date" name="shipping_date" required>
                             <div class="invalid-feedback"></div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
+                                <label for="select_vehicle" class="form-label">Pilih Kendaraan (Opsional)</label>
+                                <select class="form-select form-select-solid" id="select_vehicle" data-control="select2" data-dropdown-parent="#kt_modal_kirim_barang">
+                                    <option value="">-- Pilih Kendaraan --</option>
+                                    @foreach($vehicles as $vehicle)
+                                        <option value="{{ $vehicle->id }}" data-type="{{ $vehicle->type }}" data-license="{{ $vehicle->license_plate }}">{{ $vehicle->type .' - ' . $vehicle->model }} ({{ $vehicle->license_plate }})</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="select_employee" class="form-label">Pilih Karyawan (Opsional)</label>
+                                <select class="form-select form-select-solid" id="select_employee" data-control="select2" data-dropdown-parent="#kt_modal_kirim_barang">
+                                    <option value="">-- Pilih Karyawan --</option>
+                                    @foreach($employees as $employee)
+                                        <option value="{{ $employee->id }}" data-name="{{ $employee->name }}" data-contact="{{ $employee->phone }}">{{ $employee->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
                                 <label for="vehicle_type" class="form-label required">Tipe Kendaraan</label>
-                                <input type="text" class="form-control" id="vehicle_type" name="vehicle_type"
+                                <input type="text" class="form-control form-control-solid" id="vehicle_type" name="vehicle_type"
                                     required>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="license_plate" class="form-label required">Plat Nomor</label>
-                                <input type="text" class="form-control" id="license_plate" name="license_plate"
+                                <input type="text" class="form-control form-control-solid" id="license_plate" name="license_plate"
                                     required>
                                 <div class="invalid-feedback"></div>
                             </div>
@@ -262,18 +282,18 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="driver_name" class="form-label required">Nama Pengemudi</label>
-                                <input type="text" class="form-control" id="driver_name" name="driver_name" required>
+                                <input type="text" class="form-control form-control-solid" id="driver_name" name="driver_name" required>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="driver_contact" class="form-label">Kontak Pengemudi</label>
-                                <input type="text" class="form-control" id="driver_contact" name="driver_contact">
+                                <input type="text" class="form-control form-control-solid" id="driver_contact" name="driver_contact">
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>
                         <div class="mb-3">
                             <label for="description" class="form-label">Deskripsi / Catatan</label>
-                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                            <textarea class="form-control form-control-solid" id="description" name="description" rows="3"></textarea>
                             <div class="invalid-feedback"></div>
                         </div>
 
@@ -582,6 +602,24 @@
             const form = kirimBarangModal.querySelector('#kirim_barang_form');
             const itemsContainer = $('#shipment_items_container'); // Changed to jQuery object
 
+            $('#select_vehicle').on('change', function() {
+                const selectedOption = $(this).find('option:selected');
+                const type = selectedOption.data('type');
+                const license = selectedOption.data('license');
+
+                $('#vehicle_type').val(type || '');
+                $('#license_plate').val(license || '');
+            });
+
+            $('#select_employee').on('change', function() {
+                const selectedOption = $(this).find('option:selected');
+                const name = selectedOption.data('name');
+                const contact = selectedOption.data('contact');
+
+                $('#driver_name').val(name || '');
+                $('#driver_contact').val(contact || '');
+            });
+
             kirimBarangModal.addEventListener('show.bs.modal', event => {
                 const button = event.relatedTarget;
                 const transferId = button.getAttribute('data-id');
@@ -621,7 +659,7 @@
                                 <div class="w-50">
                                     <div class="position-relative">
                                         <i class="fas fa-search text-gray-400 position-absolute ms-3 mt-2"></i>
-                                        <input type="text" id="modal-item-search" class="form-control form-control-sm ps-10" placeholder="Cari item (SKU/Nama)">
+                                        <input type="text" id="modal-item-search" class="form-control form-control-solid form-control-sm ps-10" placeholder="Cari item (SKU/Nama)">
                                     </div>
                                 </div>
                                 <div class="summary" id="modal-item-summary">-</div>
@@ -646,21 +684,21 @@
                                                 <span class="fw-semibold">${item.item.nama_barang || '-'}</span>
                                             </div>
                                             <div class="item-meta help-muted mt-1">Diminta: ${requestedQty} Qty (${requestedKoli} Koli) • Sisa: ${item.remaining_quantity} Qty (${item.remaining_koli} Koli) • Rasio: 1 Koli = ${koliRatio} Qty</div>
-                                            <input type="text" class="form-control form-control-sm mt-2" name="items[${item.id}][description]" placeholder="Catatan item (opsional)">
+                                            <input type="text" class="form-control form-control-solid form-control-sm mt-2" name="items[${item.id}][description]" placeholder="Catatan item (opsional)">
                                         </div>
                                         <input type="hidden" name="items[${item.id}][item_id]" value="${item.item_id}">
                                     </td>
                                     <td>
                                         <div class="input-group input-group-sm">
                                             <button type="button" class="btn btn-light minus-btn" data-type="qty" aria-label="Kurangi Qty">-</button>
-                                            <input type="number" step="any" class="form-control text-center qty-input" name="items[${item.id}][quantity]" value="${item.remaining_quantity}" min="0" max="${item.remaining_quantity}" placeholder="Qty">
+                                            <input type="number" step="any" class="form-control form-control-solid text-center qty-input" name="items[${item.id}][quantity]" value="${item.remaining_quantity}" min="0" max="${item.remaining_quantity}" placeholder="Qty">
                                             <button type="button" class="btn btn-light plus-btn" data-type="qty" aria-label="Tambah Qty">+</button>
                                         </div>
                                     </td>
                                     <td>
                                         <div class="input-group input-group-sm">
                                             <button type="button" class="btn btn-light minus-btn" data-type="koli" aria-label="Kurangi Koli">-</button>
-                                            <input type="number" step="any" class="form-control text-center koli-input" name="items[${item.id}][koli]" value="${item.remaining_koli}" min="0" max="${item.remaining_koli}" placeholder="Koli">
+                                            <input type="number" step="any" class="form-control form-control-solid text-center koli-input" name="items[${item.id}][koli]" value="${item.remaining_koli}" min="0" max="${item.remaining_koli}" placeholder="Koli">
                                             <button type="button" class="btn btn-light plus-btn" data-type="koli" aria-label="Tambah Koli">+</button>
                                         </div>
                                     </td>

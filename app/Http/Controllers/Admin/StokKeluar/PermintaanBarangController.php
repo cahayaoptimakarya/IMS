@@ -10,6 +10,8 @@ use App\Models\StockMovement;
 use App\Models\TransferRequestItem;
 use App\Models\UserActivity;
 use App\Models\User;
+use App\Models\Vehicle;
+use App\Models\Employee;
 use Auth;
 use Illuminate\Http\Request;
 use App\Models\TransferRequest;
@@ -122,7 +124,9 @@ class PermintaanBarangController extends Controller
         }
 
         $warehouses = Warehouse::all();
-        return view('admin.stok-keluar.permintaan-barang.index', compact('warehouses'));
+        $employees = Employee::all();
+        $vehicles = Vehicle::all();
+        return view('admin.stok-keluar.permintaan-barang.index', compact('warehouses', 'employees', 'vehicles'));
     }
 
     public function getStatusCounts(Request $request)
