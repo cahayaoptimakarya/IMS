@@ -37,6 +37,7 @@ return new class extends Migration {
                 'return_out_details',
                 'assembly_components',     // align: konsumsi komponen
                 'assemblies',              // align: produksi hasil perakitan
+                'stock_in_order_item_distributions',
             ])->comment('Tipe dokumen sumber (misal: goods_receipt_details atau lainnya)');
             $table->timestamps();
         });

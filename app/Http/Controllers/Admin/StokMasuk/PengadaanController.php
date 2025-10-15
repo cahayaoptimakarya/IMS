@@ -11,6 +11,8 @@ use App\Models\Shipment;
 use App\Models\UserActivity;
 use App\Models\Warehouse;
 use App\Models\Item;
+use App\Models\Inventory;
+use App\Models\StockMovement;
 use Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -593,6 +595,38 @@ class PengadaanController extends Controller
                 $stockInOrder->status = 'on_shipping';
             }
             $stockInOrder->save();
+
+            // 1) Update Inventory at target warehouse (stock_in)
+            if (empty($distribution->to_warehouse_id)) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Gudang tujuan distribusi tidak ditentukan.'], 422);
+            }
+            $toWarehouseId = (int) $distribution->to_warehouse_id;
+
+            $inventory = Inventory::firstOrNew([
+                'warehouse_id' => $toWarehouseId,
+                'item_id' => $item->item_id,
+            ]);
+            $stockBefore = (float) ($inventory->quantity ?? 0);
+            $inventory->quantity = $stockBefore + (float) $qty;
+            $inventory->koli = (float) ($inventory->koli ?? 0) + (float) $koli;
+            $inventory->save();
+
+            // 2) Log Stock Movement (stock_in)
+            StockMovement::create([
+                'item_id' => $item->item_id,
+                'warehouse_id' => $toWarehouseId,
+                'date' => $distDate,
+                'quantity' => (float) $qty,
+                'koli' => (float) $koli,
+                'stock_before' => $stockBefore,
+                'stock_after' => $inventory->quantity,
+                'type' => 'stock_in',
+                'description' => 'Distribusi Pengadaan ' . ($stockInOrder->code ?? $stockInOrder->id),
+                'user_id' => Auth::id(),
+                'reference_id' => $distribution->id,
+                'reference_type' => 'stock_in_order_item_distributions',
+            ]);
 
             DB::commit();
             // Log user activity
