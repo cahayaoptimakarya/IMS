@@ -21,7 +21,12 @@
         #shipment_items_container .table tbody tr td { vertical-align: middle; }
         #shipment_items_container .item-cell .badge-sku { font-weight: 600; background: #F1F5F9; color: #0F172A; }
         #shipment_items_container .item-meta { color: #64748B; }
-        #shipment_items_container .input-group.input-group-sm .btn { min-width: 32px; }
+        /* Remove hover highlight and borders inside modal items table */
+        #shipment_items_container .table tbody tr:hover { background-color: transparent !important; box-shadow: none; }
+        #shipment_items_container .table > :not(caption) > * > * { border-bottom: 0 !important; }
+        /* Align numeric inputs for readability */
+        #shipment_items_container .qty-input,
+        #shipment_items_container .koli-input { text-align: right; }
         #shipment_items_container .items-toolbar { display: flex; gap: .75rem; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
         #shipment_items_container .items-toolbar .summary { font-weight: 600; color: #334155; }
         #shipment_items_container .items-scroll { max-height: 420px; overflow: auto; border: 1px solid #EFF2F5; border-radius: .475rem; }
@@ -666,7 +671,7 @@
                             </div>
                         `);
 
-                        const table = $('<table class="table align-middle table-sm table-hover"></table>');
+                        const table = $('<table class="table align-middle table-sm table-borderless"></table>');
                         const thead = $('<thead><tr><th class="text-gray-600">Item</th><th class="text-gray-600" width="200">Qty Kirim</th><th class="text-gray-600" width="180">Koli Kirim</th></tr></thead>');
                         const tbody = $('<tbody></tbody>');
 
@@ -688,20 +693,14 @@
                                         </div>
                                         <input type="hidden" name="items[${item.id}][item_id]" value="${item.item_id}">
                                     </td>
-                                    <td>
-                                        <div class="input-group input-group-sm">
-                                            <button type="button" class="btn btn-light minus-btn" data-type="qty" aria-label="Kurangi Qty">-</button>
-                                            <input type="number" step="any" class="form-control form-control-solid text-center qty-input" name="items[${item.id}][quantity]" value="${item.remaining_quantity}" min="0" max="${item.remaining_quantity}" placeholder="Qty">
-                                            <button type="button" class="btn btn-light plus-btn" data-type="qty" aria-label="Tambah Qty">+</button>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="input-group input-group-sm">
-                                            <button type="button" class="btn btn-light minus-btn" data-type="koli" aria-label="Kurangi Koli">-</button>
-                                            <input type="number" step="any" class="form-control form-control-solid text-center koli-input" name="items[${item.id}][koli]" value="${item.remaining_koli}" min="0" max="${item.remaining_koli}" placeholder="Koli">
-                                            <button type="button" class="btn btn-light plus-btn" data-type="koli" aria-label="Tambah Koli">+</button>
-                                        </div>
-                                    </td>
+                                        <td>
+                                            <input type="number" step="any" class="form-control form-control-solid form-control-sm qty-input" name="items[${item.id}][quantity]" value="${item.remaining_quantity}" min="0" max="${item.remaining_quantity}" placeholder="Qty">
+                                            <div class="help-muted mt-1">Maks: ${item.remaining_quantity} Qty</div>
+                                        </td>
+                                        <td>
+                                            <input type="number" step="any" class="form-control form-control-solid form-control-sm koli-input" name="items[${item.id}][koli]" value="${item.remaining_koli}" min="0" max="${item.remaining_koli}" placeholder="Koli">
+                                            <div class="help-muted mt-1">Maks: ${item.remaining_koli} Koli</div>
+                                        </td>
                                 </tr>`;
                             tbody.append(row);
                         });
@@ -732,7 +731,6 @@
                         }
                         updateSummary();
                         tbody.on('input', '.qty-input, .koli-input', updateSummary);
-                        itemsContainer.on('click', '.plus-btn, .minus-btn', updateSummary);
                     },
                     error: function() {
                         itemsContainer.html(
@@ -794,18 +792,7 @@
                 row.removeClass('is-calculating');
             });
 
-            // Stepper controls for qty & koli
-            itemsContainer.on('click', '.plus-btn, .minus-btn', function() {
-                const btn = $(this);
-                const row = btn.closest('tr');
-                const type = btn.data('type'); // 'qty' or 'koli'
-                const input = row.find(type === 'qty' ? '.qty-input' : '.koli-input');
-                const max = parseFloat(input.attr('max')) || Infinity;
-                let val = parseFloat(input.val()) || 0;
-                const delta = btn.hasClass('plus-btn') ? 1 : -1;
-                val = Math.max(0, Math.min(max, val + delta));
-                input.val(val).trigger('input');
-            });
+            // Removed stepper controls; numeric input only
 
 
             $(form).on('submit', function(e) {
