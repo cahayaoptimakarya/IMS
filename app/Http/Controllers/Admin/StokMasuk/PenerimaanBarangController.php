@@ -15,6 +15,8 @@ use App\Models\ShipmentItemDetail;
 use App\Models\GoodsReceiptDetail;
 use App\Models\UserActivity;
 use App\Models\Warehouse;
+use App\Models\Employee;
+use App\Models\Vehicle;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -209,8 +211,10 @@ class PenerimaanBarangController extends Controller
     {
         $warehouses = Warehouse::orderBy('name')->get();
         $newCode = $this->generateGoodsReceiptCode();
+        $employees = Employee::where('active', true)->orderBy('name')->get();
+        $vehicles = Vehicle::where('active', true)->orderBy('license_plate')->get();
 
-        return view('admin.stok_masuk.penerimaan_barang.create', compact('warehouses', 'newCode'));
+        return view('admin.stok_masuk.penerimaan_barang.create', compact('warehouses', 'newCode', 'employees', 'vehicles'));
     }
 
     public function store(Request $request)
@@ -910,7 +914,10 @@ class PenerimaanBarangController extends Controller
         }
         $goodsReceipt->load(['details.item']);
         $warehouses = Warehouse::orderBy('name')->get();
-        return view('admin.stok_masuk.penerimaan_barang.edit', compact('goodsReceipt', 'warehouses'));
+        $employees = Employee::where('active', true)->orderBy('name')->get();
+        $vehicles = Vehicle::where('active', true)->orderBy('license_plate')->get();
+
+        return view('admin.stok_masuk.penerimaan_barang.edit', compact('goodsReceipt', 'warehouses', 'employees', 'vehicles'));
     }
 
     public function update(Request $request, GoodsReceipt $goodsReceipt)

@@ -100,6 +100,26 @@
 
                     <div id="manual-shipment-row" style="display: {{ old('type', $goodsReceipt->type)==='pengadaan' ? 'block' : 'none' }};" class="mb-7">
                         <div class="row g-5 mb-5">
+                            <div class="col-md-6">
+                                <label class="form-label">Pilih Kendaraan (Opsional)</label>
+                                <select id="select_vehicle_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Kendaraan" data-allow-clear="true">
+                                    <option></option>
+                                    @foreach ($vehicles as $vehicle)
+                                        <option value="{{ $vehicle->id }}">{{ $vehicle->license_plate }} - {{ $vehicle->type }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Pilih Pengemudi (Opsional)</label>
+                                <select id="select_employee_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Pengemudi" data-allow-clear="true">
+                                    <option></option>
+                                    @foreach ($employees as $employee)
+                                        <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-5 mb-5">
                             <div class="col-md-4">
                                 <label class="form-label required">Tanggal Pengiriman</label>
                                 <input type="text" id="manual_shipping_date" name="manual_shipment[shipping_date]" class="form-control form-control-solid flatpickr-date" value="{{ old('manual_shipment.shipping_date', optional($goodsReceipt->shipment)->shipping_date) }}">
@@ -245,12 +265,42 @@
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            const vehicles = @json($vehicles);
+            const employees = @json($employees);
+
             flatpickr(".flatpickr-date", {
                 dateFormat: "Y-m-d",
             });
 
             $(function () {
                 $('[data-control="select2"]').select2({ width: '100%' });
+
+                $('#select_vehicle_id').on('change', function() {
+                    const vehicleId = $(this).val();
+                    const vehicle = vehicles.find(v => v.id == vehicleId);
+
+                    if (vehicle) {
+                        $('#manual_vehicle_type').val(vehicle.type || '');
+                        $('#manual_license_plate').val(vehicle.license_plate || '');
+                    } else {
+                        $('#manual_vehicle_type').val('');
+                        $('#manual_license_plate').val('');
+                    }
+                });
+
+                $('#select_employee_id').on('change', function() {
+                    const employeeId = $(this).val();
+                    const employee = employees.find(e => e.id == employeeId);
+
+                    if (employee) {
+                        $('#manual_driver_name').val(employee.name || '');
+                        $('#manual_driver_contact').val(employee.phone || '');
+                    } else {
+                        $('#manual_driver_name').val('');
+                        $('#manual_driver_contact').val('');
+                    }
+                });
+
                 const $shipmentSelect = $('#shipment_id');
                 const $sioSelect = $('#stock_in_order_id');
                 const $detailsContainer = $('#details-container');

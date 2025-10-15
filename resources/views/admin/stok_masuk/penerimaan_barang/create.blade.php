@@ -99,6 +99,26 @@
                     <div id="shipment-manual-container" style="display:none;">
                         <h4 class="mb-5">Input Data Pengiriman (Pengadaan)</h4>
                         <div class="row g-5 mb-7">
+                            <div class="col-md-6">
+                                <label class="form-label">Pilih Kendaraan (Opsional)</label>
+                                <select id="select_vehicle_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Kendaraan" data-allow-clear="true">
+                                    <option></option>
+                                    @foreach ($vehicles as $vehicle)
+                                        <option value="{{ $vehicle->id }}">{{ $vehicle->license_plate }} - {{ $vehicle->type }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Pilih Pengemudi (Opsional)</label>
+                                <select id="select_employee_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Pengemudi" data-allow-clear="true">
+                                    <option></option>
+                                    @foreach ($employees as $employee)
+                                        <option value="{{ $employee->id }}">{{ $employee->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-5 mb-7">
                             <div class="col-md-4">
                                 <label class="form-label required">Tanggal Pengiriman</label>
                                 <input type="text" id="manual_shipping_date" name="manual_shipment[shipping_date]" class="form-control form-control-solid flatpickr-date" required>
@@ -115,11 +135,11 @@
                         <div class="row g-5 mb-7">
                             <div class="col-md-4">
                                 <label class="form-label">Nama Pengemudi</label>
-                                <input type="text" name="manual_shipment[driver_name]" class="form-control form-control-solid">
+                                <input type="text" id="manual_driver_name" name="manual_shipment[driver_name]" class="form-control form-control-solid">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Kontak Pengemudi</label>
-                                <input type="text" name="manual_shipment[driver_contact]" class="form-control form-control-solid">
+                                <input type="text" id="manual_driver_contact" name="manual_shipment[driver_contact]" class="form-control form-control-solid">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Catatan</label>
@@ -218,6 +238,9 @@
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            const vehicles = @json($vehicles);
+            const employees = @json($employees);
+
             flatpickr(".flatpickr-date", {
                 dateFormat: "Y-m-d",
             });
@@ -546,6 +569,32 @@
                         $detailsPlaceholder.show().find('p').text('Pilih dokumen pengadaan untuk melanjutkan.');
                     }
                     handleShipmentFormVisibility();
+                });
+
+                $('#select_vehicle_id').on('change', function() {
+                    const vehicleId = $(this).val();
+                    const vehicle = vehicles.find(v => v.id == vehicleId);
+
+                    if (vehicle) {
+                        $('#manual_vehicle_type').val(vehicle.type || '');
+                        $('#manual_license_plate').val(vehicle.license_plate || '');
+                    } else {
+                        $('#manual_vehicle_type').val('');
+                        $('#manual_license_plate').val('');
+                    }
+                });
+
+                $('#select_employee_id').on('change', function() {
+                    const employeeId = $(this).val();
+                    const employee = employees.find(e => e.id == employeeId);
+
+                    if (employee) {
+                        $('#manual_driver_name').val(employee.name || '');
+                        $('#manual_driver_contact').val(employee.phone || '');
+                    } else {
+                        $('#manual_driver_name').val('');
+                        $('#manual_driver_contact').val('');
+                    }
                 });
 
                 function updateSummary() {
