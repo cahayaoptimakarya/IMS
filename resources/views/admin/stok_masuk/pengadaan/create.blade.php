@@ -16,12 +16,12 @@
                     @csrf
                     <div class="row">
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark required">Kode Dokumen</label>
+                            <label class="form-label required">Kode Dokumen</label>
                             <input type="text" name="code" class="form-control form-control-solid"
                                 value="{{ $newCode }}" readonly>
                         </div>
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark required">Tanggal</label>
+                            <label class="form-label required">Tanggal</label>
                             <input type="text" name="date"
                                 class="form-control form-control-solid flatpickr-input @error('date') is-invalid @enderror"
                                 value="{{ old('date', date('Y-m-d')) }}" required>
@@ -33,7 +33,7 @@
 
                     <div class="row">
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark required">Tipe</label>
+                            <label class="form-label required">Tipe</label>
                             <select name="type" id="order-type" class="form-select form-select-solid @error('type') is-invalid @enderror" data-control="select2" data-placeholder="Pilih Tipe" required>
                                 <option></option>
                                 <option value="import" {{ old('type', 'import') == 'import' ? 'selected' : '' }}>Import</option>
@@ -45,7 +45,7 @@
                             @enderror
                         </div>
                          <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Estimasi Tanggal Diterima <span class="text-muted">(Opsional)</span></label>
+                            <label class="form-label">Estimasi Tanggal Diterima <span class="text-muted">(Opsional)</span></label>
                             <input type="text" name="estimated_received_date"
                                 class="form-control form-control-solid flatpickr-input @error('estimated_received_date') is-invalid @enderror"
                                 value="{{ old('estimated_received_date') }}">
@@ -59,11 +59,11 @@
                         <div class="col-md-6 mb-5">
                             @if (auth()->user()->warehouse_id)
                                 <input type="hidden" name="warehouse_id" value="{{ auth()->user()->warehouse_id }}">
-                                <label class="form-label fs-6 fw-bolder text-dark required">Gudang</label>
+                                <label class="form-label required">Gudang</label>
                                 <input type="text" class="form-control form-control-solid"
                                     value="{{ auth()->user()->warehouse->name }}" readonly>
                             @else
-                                <label class="form-label fs-6 fw-bolder text-dark required">Gudang</label>
+                                <label class="form-label required">Gudang</label>
                                 <select name="warehouse_id"
                                     class="form-select form-select-solid @error('warehouse_id') is-invalid @enderror"
                                     data-control="select2" data-placeholder="Pilih Gudang" required>
@@ -81,14 +81,14 @@
                             @endif
                         </div>
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Deskripsi</label>
+                            <label class="form-label">Deskripsi</label>
                             <textarea name="description" class="form-control form-control-solid">{{ old('description') }}</textarea>
                         </div>
                     </div>
 
                     <div class="row" id="from-warehouse-row" style="display:none;">
                         <div class="col-md-6 mb-5">
-                            <label class="form-label fs-6 fw-bolder text-dark">Dari Gudang</label>
+                            <label class="form-label">Dari Gudang</label>
                             <select name="from_warehouse_id" id="from-warehouse-id" class="form-select form-select-solid @error('from_warehouse_id') is-invalid @enderror" data-control="select2" data-placeholder="Pilih Gudang Asal">
                                 <option></option>
                                 @foreach ($warehouses as $warehouse)
