@@ -342,6 +342,7 @@ class RiwayatPengirimanController extends Controller
                 }
 
                 // 2) Update header
+                $oldShippingDate = $shipment->shipping_date;
                 $shipment->update([
                     'shipping_date' => $validated['shipping_date'],
                     'vehicle_type' => $validated['vehicle_type'],
@@ -351,7 +352,8 @@ class RiwayatPengirimanController extends Controller
                     'description' => $validated['description'] ?? null,
                 ]);
 
-                // 3) Apply inventory movements and update details + TRI remaining
+                // 3) Apply inventory movements by editing original stock movements
+                //    and update details + TRI remaining
                 foreach ($validated['items'] as $sid => $itemData) {
                     $detail = ShipmentItemDetail::where('shipment_id', $shipment->id)->findOrFail($sid);
                     $newQty = (float) ($itemData['quantity'] ?? 0);
@@ -364,49 +366,57 @@ class RiwayatPengirimanController extends Controller
                     $tri = TransferRequestItem::find($detail->reference_id);
 
                     if ($deltaQty !== 0 || $deltaKoli !== 0) {
-                        // Adjust inventory and create stock movement log
+                        // Adjust inventory first (based on delta)
                         $inventory = Inventory::firstOrNew([
                             'warehouse_id' => $transferRequest->from_warehouse_id,
                             'item_id' => $detail->item_id,
                         ]);
                         $before = (float) ($inventory->quantity ?? 0);
-
                         if ($deltaQty > 0 || $deltaKoli > 0) {
-                            // Ship more => stock_out
+                            // ship more => reduce inventory
                             $inventory->quantity = $before - $deltaQty;
                             $inventory->koli = (float) ($inventory->koli ?? 0) - $deltaKoli;
-                            $inventory->save();
+                        } else {
+                            // ship less => return inventory
+                            $inventory->quantity = $before + abs($deltaQty);
+                            $inventory->koli = (float) ($inventory->koli ?? 0) + abs($deltaKoli);
+                        }
+                        $inventory->save();
 
+                        // Edit the original stock movement for this shipment line
+                        $movement = StockMovement::where('type', 'stock_out')
+                            ->where('item_id', $detail->item_id)
+                            ->where('warehouse_id', $transferRequest->from_warehouse_id)
+                            ->where('reference_type', 'transfer_request_items')
+                            ->where('reference_id', $detail->reference_id)
+                            ->where('date', $oldShippingDate)
+                            ->where('quantity', -$oldQty)
+                            ->where('koli', -$oldKoli)
+                            ->orderByDesc('id')
+                            ->first();
+
+                        if ($movement) {
+                            // Keep stock_before; recalc stock_after using new quantity
+                            $stockBefore = (float) ($movement->stock_before ?? 0);
+                            $movement->date = $validated['shipping_date'];
+                            $movement->quantity = -$newQty;
+                            $movement->koli = -$newKoli;
+                            $movement->stock_after = $stockBefore + (-$newQty);
+                            $movement->description = 'Pengiriman permintaan transfer ' . ($transferRequest->code ?? $movement->description);
+                            $movement->user_id = Auth::id();
+                            $movement->save();
+                        } else {
+                            // Fallback: create one if not found
                             StockMovement::create([
                                 'item_id' => $detail->item_id,
                                 'warehouse_id' => $transferRequest->from_warehouse_id,
                                 'date' => $validated['shipping_date'],
-                                'quantity' => -$deltaQty,
-                                'koli' => -$deltaKoli,
+                                'quantity' => -$newQty,
+                                'koli' => -$newKoli,
                                 'stock_before' => $before,
                                 'stock_after' => $inventory->quantity,
                                 'type' => 'stock_out',
-                                'description' => 'Penyesuaian pengiriman ' . $shipment->code,
-                                'user_id' => Auth::id(),
-                                'reference_id' => $detail->reference_id,
-                                'reference_type' => 'transfer_request_items',
-                            ]);
-                        } else {
-                            // Ship less => stock_in (return to inventory)
-                            $inventory->quantity = $before + abs($deltaQty);
-                            $inventory->koli = (float) ($inventory->koli ?? 0) + abs($deltaKoli);
-                            $inventory->save();
-
-                            StockMovement::create([
-                                'item_id' => $detail->item_id,
-                                'warehouse_id' => $transferRequest->from_warehouse_id,
-                                'date' => $validated['shipping_date'],
-                                'quantity' => abs($deltaQty),
-                                'koli' => abs($deltaKoli),
-                                'stock_before' => $before,
-                                'stock_after' => $inventory->quantity,
-                                'type' => 'stock_in',
-                                'description' => 'Pengurangan pengiriman ' . $shipment->code,
+                                'description' => 'Pengiriman permintaan transfer ' . ($transferRequest->code ?? $shipment->code),
                                 'user_id' => Auth::id(),
                                 'reference_id' => $detail->reference_id,
                                 'reference_type' => 'transfer_request_items',
@@ -429,7 +439,7 @@ class RiwayatPengirimanController extends Controller
                 }
             });
 
-            return redirect()->route('admin.riwayat-pengiriman.show', $shipment->id)->with('success', 'Pengiriman berhasil diperbarui.');
+            return redirect()->route('admin.riwayat-pengiriman.show', $shipment->id)->with('success', 'Pengiriman dan pergerakan stok berhasil diperbarui.');
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {

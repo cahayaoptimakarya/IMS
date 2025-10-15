@@ -33,7 +33,7 @@
                             <div class="row g-4">
                                 <div class="col-md-6">
                                     <label class="form-label required">Tanggal Kirim</label>
-                                    <input type="date" class="form-control @error('shipping_date') is-invalid @enderror" name="shipping_date" value="{{ old('shipping_date', $shipment->shipping_date ? \Carbon\Carbon::parse($shipment->shipping_date)->format('Y-m-d') : '') }}" required>
+                                    <input type="text" id="shipping_date" class="form-control @error('shipping_date') is-invalid @enderror" name="shipping_date" value="{{ old('shipping_date', $shipment->shipping_date ? \Carbon\Carbon::parse($shipment->shipping_date)->format('Y-m-d') : '') }}" required>
                                     @error('shipping_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                                 <div class="col-md-6">
@@ -136,6 +136,8 @@
     (function(){
         const tbody = document.getElementById('items_tbody');
         const summary = document.getElementById('summary');
+        const form = document.getElementById('shipment_edit_form');
+        const shipDate = document.getElementById('shipping_date');
 
         function updateSummary(){
             let totalQty = 0, totalKoli = 0, count = 0;
@@ -202,6 +204,34 @@
         });
 
         updateSummary();
+
+        // Init flatpickr for shipping_date if available
+        if (window.flatpickr && shipDate) {
+            flatpickr(shipDate, { dateFormat: 'Y-m-d' });
+        }
+
+        // SweetAlert confirm on submit
+        if (form && window.Swal) {
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                Swal.fire({
+                    text: 'Apakah Anda yakin ingin menyimpan perubahan pengiriman ini?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Simpan',
+                    cancelButtonText: 'Batal',
+                    buttonsStyling: false,
+                    customClass: {
+                        confirmButton: 'btn fw-bold btn-primary',
+                        cancelButton: 'btn fw-bold btn-active-light-primary'
+                    }
+                }).then(function(result){
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
+            });
+        }
     })();
 </script>
 @endpush
