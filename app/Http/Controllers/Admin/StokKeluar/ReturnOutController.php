@@ -41,6 +41,8 @@ class ReturnOutController extends Controller
             $length = (int) $request->input('length', 10);
             $draw = (int) $request->input('draw', 0);
             $statusFilter = $request->input('status');
+            $dateFrom = $request->input('date_from');
+            $dateTo = $request->input('date_to');
 
             $forcedWarehouseId = auth()->user()->warehouse_id ?? null;
 
@@ -60,6 +62,13 @@ class ReturnOutController extends Controller
             $q = (clone $base);
             if ($statusFilter && $statusFilter !== 'semua') {
                 $q->where('ro.status', $statusFilter);
+            }
+            if ($dateFrom && $dateTo) {
+                $q->whereBetween('ro.return_date', [$dateFrom, $dateTo]);
+            } elseif ($dateFrom) {
+                $q->whereDate('ro.return_date', '>=', $dateFrom);
+            } elseif ($dateTo) {
+                $q->whereDate('ro.return_date', '<=', $dateTo);
             }
             if ($search) {
                 $q->where(function($s) use ($search){

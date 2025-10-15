@@ -16,6 +16,12 @@
 @endphp
 
 @section('content')
+@push('styles')
+<style>
+/* Ensure flatpickr calendar overlays dropdown filter */
+.flatpickr-calendar { z-index: 20000 !important; }
+</style>
+@endpush
 <div class="content flex-row-fluid" id="kt_content">
     <div class="row g-5 g-xl-8">
         <div class="col-12">
@@ -57,13 +63,40 @@
                         <input type="text" id="search_input" class="form-control form-control-solid w-250px ps-15" placeholder="Cari Retur Out">
                     </div>
                 </div>
-                <div>
+                <div class="d-flex align-items-center gap-3">
+                    <button type="button" class="btn btn-light-primary" id="filter_button" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+                        <span class="svg-icon svg-icon-2 me-1"><i class="fas fa-filter"></i></span> Filter
+                    </button>
+                    <div class="menu menu-sub menu-sub-dropdown w-300px w-md-325px" data-kt-menu="true" id="kt-toolbar-filter">
+                        <div class="px-7 py-5">
+                            <div class="fs-5 text-dark fw-bolder">Opsi Filter</div>
+                        </div>
+                        <div class="separator border-gray-200"></div>
+                        <div class="px-7 py-5">
+                            <div class="mb-10">
+                                <label class="form-label fs-6 fw-bold mb-3">Tanggal:</label>
+                                <div class="d-flex align-items-center">
+                                    <input type="text" id="date_from" class="form-control form-control-solid flatpickr-input me-2" placeholder="Dari" style="width:140px;">
+                                    <span class="mx-1">s/d</span>
+                                    <input type="text" id="date_to" class="form-control form-control-solid flatpickr-input ms-2" placeholder="Sampai" style="width:140px;">
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end">
+                                <button type="reset" class="btn btn-light btn-active-light-primary me-2" data-kt-menu-dismiss="true">Batal</button>
+                                <button type="button" class="btn btn-primary" id="apply_filter" data-kt-menu-dismiss="true">Terapkan</button>
+                            </div>
+                        </div>
+                    </div>
                     @if ($canCreate)
                         <a href="{{ route('admin.stok-keluar.retur-out.create') }}" class="btn btn-primary">Tambah</a>
                     @endif
                 </div>
             </div>
         <div class="card-body pt-0">
+            <div class="text-center mb-5">
+                <h3 class="mb-0">Daftar Retur Out</h3>
+                <small id="filter-info" class="text-muted"></small>
+            </div>
             <div class="table-responsive min-h-500px">
                 <table class="table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer" id="ri-table">
                     <thead>
@@ -105,7 +138,11 @@ $(function(){
         searching: true,
         ajax: {
             url: `{{ route('admin.stok-keluar.retur-out.index') }}`,
-            data: function(d){ d.search.value = $('#search_input').val(); }
+            data: function(d){
+                d.search.value = $('#search_input').val();
+                d.date_from = $('#date_from').val();
+                d.date_to = $('#date_to').val();
+            }
         },
         columns: [
             { data: 'code', name: 'ro.code' },
@@ -144,6 +181,34 @@ $(function(){
     // Debounce helper and attach search input handler (ensure runs after jQuery loaded)
     const debounce = (fn, delay) => { let t; return function(){ clearTimeout(t); t = setTimeout(()=>fn.apply(this, arguments), delay); }; };
     $('#search_input').on('keyup', debounce(function(){ $('#ri-table').DataTable().draw(); }, 400));
+
+    // flatpickr init (append to body to avoid clipping inside menu)
+    function initFlatpickrs(){
+        $('.flatpickr-input').each(function(){
+            try{ if (this._flatpickr) this._flatpickr.destroy(); }catch(e){}
+            flatpickr(this, { dateFormat: 'Y-m-d', allowInput: true, appendTo: document.body, position: 'auto center', clickOpens: true });
+        });
+    }
+    initFlatpickrs();
+    $('#filter_button').on('click', function(){ setTimeout(initFlatpickrs, 25); });
+
+    // Set default 30-day range
+    (function setDefaultRange(){
+        const fmt = (d)=>{ const y=d.getFullYear(); const m=('0'+(d.getMonth()+1)).slice(-2); const da=('0'+d.getDate()).slice(-2); return `${y}-${m}-${da}`; };
+        const today = new Date();
+        const past = new Date(); past.setDate(today.getDate()-30);
+        $('#date_from').val(fmt(past));
+        $('#date_to').val(fmt(today));
+        $('#filter-info').text(`Tanggal: ${fmt(past)} s/d ${fmt(today)}`);
+        table.draw();
+    })();
+
+    $('#apply_filter').on('click', function(){
+        const df = $('#date_from').val() || '-';
+        const dt = $('#date_to').val() || '-';
+        $('#filter-info').text(`Tanggal: ${df} s/d ${dt}`);
+        table.draw();
+    });
 
     loadCounts();
 });

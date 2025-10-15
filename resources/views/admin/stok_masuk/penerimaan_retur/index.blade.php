@@ -66,12 +66,48 @@
     </div>
     <div class="card">
         <div class="card-header border-0 pt-6 d-flex justify-content-between align-items-center">
-            <h3 class="card-title fw-bolder">Daftar Penerimaan Retur</h3>
+            <div class="card-title d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center position-relative my-1">
+                    <span class="svg-icon svg-icon-1 position-absolute ms-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><rect opacity="0.5" x="17.0365" y="15.1223" width="8.15546" height="2" rx="1" transform="rotate(45 17.0365 15.1223)" fill="black"></rect><path d="M11 19C6.55556 19 3 15.4444  3 11C3 6.55556 6.55556 3 11 3C15.4444 3 19 6.55556 19 11C19 15.4444 15.4444 19 11 19ZM11 5C7.53333 5 5 7.53333 5 11C5 14.4667 7.53333 17 11 17C14.4667 17 17 14.4667 17 11C17 7.53333 14.4667 5 11 5Z" fill="black"></path></svg>
+                    </span>
+                    <input type="text" id="search_input" class="form-control form-control-solid w-250px ps-15" placeholder="Cari Penerimaan Retur">
+                </div>
+                <div class="d-flex align-items-center ms-5">
+                    <button type="button" class="btn btn-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+                        <span class="svg-icon svg-icon-2 me-1"><i class="fas fa-filter"></i></span> Filter
+                    </button>
+                    <div class="menu menu-sub menu-sub-dropdown w-300px w-md-325px" data-kt-menu="true" id="kt-toolbar-filter">
+                        <div class="px-7 py-5">
+                            <div class="fs-5 text-dark fw-bolder">Opsi Filter</div>
+                        </div>
+                        <div class="separator border-gray-200"></div>
+                        <div class="px-7 py-5">
+                            <div class="mb-10">
+                                <label class="form-label fs-6 fw-bold mb-3">Tanggal:</label>
+                                <div class="d-flex align-items-center">
+                                    <input type="text" id="date_from" class="form-control form-control-solid flatpickr-input me-2" placeholder="Dari" style="width:140px;">
+                                    <span class="mx-1">s/d</span>
+                                    <input type="text" id="date_to" class="form-control form-control-solid flatpickr-input ms-2" placeholder="Sampai" style="width:140px;">
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-end">
+                                <button type="reset" class="btn btn-light btn-active-light-primary me-2" data-kt-menu-dismiss="true">Batal</button>
+                                <button type="button" class="btn btn-primary" id="apply_filter" data-kt-menu-dismiss="true">Terapkan</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             @if ($canCreate)
                 <a href="{{ route('admin.stok-masuk.penerimaan-retur.create') }}" class="btn btn-primary">Tambah</a>
             @endif
         </div>
         <div class="card-body pt-0">
+            <div class="text-center mb-5">
+                <h3 class="mb-0">Daftar Penerimaan Retur</h3>
+                <small id="filter-info" class="text-muted"></small>
+            </div>
             <div class="table-responsive min-h-500px">
                 <table class="table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer" id="rr-table">
                     <thead>
@@ -118,6 +154,8 @@ $(function(){
             type: 'GET',
             data: function(d){
                 d.search.value = $('#search_input').val();
+                d.date_from = $('#date_from').val();
+                d.date_to = $('#date_to').val();
             }
         },
         columns: [
@@ -175,6 +213,29 @@ $(function(){
     // Debounced search using global search input if present
     const debounce = (callback, wait=400) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>callback.apply(null,args), wait); }; };
     $('#search_input').on('keyup', debounce(function(){ table.draw(); }));
+    // flatpickr init (append to body to avoid clipping inside menu)
+    $('.flatpickr-input').each(function(){
+        if (this._flatpickr) { this._flatpickr.destroy(); }
+        flatpickr(this, { dateFormat: 'Y-m-d', allowInput: true, appendTo: document.body, position: 'auto center' });
+    });
+
+    // Set default 30-day range
+    (function setDefaultRange(){
+        const fmt = (d)=>{ const y=d.getFullYear(); const m=('0'+(d.getMonth()+1)).slice(-2); const da=('0'+d.getDate()).slice(-2); return `${y}-${m}-${da}`; };
+        const today = new Date();
+        const past = new Date(); past.setDate(today.getDate()-30);
+        $('#date_from').val(fmt(past));
+        $('#date_to').val(fmt(today));
+        $('#filter-info').text(`Tanggal: ${fmt(past)} s/d ${fmt(today)}`);
+        table.draw();
+    })();
+
+    $('#apply_filter').on('click', function(){
+        const df = $('#date_from').val() || '-';
+        const dt = $('#date_to').val() || '-';
+        $('#filter-info').text(`Tanggal: ${df} s/d ${dt}`);
+        table.draw();
+    });
 
     // Delete action
     $('#rr-table').on('submit','.rr-del', function(e){

@@ -32,6 +32,8 @@ class ReturnReceiptController extends Controller
             $length = (int) $request->input('length', 10);
             $draw = (int) $request->input('draw', 0);
             $statusFilter = $request->input('status');
+            $dateFrom = $request->input('date_from');
+            $dateTo = $request->input('date_to');
 
             $forcedWarehouseId = auth()->user()->warehouse_id ?? null;
 
@@ -50,6 +52,13 @@ class ReturnReceiptController extends Controller
 
             if ($statusFilter && $statusFilter !== 'semua') {
                 $q->where('status', $statusFilter);
+            }
+            if ($dateFrom && $dateTo) {
+                $q->whereBetween('rr.return_date', [$dateFrom, $dateTo]);
+            } elseif ($dateFrom) {
+                $q->whereDate('rr.return_date', '>=', $dateFrom);
+            } elseif ($dateTo) {
+                $q->whereDate('rr.return_date', '<=', $dateTo);
             }
 
             if ($search) {
