@@ -123,6 +123,7 @@
                         <div class="doc-meta">
                             <div class="meta-row"><span class="meta-label">Kode</span><span class="meta-value">{{ $transferRequest->code ?? '-' }}</span></div>
                             <div class="meta-row"><span class="meta-label">Tanggal</span><span class="meta-value">{{ $transferRequest->date ? \Carbon\Carbon::parse($transferRequest->date)->format('d M Y') : '-' }}</span></div>
+                            <div class="meta-row"><span class="meta-label">Diminta Oleh</span><span class="meta-value">{{ optional($transferRequest->requester)->name ?? '-' }}</span></div>
                             @php
                                 $badgeClass = 'primary';
                                 if ($transferRequest->status === 'completed') { $badgeClass = 'success'; }

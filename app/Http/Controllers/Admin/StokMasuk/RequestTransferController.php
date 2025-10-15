@@ -227,7 +227,7 @@ class RequestTransferController extends Controller
 
     public function show(TransferRequest $transferRequest)
     {
-        $transferRequest->load(['fromWarehouse', 'toWarehouse', 'items', 'items.item']);
+        $transferRequest->load(['fromWarehouse', 'toWarehouse', 'items', 'items.item', 'requester']);
 
         $shipments = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
             ->where('reference_id', $transferRequest->id)
