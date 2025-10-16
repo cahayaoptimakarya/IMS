@@ -88,7 +88,7 @@
 
                     <div class="row" id="from-warehouse-row" style="display:none;">
                         <div class="col-md-6 mb-5">
-                            <label class="form-label">Dari Gudang</label>
+                            <label class="form-label required">Dari Gudang</label>
                             <select name="from_warehouse_id" id="from-warehouse-id" class="form-select form-select-solid @error('from_warehouse_id') is-invalid @enderror" data-control="select2" data-placeholder="Pilih Gudang Asal">
                                 <option></option>
                                 @foreach ($warehouses as $warehouse)
