@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\ManajemenStok\KartuStokController;
 use App\Http\Controllers\Admin\ManajemenStok\WarehouseStokController;
 use App\Http\Controllers\Admin\ManajemenStok\StockOpnameController;
 use App\Http\Controllers\Admin\ManajemenStok\AdjustmentController;
+use App\Http\Controllers\Admin\ManajemenStok\DefectController;
 use App\Http\Controllers\Admin\Masterdata\ItemCategoryController;
 use App\Http\Controllers\Admin\Masterdata\ItemController;
 use App\Http\Controllers\Admin\Masterdata\JabatanController;
@@ -134,6 +135,9 @@ Route::middleware(['auth', 'permission'])->group(function () {
         Route::get('adjustment/status-counts', [AdjustmentController::class, 'getStatusCounts'])->name('adjustment.status-counts');
         Route::resource('adjustment', AdjustmentController::class);
         Route::post('adjustment/{adjustment}/update-status', [AdjustmentController::class, 'updateStatus'])->name('adjustment.updateStatus');
+        Route::resource('defects', DefectController::class)->except(['show','destroy']);
+        Route::get('defects/status-counts', [DefectController::class, 'getStatusCounts'])->name('defects.status-counts');
+        Route::post('defects/{defect}/approve', [DefectController::class, 'approve'])->name('defects.approve');
         // Perakitan
         Route::get('perakitan/recipes/{recipe}', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'recipeDetail'])->name('perakitan.recipe-detail');
         Route::get('perakitan/status-counts', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'getStatusCounts'])->name('perakitan.status-counts');

@@ -209,6 +209,16 @@ class MenuSeeder extends Seeder
             ]
         );
 
+        Menu::updateOrCreate(
+            ['name' => 'Barang Rusak'],
+            [
+                'url' => '/admin/manajemen-stok/defects',
+                'icon' => 'fas fa-dumpster-fire',
+                'parent_id' => $manajemenStok->id,
+                'order' => 6,
+            ]
+        );
+
         // Stok Masuk
         $stokMasuk = Menu::updateOrCreate(
             ['name' => 'Stok Masuk'],
