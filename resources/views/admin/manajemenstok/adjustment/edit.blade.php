@@ -67,7 +67,7 @@
                             <tr class="fw-bolder text-muted">
                                 <th class="required">Item</th>
                                 <th>Satuan</th>
-                                <th width="150px">Stok</th>
+                                <th width="220px">Stok (Qty/Koli)</th>
                                 <th width="150px" class="required">Quantity</th>
                                 <th width="150px" class="required">Koli</th>
                                 <th width="50px">Aksi</th>
@@ -96,7 +96,11 @@
                                         <input type="hidden" name="items[{{ $index }}][uom_id]" class="uom-id-input" value="{{ $existingItem->uom_id }}">
                                     </td>
                                     <td>
-                                        <span class="badge bg-light text-dark available-stock-text">0</span>
+                                        <div class="stock-info d-flex align-items-center gap-2 flex-wrap">
+                                            <span class="badge bg-light text-dark available-stock-text available-qty-text" title="Stok Qty">0</span>
+                                            <span class="badge bg-light text-dark available-koli-text" title="Stok Koli">0</span>
+                                            <div class="w-100 form-text text-muted per-koli-info">1 koli = - qty</div>
+                                        </div>
                                         <input type="hidden" class="available-stock-value" value="0">
                                     </td>
                                     <td><input type="number" name="items[{{ $index }}][quantity]"
@@ -194,7 +198,11 @@
                             <input type="hidden" name="items[${itemIndex}][uom_id]" class="uom-id-input">
                         </td>
                         <td>
-                            <span class="badge bg-light text-dark available-stock-text">0</span>
+                            <div class="stock-info d-flex align-items-center gap-2 flex-wrap">
+                                <span class="badge bg-light text-dark available-stock-text available-qty-text" title="Stok Qty">0</span>
+                                <span class="badge bg-light text-dark available-koli-text" title="Stok Koli">0</span>
+                                <div class="w-100 form-text text-muted per-koli-info">1 koli = - qty</div>
+                            </div>
                             <input type="hidden" class="available-stock-value" value="0">
                         </td>
                         <td><input type="number" name="items[${itemIndex}][quantity]" class="form-control form-control-solid quantity-input" value="1" step="any" required></td>
@@ -272,7 +280,7 @@
             function fetchAndSetStock(row, itemId) {
                 const wh = getSelectedWarehouseId();
                 if (!wh) {
-                    row.find('.available-stock-text').text('0');
+                    row.find('.available-qty-text').text('0'); row.find('.available-koli-text').text('0');
                     row.find('.available-stock-value').val(0);
                     return;
                 }
@@ -282,7 +290,9 @@
                     data: { warehouse_id: wh, item_id: itemId },
                     success: function(res) {
                         const qty = parseFloat(res.quantity || 0) || 0;
-                        row.find('.available-stock-text').text(qty);
+                        const koli = parseFloat(res.koli || 0) || 0;
+                        row.find('.available-qty-text').text(qty);
+                        row.find('.available-koli-text').text(koli.toFixed(2));
                         row.find('.available-stock-value').val(qty);
                         const currentQty = parseFloat(row.find('.quantity-input').val()) || 0;
                         if (currentQty < 0 && Math.abs(currentQty) > qty) {
@@ -291,7 +301,7 @@
                         }
                     },
                     error: function() {
-                        row.find('.available-stock-text').text('0');
+                        row.find('.available-qty-text').text('0'); row.find('.available-koli-text').text('0');
                         row.find('.available-stock-value').val(0);
                     }
                 });
@@ -302,6 +312,8 @@
                 const row = $(this);
                 const itemId = row.find('.item-select').val();
                 if (itemId) fetchAndSetStock(row, itemId);
+                const perKoli = parseFloat(row.find('.item-select option:selected').data('koli')) || 1;
+                row.find('.per-koli-info').text(`1 koli = ${perKoli} qty`);
             });
 
             // React to warehouse change (re-evaluate stocks)
@@ -321,13 +333,15 @@
                 let row = $(this).closest('tr');
                 row.find('.uom-id-input').val(uomId);
                 row.find('.uom-text').text(uomName);
+                const perKoli = parseFloat(selectedOption.data('koli')) || 1;
+                row.find('.per-koli-info').text(`1 koli = ${perKoli} qty`);
                 const itemId = $(this).val();
                 ensureUniqueSelection(this);
                 refreshItemSelectOptions();
                 if (itemId) {
                     fetchAndSetStock(row, itemId);
                 } else {
-                    row.find('.available-stock-text').text('0');
+                    row.find('.available-qty-text').text('0'); row.find('.available-koli-text').text('0');
                     row.find('.available-stock-value').val(0);
                 }
             });
@@ -337,6 +351,7 @@
                 let row = $(this).closest('tr');
                 let quantity = parseFloat(row.find('.quantity-input').val()) || 0;
                 let productKoli = parseFloat(row.find('.item-select option:selected').data('koli')) || 1;
+                row.find('.per-koli-info').text(`1 koli = ${productKoli} qty`);
                 if (quantity < 0) {
                     let available = parseFloat(row.find('.available-stock-value').val()) || 0;
                     if (Math.abs(quantity) > available) {
@@ -474,3 +489,5 @@
         });
     </script>
 @endpush
+
+
