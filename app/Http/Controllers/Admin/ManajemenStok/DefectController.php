@@ -192,11 +192,20 @@ class DefectController extends Controller
 
             // Log user activity (non-blocking if fails)
             try {
+                $item = Item::select('sku','nama_barang')->find($defect->item_id);
+                $itemText = $item ? (($item->sku ? ($item->sku.' - ') : '') . ($item->nama_barang ?? '')) : ('Item ID: '.$defect->item_id);
+                $desc = sprintf(
+                    'Membuat draft barang rusak: %s | Item: %s | Qty: %s | Koli: %s',
+                    $defect->code,
+                    $itemText,
+                    rtrim(rtrim(number_format((float)$defect->quantity, 2, '.', ''), '0'), '.'),
+                    rtrim(rtrim(number_format((float)($defect->koli ?? 0), 2, '.', ''), '0'), '.')
+                );
                 UserActivity::create([
                     'user_id' => Auth::id(),
                     'activity' => 'created',
                     'menu' => 'Barang Rusak',
-                    'description' => 'Membuat draft barang rusak: ' . $defect->code,
+                    'description' => $desc,
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->header('User-Agent'),
                 ]);
@@ -247,11 +256,20 @@ class DefectController extends Controller
             ]);
 
             try {
+                $item = Item::select('sku','nama_barang')->find($defect->item_id);
+                $itemText = $item ? (($item->sku ? ($item->sku.' - ') : '') . ($item->nama_barang ?? '')) : ('Item ID: '.$defect->item_id);
+                $desc = sprintf(
+                    'Mengubah draft barang rusak: %s | Item: %s | Qty: %s | Koli: %s',
+                    $defect->code,
+                    $itemText,
+                    rtrim(rtrim(number_format((float)$defect->quantity, 2, '.', ''), '0'), '.'),
+                    rtrim(rtrim(number_format((float)($defect->koli ?? 0), 2, '.', ''), '0'), '.')
+                );
                 UserActivity::create([
                     'user_id' => Auth::id(),
                     'activity' => 'updated',
                     'menu' => 'Barang Rusak',
-                    'description' => 'Mengubah draft barang rusak: ' . $defect->code,
+                    'description' => $desc,
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->header('User-Agent'),
                 ]);
@@ -311,11 +329,21 @@ class DefectController extends Controller
             ]);
 
             try {
+                $defect->loadMissing('item');
+                $item = $defect->item;
+                $itemText = $item ? (($item->sku ? ($item->sku.' - ') : '') . ($item->nama_barang ?? '')) : ('Item ID: '.$defect->item_id);
+                $desc = sprintf(
+                    'Menyetujui barang rusak: %s | Item: %s | Qty: %s | Koli: %s',
+                    $defect->code,
+                    $itemText,
+                    rtrim(rtrim(number_format((float)$defect->quantity, 2, '.', ''), '0'), '.'),
+                    rtrim(rtrim(number_format((float)($defect->koli ?? 0), 2, '.', ''), '0'), '.')
+                );
                 UserActivity::create([
                     'user_id' => Auth::id(),
                     'activity' => 'approved',
                     'menu' => 'Barang Rusak',
-                    'description' => 'Menyetujui barang rusak: ' . $defect->code,
+                    'description' => $desc,
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->header('User-Agent'),
                 ]);
@@ -349,11 +377,22 @@ class DefectController extends Controller
             ]);
 
             try {
+                $defect->loadMissing('item');
+                $item = $defect->item;
+                $itemText = $item ? (($item->sku ? ($item->sku.' - ') : '') . ($item->nama_barang ?? '')) : ('Item ID: '.$defect->item_id);
+                $desc = sprintf(
+                    'Memulai penanganan defect: %s (%s) | Item: %s | Qty: %s | Koli: %s',
+                    $defect->code,
+                    $defect->action,
+                    $itemText,
+                    rtrim(rtrim(number_format((float)$defect->quantity, 2, '.', ''), '0'), '.'),
+                    rtrim(rtrim(number_format((float)($defect->koli ?? 0), 2, '.', ''), '0'), '.')
+                );
                 UserActivity::create([
                     'user_id' => Auth::id(),
                     'activity' => 'updated',
                     'menu' => 'Barang Rusak',
-                    'description' => 'Memulai penanganan defect: ' . $defect->code . ' (' . $defect->action . ')',
+                    'description' => $desc,
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->header('User-Agent'),
                 ]);
@@ -430,11 +469,22 @@ class DefectController extends Controller
             ]);
 
             try {
+                $defect->loadMissing('item');
+                $item = $defect->item;
+                $itemText = $item ? (($item->sku ? ($item->sku.' - ') : '') . ($item->nama_barang ?? '')) : ('Item ID: '.$defect->item_id);
+                $desc = sprintf(
+                    'Menyelesaikan penanganan defect: %s (%s) | Item: %s | Qty: %s | Koli: %s',
+                    $defect->code,
+                    $defect->action,
+                    $itemText,
+                    rtrim(rtrim(number_format((float)$defect->quantity, 2, '.', ''), '0'), '.'),
+                    rtrim(rtrim(number_format((float)($defect->koli ?? 0), 2, '.', ''), '0'), '.')
+                );
                 UserActivity::create([
                     'user_id' => Auth::id(),
                     'activity' => 'completed',
                     'menu' => 'Barang Rusak',
-                    'description' => 'Menyelesaikan penanganan defect: ' . $defect->code . ' (' . $defect->action . ')',
+                    'description' => $desc,
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->header('User-Agent'),
                 ]);
