@@ -34,7 +34,7 @@ class DefectController extends Controller
 
             // Define columns for sorting (mirror client columns)
             if (is_null(auth()->user()->warehouse_id)) {
-                // code, date, warehouse.name, item.nama_barang, quantity, koli, notes, user_name
+                // code, date, warehouse.name, item.nama_barang, quantity, koli, status, action, action_status, user_name
                 $columns = [
                     0 => 'd.code',
                     1 => 'd.date',
@@ -42,19 +42,23 @@ class DefectController extends Controller
                     3 => 'i.nama_barang',
                     4 => 'd.quantity',
                     5 => 'd.koli',
-                    6 => 'd.notes',
-                    7 => 'u.name',
+                    6 => 'd.status',
+                    7 => 'd.action',
+                    8 => 'd.action_status',
+                    9 => 'u.name',
                 ];
             } else {
-                // code, date, item.nama_barang, quantity, koli, notes, user_name
+                // code, date, item.nama_barang, quantity, koli, status, action, action_status, user_name
                 $columns = [
                     0 => 'd.code',
                     1 => 'd.date',
                     2 => 'i.nama_barang',
                     3 => 'd.quantity',
                     4 => 'd.koli',
-                    5 => 'd.notes',
-                    6 => 'u.name',
+                    5 => 'd.status',
+                    6 => 'd.action',
+                    7 => 'd.action_status',
+                    8 => 'u.name',
                 ];
             }
 
@@ -110,6 +114,8 @@ class DefectController extends Controller
                 'd.koli',
                 'd.notes',
                 'd.status',
+                'd.action',
+                'd.action_status',
                 'w.name as warehouse_name',
                 'i.nama_barang as item_name',
                 'i.sku as item_sku',
@@ -132,6 +138,8 @@ class DefectController extends Controller
                     'koli' => $r->koli !== null ? (float) $r->koli : null,
                     'notes' => $r->notes,
                     'status' => $r->status,
+                    'action' => $r->action,
+                    'action_status' => $r->action_status,
                     'user_name' => $r->user_name ?? 'N/A',
                 ];
             });
@@ -150,7 +158,7 @@ class DefectController extends Controller
     public function create()
     {
         $warehouses = Warehouse::all();
-        $items = Item::select('id', 'nama_barang', 'sku')->get();
+        $items = Item::select('id', 'nama_barang', 'sku', 'koli')->get();
         $newCode = $this->generateUniqueCode();
         return view('admin.manajemenstok.defects.create', compact('warehouses', 'items', 'newCode'));
     }
@@ -208,7 +216,7 @@ class DefectController extends Controller
             return redirect()->route('admin.manajemenstok.defects.index')->with('error', 'Hanya data dengan status pending yang dapat diubah.');
         }
         $warehouses = Warehouse::all();
-        $items = Item::select('id', 'nama_barang', 'sku')->get();
+        $items = Item::select('id', 'nama_barang', 'sku', 'koli')->get();
         return view('admin.manajemenstok.defects.edit', compact('defect', 'warehouses', 'items'));
     }
 
@@ -321,6 +329,125 @@ class DefectController extends Controller
         }
     }
 
+    public function updateAction(Request $request, Defect $defect)
+    {
+        if (($defect->status ?? 'pending') !== 'approved') {
+            return redirect()->back()->with('error', 'Tindakan hanya dapat diproses jika status sudah approved.');
+        }
+
+        $data = $request->validate([
+            'action' => 'required|in:disposal,return_to_vendor,rework,return_to_stock,other',
+            'action_notes' => 'nullable|string|max:2000',
+        ]);
+
+        try {
+            $defect->update([
+                'action' => $data['action'],
+                'action_notes' => $data['action_notes'] ?? null,
+                'action_status' => 'in_progress',
+                'handled_by' => Auth::id(),
+            ]);
+
+            try {
+                UserActivity::create([
+                    'user_id' => Auth::id(),
+                    'activity' => 'updated',
+                    'menu' => 'Barang Rusak',
+                    'description' => 'Memulai penanganan defect: ' . $defect->code . ' (' . $defect->action . ')',
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ]);
+            } catch (\Throwable $e) { }
+
+            return redirect()->back()->with('success', 'Penanganan dimulai.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', 'Gagal memulai penanganan: ' . $e->getMessage());
+        }
+    }
+
+    public function completeAction(Request $request, Defect $defect)
+    {
+        if (($defect->status ?? 'pending') !== 'approved') {
+            return redirect()->back()->with('error', 'Hanya data approved yang dapat diselesaikan tindakannya.');
+        }
+        if (!$defect->action) {
+            return redirect()->back()->with('error', 'Pilih tindakan terlebih dahulu.');
+        }
+        if (in_array($defect->action_status, ['completed', 'cancelled'])) {
+            return redirect()->back()->with('error', 'Tindakan sudah diselesaikan atau dibatalkan.');
+        }
+
+        $validated = $request->validate([
+            'action_notes' => 'nullable|string|max:2000',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // If return to stock, add back inventory and movement
+            if ($defect->action === 'return_to_stock') {
+                $inventory = Inventory::where('warehouse_id', $defect->warehouse_id)
+                    ->where('item_id', $defect->item_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$inventory) {
+                    // create inventory record if not exists
+                    $inventory = Inventory::create([
+                        'warehouse_id' => $defect->warehouse_id,
+                        'item_id' => $defect->item_id,
+                        'quantity' => 0,
+                        'koli' => 0,
+                    ]);
+                }
+
+                $stock_before = (float) $inventory->quantity;
+                $inventory->increment('quantity', $defect->quantity);
+                if (($defect->koli ?? 0) > 0) {
+                    $inventory->increment('koli', $defect->koli ?? 0);
+                }
+
+                StockMovement::create([
+                    'item_id' => $defect->item_id,
+                    'warehouse_id' => $defect->warehouse_id,
+                    'date' => now()->toDateString(),
+                    'quantity' => $defect->quantity,
+                    'koli' => ($defect->koli ?? 0),
+                    'stock_before' => $stock_before,
+                    'stock_after' => $inventory->quantity,
+                    'type' => 'stock_in',
+                    'description' => 'Return to stock dari defect: ' . $defect->code,
+                    'user_id' => Auth::id(),
+                    'reference_id' => $defect->id,
+                    'reference_type' => 'defects',
+                ]);
+            }
+
+            $defect->update([
+                'action_status' => 'completed',
+                'action_notes' => $validated['action_notes'] ?? $defect->action_notes,
+                'handled_by' => Auth::id(),
+                'handled_at' => now(),
+            ]);
+
+            try {
+                UserActivity::create([
+                    'user_id' => Auth::id(),
+                    'activity' => 'completed',
+                    'menu' => 'Barang Rusak',
+                    'description' => 'Menyelesaikan penanganan defect: ' . $defect->code . ' (' . $defect->action . ')',
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ]);
+            } catch (\Throwable $e) { }
+
+            DB::commit();
+            return redirect()->back()->with('success', 'Tindakan penanganan diselesaikan.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Gagal menyelesaikan tindakan: ' . $e->getMessage());
+        }
+    }
+
     public function getStatusCounts(Request $request)
     {
         $query = Defect::query();
@@ -347,5 +474,30 @@ class DefectController extends Controller
             $number = ((int)substr($lastRecord->code, -4)) + 1;
         }
         return $prefix . str_pad($number, 4, '0', STR_PAD_LEFT);
+    }
+
+    public function stockInfo(Request $request)
+    {
+        $request->validate([
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'item_id' => 'required|exists:items,id',
+        ]);
+
+        $inventory = Inventory::where('warehouse_id', $request->warehouse_id)
+            ->where('item_id', $request->item_id)
+            ->first();
+
+        $item = Item::select('id','koli')->find($request->item_id);
+        $perKoli = max(1, (int)($item->koli ?? 1));
+
+        $qty = (float)($inventory->quantity ?? 0);
+        $koli = $perKoli > 0 ? round($qty / $perKoli, 2) : 0;
+
+        return response()->json([
+            'quantity' => $qty,
+            'koli' => (float)($inventory->koli ?? 0),
+            'per_koli' => $perKoli,
+            'computed_koli_from_qty' => $koli,
+        ]);
     }
 }

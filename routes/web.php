@@ -138,6 +138,9 @@ Route::middleware(['auth', 'permission'])->group(function () {
         Route::resource('defects', DefectController::class)->except(['show','destroy']);
         Route::get('defects/status-counts', [DefectController::class, 'getStatusCounts'])->name('defects.status-counts');
         Route::post('defects/{defect}/approve', [DefectController::class, 'approve'])->name('defects.approve');
+        Route::post('defects/{defect}/action', [DefectController::class, 'updateAction'])->name('defects.action');
+        Route::post('defects/{defect}/action/complete', [DefectController::class, 'completeAction'])->name('defects.action.complete');
+        Route::get('defects/stock-info', [DefectController::class, 'stockInfo'])->name('defects.stock-info');
         // Perakitan
         Route::get('perakitan/recipes/{recipe}', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'recipeDetail'])->name('perakitan.recipe-detail');
         Route::get('perakitan/status-counts', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'getStatusCounts'])->name('perakitan.status-counts');

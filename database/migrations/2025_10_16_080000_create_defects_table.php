@@ -24,6 +24,25 @@ return new class extends Migration
             $table->enum('status', ['pending', 'approved', 'cancelled'])->default('pending');
             $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('approved_at')->nullable();
+
+            // Penanganan setelah defect disetujui (disposal/retur/perbaikan/dll)
+            $table->enum('action', [
+                'disposal',           // buang / scrap
+                'rework',             // perbaikan/perakitan ulang
+                'return_to_stock',    // layak -> kembali ke stok baik
+                'other',
+            ])->nullable()->comment('Jenis tindakan penanganan defect');
+            $table->enum('action_status', ['pending', 'in_progress', 'completed', 'cancelled'])
+                ->default('pending')
+                ->comment('Status proses penanganan');
+            $table->foreignId('handled_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('handled_at')->nullable();
+            $table->text('action_notes')->nullable()->comment('Catatan proses penanganan');
+
+            // Index untuk query umum
+            $table->index(['status']);
+            $table->index(['action']);
+            $table->index(['action_status']);
             $table->timestamps();
         });
     }

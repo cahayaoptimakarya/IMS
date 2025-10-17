@@ -11,6 +11,14 @@ class Defect extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'date' => 'date',
+        'approved_at' => 'datetime',
+        'handled_at' => 'datetime',
+        'quantity' => 'decimal:2',
+        'koli' => 'decimal:2',
+    ];
+
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class);
@@ -24,5 +32,15 @@ class Defect extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function handledBy()
+    {
+        return $this->belongsTo(User::class, 'handled_by');
     }
 }

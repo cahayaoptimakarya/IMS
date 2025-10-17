@@ -162,6 +162,8 @@
                                 <th>Jumlah</th>
                                 <th>Koli</th>
                                 <th>Status</th>
+                                <th>Action</th>
+                                <th>Action Status</th>
                                 <th>Dicatat Oleh</th>
                                 <th class="text-end">Aksi</th>
                             </tr>
@@ -247,6 +249,33 @@
                     }
                 },
                 {
+                    data: 'action',
+                    name: 'action',
+                    render: function(data) {
+                        if (!data) return '<span class="badge badge-light">-</span>';
+                        const map={
+                            disposal:'Disposal',
+                            return_to_vendor:'Return to Vendor',
+                            rework:'Rework',
+                            return_to_stock:'Return to Stock',
+                            other:'Other'
+                        };
+                        return `<span class="badge badge-light-primary">${map[data]||data}</span>`;
+                    }
+                },
+                {
+                    data: 'action_status',
+                    name: 'action_status',
+                    render: function(data) {
+                        if (!data) return '<span class="badge badge-light">-</span>';
+                        if (data === 'pending') return '<span class="badge badge-light-warning">Pending</span>';
+                        if (data === 'in_progress') return '<span class="badge badge-light-info">In Progress</span>';
+                        if (data === 'completed') return '<span class="badge badge-light-success">Completed</span>';
+                        if (data === 'cancelled') return '<span class="badge badge-light-danger">Cancelled</span>';
+                        return data || '';
+                    }
+                },
+                {
                     data: 'user_name',
                     name: 'user.name'
                 },
@@ -261,8 +290,10 @@
                         let html = '';
                         @if ($canEdit)
                             if (row.status === 'pending') {
-                                html +=
-                                    `<a href="${editUrl}" class="btn btn-sm btn-light-primary">Edit</a>`;
+                                html += `<a href="${editUrl}" class="btn btn-sm btn-light-primary me-2">Edit</a>`;
+                            }
+                            if (row.status === 'approved') {
+                                html += `<a href="${editUrl}#action" class="btn btn-sm btn-light-info">Penanganan</a>`;
                             }
                         @endif
                         return html;
