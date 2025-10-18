@@ -25,6 +25,8 @@
         box-shadow: 0 12px 20px rgba(0,0,0,0.15);
     }
 
+    .cursor-pointer { cursor: pointer; }
+
     /* Status card styling */
     .status-card-icon .symbol-label {
         background: #F3E8FF; /* light purple */

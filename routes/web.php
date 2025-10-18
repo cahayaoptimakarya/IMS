@@ -38,8 +38,7 @@ Route::middleware('guest')->group(function () {
 
 Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
-Route::middleware(['auth', 'permission'])->group(function () {
-    Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
+Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');    Route::get('/admin/dashboard/stock-buckets', [DashboardController::class, 'stockBuckets'])->name('admin.dashboard.stock-buckets');
     Route::get('/admin/aktivitas-user', [UserActivityController::class, 'index'])->name('admin.user-activities.index');
 
     Route::prefix('admin/masterdata')->name('admin.masterdata.')->group(function () {
@@ -180,3 +179,9 @@ Route::middleware(['auth', 'permission'])->group(function () {
         Route::get('laporan-transfer-gudang/data', [\App\Http\Controllers\Admin\Laporan\LaporanTransferGudangController::class, 'transferGudangData'])->name('laporan-transfer-gudang.data');
     });
 });
+
+
+
+
+
+

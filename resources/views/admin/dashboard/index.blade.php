@@ -48,10 +48,18 @@
 
         <!--begin::Row: Stock Reminders-->
         <div class="row g-5 g-xxl-8 mt-1">
-            @include('admin.dashboard._summary_card', ['delay' => '0.1s', 'icon' => 'ban', 'iconBg' => 'danger', 'value' => $zeroStockItems, 'label' => 'Stok Habis'])
-            @include('admin.dashboard._summary_card', ['delay' => '0.2s', 'icon' => 'level-down-alt', 'iconBg' => 'warning', 'value' => $lowStockItems, 'label' => 'Stok Menipis (&le; 10)'])
-            @include('admin.dashboard._summary_card', ['delay' => '0.3s', 'icon' => 'check', 'iconBg' => 'success', 'value' => $optimalStockItems, 'label' => 'Stok Aman'])
-            @include('admin.dashboard._summary_card', ['delay' => '0.4s', 'icon' => 'boxes', 'iconBg' => 'primary', 'value' => $overStockItems, 'label' => 'Stok Berlebih (&ge; 1000)'])
+            @include('admin.dashboard._summary_card', [
+                'delay' => '0.1s', 'icon' => 'ban', 'iconBg' => 'danger', 'value' => $zeroStockItems, 'label' => 'Stok Habis', 'bucket' => 'out_of_stock'
+            ])
+            @include('admin.dashboard._summary_card', [
+                'delay' => '0.2s', 'icon' => 'level-down-alt', 'iconBg' => 'warning', 'value' => $lowStockItems, 'label' => 'Stok Menipis', 'bucket' => 'low_stock'
+            ])
+            @include('admin.dashboard._summary_card', [
+                'delay' => '0.3s', 'icon' => 'check', 'iconBg' => 'success', 'value' => $optimalStockItems, 'label' => 'Stok Aman', 'bucket' => 'safe'
+            ])
+            @include('admin.dashboard._summary_card', [
+                'delay' => '0.4s', 'icon' => 'boxes', 'iconBg' => 'primary', 'value' => $overStockItems, 'label' => 'Stok Berlebih', 'bucket' => 'over_stock'
+            ])
         </div>
         <!--end::Row: Stock Reminders-->
 
@@ -147,7 +155,22 @@
                                 </div>
                                 <div class="flex-grow-1">
                                     <p class="text-gray-800 fw-bolder fs-6 mb-0">{{ $mov->item->nama_barang ?? 'Item' }} ({{ $mov->type }})</p>
-                                    <span class="text-muted fw-bold">{{ number_format($mov->quantity, 0, ',', '.') }} • {{ \Carbon\Carbon::parse($mov->date)->diffForHumans() }}</span>
+                                    @php
+                                        $tz = config('app.timezone');
+                                        $dateObj = \Carbon\Carbon::parse($mov->date)->timezone($tz);
+                                        $nowDay = now()->timezone($tz)->startOfDay();
+                                        $daysDiff = $dateObj->copy()->startOfDay()->diffInDays($nowDay);
+                                        if ($daysDiff === 0) {
+                                            $timeDisplay = 'Hari ini';
+                                        } elseif ($daysDiff === 1) {
+                                            $timeDisplay = 'Kemarin';
+                                        } elseif ($daysDiff === 2) {
+                                            $timeDisplay = '2 hari yang lalu';
+                                        } else {
+                                            $timeDisplay = $dateObj->format('d M Y');
+                                        }
+                                    @endphp
+                                    <span class="text-muted fw-bold">{{ number_format($mov->quantity, 0, ',', '.') }} • {{ $timeDisplay }}</span>
                                 </div>
                             </div>
                         @empty
@@ -215,4 +238,57 @@
 
 @push('scripts')
     @include('admin.dashboard._scripts')
+    
+    <!-- Modal Detail Stok -->
+    <div class="modal fade" id="stockBucketsModal" tabindex="-1" aria-labelledby="stockBucketsLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="stockBucketsLabel">Detail Stok</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-4" id="stockTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-out" data-bs-toggle="tab" data-bs-target="#pane-out" type="button" role="tab" aria-controls="pane-out" aria-selected="true" data-bucket="out_of_stock">
+                                Stok Habis <span class="badge bg-light text-dark ms-2" id="badge-out">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-low" data-bs-toggle="tab" data-bs-target="#pane-low" type="button" role="tab" aria-controls="pane-low" aria-selected="false" data-bucket="low_stock">
+                                Stok Menipis <span class="badge bg-light text-dark ms-2" id="badge-low">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-safe" data-bs-toggle="tab" data-bs-target="#pane-safe" type="button" role="tab" aria-controls="pane-safe" aria-selected="false" data-bucket="safe">
+                                Stok Aman <span class="badge bg-light text-dark ms-2" id="badge-safe">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="tab-over" data-bs-toggle="tab" data-bs-target="#pane-over" type="button" role="tab" aria-controls="pane-over" aria-selected="false" data-bucket="over_stock">
+                                Stok Berlebih <span class="badge bg-light text-dark ms-2" id="badge-over">0</span>
+                            </button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="stockTabsContent">
+                        <div class="tab-pane fade show active" id="pane-out" role="tabpanel" aria-labelledby="tab-out">
+                            <div id="table-out-wrapper">@include('admin.dashboard._stock_bucket_table', ['bucket' => 'out'])</div>
+                        </div>
+                        <div class="tab-pane fade" id="pane-low" role="tabpanel" aria-labelledby="tab-low">
+                            <div id="table-low-wrapper">@include('admin.dashboard._stock_bucket_table', ['bucket' => 'low'])</div>
+                        </div>
+                        <div class="tab-pane fade" id="pane-safe" role="tabpanel" aria-labelledby="tab-safe">
+                            <div id="table-safe-wrapper">@include('admin.dashboard._stock_bucket_table', ['bucket' => 'safe'])</div>
+                        </div>
+                        <div class="tab-pane fade" id="pane-over" role="tabpanel" aria-labelledby="tab-over">
+                            <div id="table-over-wrapper">@include('admin.dashboard._stock_bucket_table', ['bucket' => 'over'])</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endpush

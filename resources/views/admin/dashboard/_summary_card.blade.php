@@ -1,7 +1,16 @@
-@props(['delay' => '0.1s', 'icon' => 'box', 'iconBg' => 'primary', 'value' => '-', 'label' => ''])
+@props(['delay' => '0.1s', 'icon' => 'box', 'iconBg' => 'primary', 'value' => '-', 'label' => '', 'bucket' => null])
 
 <div class="col-xl-3">
-    <div class="card card-xl-stretch mb-xl-8 summary-card card-animate" style="animation-delay: {{ $delay }};">
+    <div class="card card-xl-stretch mb-xl-8 summary-card card-animate {{ $bucket ? 'cursor-pointer' : '' }}"
+         style="animation-delay: {{ $delay }};"
+         @if($bucket)
+            role="button"
+            tabindex="0"
+            data-bs-toggle="modal"
+            data-bs-target="#stockBucketsModal"
+            data-bucket="{{ $bucket }}"
+         @endif
+    >
         <div class="card-body">
             <div class="d-flex align-items-center">
                 <div class="symbol symbol-50px me-5">
