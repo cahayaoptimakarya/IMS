@@ -285,18 +285,25 @@
                     searchable: false,
                     className: 'text-end',
                     render: function(data, type, row) {
-                        let editUrl = `{{ route('admin.manajemenstok.defects.index') }}`.replace(
-                            '/defects', `/defects/${row.id}/edit`);
-                        let html = '';
+                        let editUrl = `{{ route('admin.manajemenstok.defects.index') }}`.replace('/defects', `/defects/${row.id}/edit`);
+                        let approveBtn = '';
+                        let handleBtn = '';
                         @if ($canEdit)
                             if (row.status === 'pending') {
-                                html += `<a href="${editUrl}" class="btn btn-sm btn-light-primary me-2">Edit</a>`;
+                                approveBtn = `<div class="menu-item px-3"><button type="button" class="menu-link px-3 w-100 text-start border-0 bg-transparent btn-approve-defect" data-id="${row.id}" data-code="${row.code}">Approve</button></div>`;
                             }
                             if (row.status === 'approved') {
-                                html += `<button type="button" class="btn btn-sm btn-light-info btn-handle-action" data-id="${row.id}">Penanganan</button>`;
+                                handleBtn = `<div class="menu-item px-3"><button type="button" class="menu-link px-3 w-100 text-start border-0 bg-transparent btn-handle-action" data-id="${row.id}">Penanganan</button></div>`;
                             }
                         @endif
-                        return html;
+                        let editBtn = (row.status === 'pending') ? `<div class="menu-item px-3"><a href="${editUrl}" class="menu-link px-3">Edit</a></div>` : '';
+                        return `
+                          <a href="#" class="btn btn-sm btn-light btn-active-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">Aksi <span class="svg-icon svg-icon-5 m-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M11.4343 12.7344L7.25 8.55005C6.83579 8.13583 6.16421 8.13584 5.75 8.55005C5.33579 8.96426 5.33579 9.63583 5.75 10.05L11.2929 15.5929C11.6834 15.9835 12.3166 15.9835 12.7071 15.5929L18.25 10.05C18.6642 9.63584 18.6642 8.96426 18.25 8.55005C17.8358 8.13584 17.1642 8.13584 16.75 8.55005L12.5657 12.7344C12.2533 13.0468 11.7467 13.0468 11.4343 12.7344Z" fill="black"></path></svg></span></a>
+                          <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-150px py-4" data-kt-menu="true">
+                            ${editBtn}
+                            ${approveBtn}
+                            ${handleBtn}
+                          </div>`;
                     }
                 }
             ]);
@@ -315,7 +322,12 @@
                 columns: columns,
                 order: [
                     [1, 'desc']
-                ]
+                ],
+                drawCallback: function(){
+                    if (typeof KTMenu !== 'undefined' && KTMenu.createInstances) {
+                        KTMenu.createInstances();
+                    }
+                }
             });
 
             const debounce = (callback, wait) => {
@@ -369,10 +381,7 @@
   .action-highlight .subtitle { color:#3B82F6; font-weight:600; }
   .action-highlight .chips { display:flex; gap:.5rem; flex-wrap:wrap; }
   .action-highlight .icon { color:#2563EB; }
-  /* Table polish */
-  #defects-table thead th { background:#F9FAFB; border-bottom:1px solid #E5E7EB; }
-  #defects-table tbody tr:hover { background:#F8FAFC; }
-  #defects-table td, #defects-table th { vertical-align: middle; }
+  /* Keep table default styling */
 </style>
 @endpush
 
@@ -385,6 +394,33 @@
     // const editUrlTpl = `{{ route('admin.manajemenstok.defects.index') }}`.replace('/defects','/defects/:id/edit#action');
     const updateUrlTpl = `{{ route('admin.manajemenstok.defects.action', ':id') }}`;
     const completeUrlTpl = `{{ route('admin.manajemenstok.defects.action.complete', ':id') }}`;
+    const approveUrlTpl = `{{ route('admin.manajemenstok.defects.approve', ':id') }}`;
+    const csrfToken = `{{ csrf_token() }}`;
+
+    // Approve defect (dropdown action)
+    $(document).on('click', '.btn-approve-defect', function(){
+      const id = $(this).data('id');
+      const code = $(this).data('code') || '';
+      const url = approveUrlTpl.replace(':id', id);
+      Swal.fire({
+        text: `Approve barang rusak ${code}? Tindakan ini akan mengurangi stok.`,
+        icon: 'question', showCancelButton: true,
+        confirmButtonText: 'Ya, Approve', cancelButtonText: 'Batal',
+        buttonsStyling: false,
+        customClass:{confirmButton:'btn btn-primary', cancelButton:'btn btn-light'}
+      }).then(function(res){
+        if (!res.isConfirmed) return;
+        $.post(url, {_token: csrfToken})
+          .done(function(){
+            Swal.fire({ text: 'Barang rusak di-approve.', icon: 'success', buttonsStyling:false, confirmButtonText:'OK', customClass:{confirmButton:'btn btn-primary'} });
+            $('#defects-table').DataTable().ajax.reload(null, false);
+          })
+          .fail(function(xhr){
+            const msg = xhr.responseJSON?.message || 'Gagal approve defect.';
+            Swal.fire({ text: msg, icon: 'error', confirmButtonText: 'OK', buttonsStyling: false, customClass:{confirmButton:'btn btn-primary'} });
+          });
+      });
+    });
 
     $(document).on('click', '.btn-handle-action', function(){
       const id = $(this).data('id');
@@ -395,7 +431,8 @@
       $modal.modal('show');
       $.get(url).done(function(res){
         fillModal(res || {});
-        // no external manage button; handled inline\n        setupForms(id, res || {});
+        // no external manage button; handled inline
+        setupForms(id, res || {});
       }).fail(function(){
         $modal.find('.modal-body').html('<div class="alert alert-danger">Gagal memuat informasi defect.</div>');
       });
@@ -450,13 +487,13 @@
     }
 
     function setupForms(id, data){
-      const canHandle = data.status === 'approved';
-      const startVisible = canHandle && (!data.action || data.action_status === 'pending');
-      const completeVisible = canHandle && data.action && data.action_status === 'in_progress';
+      const canHandle = (data.status || '').toLowerCase() === 'approved';
+      const startVisible = canHandle && (!data.action || (data.action_status || '').toLowerCase() === 'pending');
+      const completeVisible = canHandle && data.action && (data.action_status || '').toLowerCase() === 'in_progress';
       const $start = $modal.find('.defect-action-start');
       const $complete = $modal.find('.defect-action-complete');
-      $start.toggle(startVisible);
-      $complete.toggle(completeVisible);
+      $start.toggleClass('d-none', !startVisible);
+      $complete.toggleClass('d-none', !completeVisible);
 
       // Populate start form
       const $startForm = $modal.find('#defect-start-form');
@@ -470,6 +507,15 @@
       $completeForm.attr('action', completeUrlTpl.replace(':id', id));
       $completeForm.find('textarea[name="action_notes"]').val('');
     }
+
+    // Re-evaluate visibility on modal shown (safety)
+    $modal.on('shown.bs.modal', function(){
+      const id = $modal.find('#defect-start-form input[name="defect_id"]').val();
+      if (id) {
+        const url = infoUrlTpl.replace(':id', id);
+        $.get(url).done(function(res){ setupForms(id, res || {}); });
+      }
+    });
 
     // Submit handlers
     $(document).on('submit', '#defect-start-form', function(e){
@@ -550,7 +596,7 @@
           <div class="section-title">Catatan</div>
           <div class="defect-notes"></div>
         </div>
-        <div class="info-box mt-5 defect-action-start" style="display:none;">
+        <div class="info-box mt-5 defect-action-start d-none">
           <div class="section-title">Mulai Penanganan</div>
           <form id="defect-start-form" method="POST">
             @csrf
@@ -561,8 +607,9 @@
                 <select name="action" class="form-select form-select-solid" required>
                   <option value="">Pilih</option>
                   <option value="disposal">Disposal</option>
-                  <option value="rework">Rework</option>
-                  <option value="return_to_stock">Return to Stock</option>
+                  {{-- <option value="return_to_vendor">Return to Vendor</option> --}}
+                  {{-- <option value="rework">Rework</option> --}}
+                  <option value="return_to_stock">Kembalikan ke Stok</option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -576,7 +623,7 @@
             </div>
           </form>
         </div>
-        <div class="info-box mt-5 defect-action-complete" style="display:none;">
+        <div class="info-box mt-5 defect-action-complete d-none">
           <div class="section-title">Selesaikan Penanganan</div>
           <form id="defect-complete-form" method="POST">
             @csrf
@@ -596,6 +643,10 @@
   </div>
  </div>
 @endpush
+
+
+
+
 
 
 

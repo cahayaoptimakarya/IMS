@@ -141,6 +141,7 @@ Route::middleware(['auth', 'permission'])->group(function () {
         Route::post('defects/{defect}/action', [DefectController::class, 'updateAction'])->name('defects.action');
         Route::post('defects/{defect}/action/complete', [DefectController::class, 'completeAction'])->name('defects.action.complete');
         Route::get('defects/stock-info', [DefectController::class, 'stockInfo'])->name('defects.stock-info');
+        Route::get('defects/{defect}/info', [DefectController::class, 'info'])->name('defects.info');
         // Perakitan
         Route::get('perakitan/recipes/{recipe}', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'recipeDetail'])->name('perakitan.recipe-detail');
         Route::get('perakitan/status-counts', [\App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class, 'getStatusCounts'])->name('perakitan.status-counts');

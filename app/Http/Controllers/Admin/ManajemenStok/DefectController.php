@@ -550,4 +550,32 @@ class DefectController extends Controller
             'computed_koli_from_qty' => $koli,
         ]);
     }
+
+    public function info(Defect $defect)
+    {
+        $defect->loadMissing(['warehouse', 'item', 'user', 'approvedBy']);
+        return response()->json([
+            'id' => $defect->id,
+            'code' => $defect->code,
+            'date' => optional($defect->date)->format('Y-m-d'),
+            'warehouse' => [
+                'id' => $defect->warehouse_id,
+                'name' => $defect->warehouse->name ?? '-',
+            ],
+            'item' => [
+                'id' => $defect->item_id,
+                'sku' => $defect->item->sku ?? '-',
+                'nama_barang' => $defect->item->nama_barang ?? ($defect->item->name ?? '-'),
+            ],
+            'quantity' => (float) $defect->quantity,
+            'koli' => (float) ($defect->koli ?? 0),
+            'notes' => $defect->notes,
+            'status' => $defect->status,
+            'action' => $defect->action,
+            'action_status' => $defect->action_status,
+            'created_by' => $defect->user->name ?? '-',
+            'approved_by' => $defect->approvedBy->name ?? null,
+            'approved_at' => optional($defect->approved_at)->format('Y-m-d H:i'),
+        ]);
+    }
 }
