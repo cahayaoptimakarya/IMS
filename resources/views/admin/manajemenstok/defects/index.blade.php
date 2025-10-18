@@ -293,7 +293,7 @@
                                 html += `<a href="${editUrl}" class="btn btn-sm btn-light-primary me-2">Edit</a>`;
                             }
                             if (row.status === 'approved') {
-                                html += `<a href="${editUrl}#action" class="btn btn-sm btn-light-info">Penanganan</a>`;
+                                html += `<button type="button" class="btn btn-sm btn-light-info btn-handle-action" data-id="${row.id}">Penanganan</button>`;
                             }
                         @endif
                         return html;
@@ -348,3 +348,254 @@
         });
     </script>
 @endpush
+
+@push('styles')
+<style>
+  .chip { display:inline-block; padding:.35rem .65rem; border-radius:.5rem; font-weight:700; font-size:.8rem; }
+  .chip-default{ background:#F3F4F6; color:#374151; }
+  .chip-success{ background:#ECFDF5; color:#047857; }
+  .chip-warning{ background:#FEF3C7; color:#92400E; }
+  .chip-danger{ background:#FEE2E2; color:#991B1B; }
+  .meta-label { color:#6B7280; font-weight:600; font-size:.85rem; }
+  .meta-value { font-weight:700; color:#111827; }
+  .info-box { border: 1px solid #EFF2F5; border-radius:.475rem; padding:1rem; background:#fff; }
+  .section-title { font-weight:700; color:#111827; margin-bottom:.5rem; }
+  .modal.fade .modal-dialog { transform: translate(0, -10px); transition: transform .2s ease-out; }
+  .modal.show .modal-dialog { transform: translate(0, 0); }
+  .w-160px { width:160px; }
+  .text-break { word-break: break-word; }
+  .action-highlight { border:1px solid #DBEAFE; background:linear-gradient(180deg,#EFF6FF 0%,#FFFFFF 100%); border-radius:.75rem; padding:1rem; }
+  .action-highlight .title { font-weight:800; color:#1E3A8A; display:flex; align-items:center; gap:.5rem; }
+  .action-highlight .subtitle { color:#3B82F6; font-weight:600; }
+  .action-highlight .chips { display:flex; gap:.5rem; flex-wrap:wrap; }
+  .action-highlight .icon { color:#2563EB; }
+  /* Table polish */
+  #defects-table thead th { background:#F9FAFB; border-bottom:1px solid #E5E7EB; }
+  #defects-table tbody tr:hover { background:#F8FAFC; }
+  #defects-table td, #defects-table th { vertical-align: middle; }
+</style>
+@endpush
+
+@push('scripts')
+<script>
+  $(function(){
+    const modalId = '#defectActionModal';
+    const $modal = $(modalId);
+    const infoUrlTpl = `{{ route('admin.manajemenstok.defects.info', ':id') }}`;
+    // const editUrlTpl = `{{ route('admin.manajemenstok.defects.index') }}`.replace('/defects','/defects/:id/edit#action');
+    const updateUrlTpl = `{{ route('admin.manajemenstok.defects.action', ':id') }}`;
+    const completeUrlTpl = `{{ route('admin.manajemenstok.defects.action.complete', ':id') }}`;
+
+    $(document).on('click', '.btn-handle-action', function(){
+      const id = $(this).data('id');
+      if(!id) return;
+      const url = infoUrlTpl.replace(':id', id);
+      // Reset placeholders
+      fillModal({});
+      $modal.modal('show');
+      $.get(url).done(function(res){
+        fillModal(res || {});
+        // no external manage button; handled inline\n        setupForms(id, res || {});
+      }).fail(function(){
+        $modal.find('.modal-body').html('<div class="alert alert-danger">Gagal memuat informasi defect.</div>');
+      });
+    });
+
+    function badge(val, map){
+      const cls = map[val] || 'chip-default';
+      const text = (val||'-').toString().replace(/_/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+      return `<span class="chip ${cls}">${text}</span>`;
+    }
+
+    function fillModal(data){
+      const statusMap = { 'pending':'chip-warning', 'approved':'chip-success', 'cancelled':'chip-danger' };
+      const actionStatusMap = { 'pending':'chip-warning', 'in_progress':'chip-default', 'completed':'chip-success', 'cancelled':'chip-danger' };
+      const actionLabel = (data.action||'').toString().replace(/_/g,' ');
+      const actionPretty = actionLabel ? actionLabel.replace(/\b\w/g, c=>c.toUpperCase()) : 'Belum Ada Penanganan';
+      const actionChip = data.action ? `<span class="chip chip-default">${actionPretty}</span>` : `<span class="chip chip-warning">Belum Ada</span>`;
+      const actionStatusChip = data.action_status ? `<span class="chip ${actionStatusMap[data.action_status]||'chip-default'}">${(data.action_status||'-').replace(/_/g,' ').replace(/\b\w/g, c=>c.toUpperCase())}</span>` : '';
+      const headerHtml = `
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+          <div>
+            <div class="title"><i class="fas fa-tools icon"></i> Penanganan Defect</div>
+            <div class="subtitle">${(data.item? (data.item.sku||'')+' - '+(data.item.nama_barang||'') : '-')}</div>
+          </div>
+          <div class="chips">${actionChip}${actionStatusChip}</div>
+        </div>`;
+      $modal.find('.action-highlight').html(headerHtml);
+      const rows = [
+        {label:'Kode', value: data.code || '-'},
+        {label:'Tanggal', value: data.date || '-'},
+        {label:'Gudang', value: (data.warehouse && data.warehouse.name) || '-'},
+        {label:'Item', value: data.item ? `${data.item.sku||'-'} - ${data.item.nama_barang||'-'}` : '-'},
+        {label:'Qty', value: (data.quantity != null ? data.quantity : '-')},
+        {label:'Koli', value: (data.koli != null ? Number(data.koli).toFixed(2) : '-')},
+        {label:'Status', value: badge(data.status, statusMap)},
+        {label:'Action', value: data.action ? `<span class="chip chip-default">${actionPretty}</span>` : '<span class="chip chip-warning">Belum Ada</span>'},
+        {label:'Action Status', value: data.action_status ? `<span class="chip ${actionStatusMap[data.action_status]||'chip-default'}">${(data.action_status||'-').replace(/_/g,' ').replace(/\b\w/g, c=>c.toUpperCase())}</span>` : '<span class="text-muted">-</span>'},
+        {label:'Dibuat Oleh', value: data.created_by || '-'},
+        {label:'Disetujui Oleh', value: data.approved_by || '-'},
+        {label:'Waktu Approve', value: data.approved_at || '-'},
+      ];
+      const meta = rows.map(r => `
+        <div class="col-md-6 mb-3">
+          <div class="meta-label">${r.label}</div>
+          <div class="meta-value text-break">${r.value}</div>
+        </div>
+      `).join('');
+      const notes = (data.notes && data.notes.length) ? data.notes : '<span class="text-muted">-</span>';
+      $modal.find('.defect-meta').html(meta);
+      $modal.find('.defect-notes').html(notes);
+      // no external manage button; handled inline
+    }
+
+    function setupForms(id, data){
+      const canHandle = data.status === 'approved';
+      const startVisible = canHandle && (!data.action || data.action_status === 'pending');
+      const completeVisible = canHandle && data.action && data.action_status === 'in_progress';
+      const $start = $modal.find('.defect-action-start');
+      const $complete = $modal.find('.defect-action-complete');
+      $start.toggle(startVisible);
+      $complete.toggle(completeVisible);
+
+      // Populate start form
+      const $startForm = $modal.find('#defect-start-form');
+      $startForm.find('input[name="defect_id"]').val(id);
+      $startForm.attr('action', updateUrlTpl.replace(':id', id));
+      if (data.action) $startForm.find('select[name="action"]').val(data.action);
+      $startForm.find('textarea[name="action_notes"]').val(data.action_notes || '');
+
+      const $completeForm = $modal.find('#defect-complete-form');
+      $completeForm.find('input[name="defect_id"]').val(id);
+      $completeForm.attr('action', completeUrlTpl.replace(':id', id));
+      $completeForm.find('textarea[name="action_notes"]').val('');
+    }
+
+    // Submit handlers
+    $(document).on('submit', '#defect-start-form', function(e){
+      e.preventDefault();
+      const $form = $(this);
+      const url = $form.attr('action');
+      const data = $form.serialize();
+      const $btn = $form.find('button[type="submit"]');
+      Swal.fire({
+        text: 'Apakah Anda yakin ingin memulai penanganan untuk defect ini?',
+        icon: 'question', showCancelButton: true,
+        confirmButtonText: 'Ya, Mulai', cancelButtonText: 'Batal',
+        buttonsStyling: false,
+        customClass:{confirmButton:'btn btn-primary', cancelButton:'btn btn-light'}
+      }).then(function(result){
+        if(!result.isConfirmed) return;
+        $btn.prop('disabled', true);
+        $.post(url, data)
+          .done(function(){
+            Swal.fire({ text: 'Penanganan dimulai.', icon: 'success', buttonsStyling:false, confirmButtonText:'OK', customClass:{confirmButton:'btn btn-primary'} });
+            $('#defects-table').DataTable().ajax.reload(null, false);
+            $(modalId).modal('hide');
+          })
+          .fail(function(xhr){
+            const msg = xhr.responseJSON?.message || 'Gagal memulai penanganan.';
+            Swal.fire({ text: msg, icon: 'error', confirmButtonText: 'OK', buttonsStyling: false, customClass:{confirmButton:'btn btn-primary'} });
+          })
+          .always(function(){ $btn.prop('disabled', false); });
+      });
+    });
+
+    $(document).on('submit', '#defect-complete-form', function(e){
+      e.preventDefault();
+      const $form = $(this);
+      const url = $form.attr('action');
+      const data = $form.serialize();
+      const $btn = $form.find('button[type="submit"]');
+      Swal.fire({
+        text: 'Apakah Anda yakin ingin menyelesaikan penanganan defect ini?',
+        icon: 'question', showCancelButton: true,
+        confirmButtonText: 'Ya, Selesaikan', cancelButtonText: 'Batal',
+        buttonsStyling: false,
+        customClass:{confirmButton:'btn btn-primary', cancelButton:'btn btn-light'}
+      }).then(function(result){
+        if(!result.isConfirmed) return;
+        $btn.prop('disabled', true);
+        $.post(url, data)
+          .done(function(){
+            Swal.fire({ text: 'Tindakan diselesaikan.', icon: 'success', buttonsStyling:false, confirmButtonText:'OK', customClass:{confirmButton:'btn btn-primary'} });
+            $('#defects-table').DataTable().ajax.reload(null, false);
+            $(modalId).modal('hide');
+          })
+          .fail(function(xhr){
+            const msg = xhr.responseJSON?.message || 'Gagal menyelesaikan tindakan.';
+            Swal.fire({ text: msg, icon: 'error', confirmButtonText: 'OK', buttonsStyling: false, customClass:{confirmButton:'btn btn-primary'} });
+          })
+          .always(function(){ $btn.prop('disabled', false); });
+      });
+    });
+  });
+</script>
+
+<!-- Modal: Defect Action Info -->
+<div class="modal fade" id="defectActionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Informasi Barang Defect</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="action-highlight mb-5"></div>
+        <div class="info-box mb-5">
+          <div class="section-title">Detail</div>
+          <div class="row defect-meta"></div>
+        </div>
+        <div class="info-box">
+          <div class="section-title">Catatan</div>
+          <div class="defect-notes"></div>
+        </div>
+        <div class="info-box mt-5 defect-action-start" style="display:none;">
+          <div class="section-title">Mulai Penanganan</div>
+          <form id="defect-start-form" method="POST">
+            @csrf
+            <input type="hidden" name="defect_id" value="">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-5">
+                <label class="form-label required">Pilih Tindakan</label>
+                <select name="action" class="form-select form-select-solid" required>
+                  <option value="">Pilih</option>
+                  <option value="disposal">Disposal</option>
+                  <option value="rework">Rework</option>
+                  <option value="return_to_stock">Return to Stock</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="col-md-7">
+                <label class="form-label">Catatan</label>
+                <textarea name="action_notes" rows="1" class="form-control form-control-solid" placeholder="Catatan (opsional)"></textarea>
+              </div>
+            </div>
+            <div class="mt-4">
+              <button type="submit" class="btn btn-info">Mulai Penanganan</button>
+            </div>
+          </form>
+        </div>
+        <div class="info-box mt-5 defect-action-complete" style="display:none;">
+          <div class="section-title">Selesaikan Penanganan</div>
+          <form id="defect-complete-form" method="POST">
+            @csrf
+            <input type="hidden" name="defect_id" value="">
+            <div class="mb-3">
+              <label class="form-label">Catatan Akhir</label>
+              <textarea name="action_notes" rows="2" class="form-control form-control-solid" placeholder="Catatan (opsional)"></textarea>
+            </div>
+            <button type="submit" class="btn btn-success">Selesaikan</button>
+          </form>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+ </div>
+@endpush
+
+
+
