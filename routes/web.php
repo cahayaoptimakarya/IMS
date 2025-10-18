@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\Laporan\LaporanStokController;
 use App\Http\Controllers\Admin\Laporan\LaporanController;
+use App\Http\Controllers\Admin\Laporan\LaporanPengadaanController;
 use App\Http\Controllers\Admin\ManajemenStok\InventoryController;
 use App\Http\Controllers\Admin\ManajemenStok\KartuStokController;
 use App\Http\Controllers\Admin\ManajemenStok\WarehouseStokController;
@@ -177,6 +178,12 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::get('laporan-pergerakan-barang/data', [LaporanController::class, 'pergerakanBarangData'])->name('pergerakanBarang.data');
         Route::get('laporan-transfer-gudang', [\App\Http\Controllers\Admin\Laporan\LaporanTransferGudangController::class, 'index'])->name('laporan-transfer-gudang');
         Route::get('laporan-transfer-gudang/data', [\App\Http\Controllers\Admin\Laporan\LaporanTransferGudangController::class, 'transferGudangData'])->name('laporan-transfer-gudang.data');
+    });
+
+    // Laporan Pengadaan
+    Route::prefix('admin/laporan')->name('admin.laporan.')->group(function () {
+        Route::get('laporan-pengadaan', [LaporanPengadaanController::class, 'index'])->name('pengadaan.index');
+        Route::get('laporan-pengadaan/data', [LaporanPengadaanController::class, 'data'])->name('pengadaan.data');
     });
 });
 

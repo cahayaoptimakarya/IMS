@@ -376,6 +376,17 @@ class MenuSeeder extends Seeder
             ]
         );
 
+        // Laporan Pengadaan
+        Menu::updateOrCreate(
+            ['name' => 'Laporan Pengadaan'],
+            [
+                'url' => '/admin/laporan/laporan-pengadaan',
+                'icon' => 'fas fa-clipboard-list',
+                'parent_id' => $laporan->id,
+                'order' => 4,
+            ]
+        );
+
         // Assign permissions to a role
         $developerJabatan = Jabatan::where('name', 'Developer')->first();
 
