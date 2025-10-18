@@ -184,6 +184,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
     Route::prefix('admin/laporan')->name('admin.laporan.')->group(function () {
         Route::get('laporan-pengadaan', [LaporanPengadaanController::class, 'index'])->name('pengadaan.index');
         Route::get('laporan-pengadaan/data', [LaporanPengadaanController::class, 'data'])->name('pengadaan.data');
+        Route::get('laporan-pengadaan/distributions-data', [LaporanPengadaanController::class, 'distributionsData'])->name('pengadaan.distributions.data');
     });
 });
 

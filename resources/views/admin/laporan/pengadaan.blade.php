@@ -165,6 +165,32 @@
                 </div>
             </div>
         </div>
+
+        <div class="card mt-8">
+            <div class="card-header border-0 pt-6">
+                <div class="card-title">Distribusi Item Pengadaan</div>
+            </div>
+            <div class="card-body pt-4">
+                <div class="table-responsive">
+                    <table id="pengadaan_distributions_table" class="table align-middle table-row-dashed fs-6 gy-5">
+                        <thead>
+                            <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                <th>Tanggal</th>
+                                <th>Kode Dokumen</th>
+                                <th>Tipe</th>
+                                <th>Tujuan Gudang</th>
+                                <th>Barang</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Koli</th>
+                                <th>Status</th>
+                                <th>Catatan</th>
+                            </tr>
+                        </thead>
+                        <tbody class="fw-bold text-gray-600"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 @endsection
 
@@ -173,6 +199,7 @@
     <script>
         var statusChart;
         var table;
+        var distTable;
 
         document.addEventListener('DOMContentLoaded', function() {
             if ($.fn.select2) {
@@ -207,6 +234,7 @@
 
             initStatusChart();
             initTable();
+            initDistTable();
 
             $('#apply_filter').on('click', function() {
                 refreshAll();
@@ -284,6 +312,9 @@
             if ($.fn.DataTable.isDataTable('#pengadaan_table')) {
                 $('#pengadaan_table').DataTable().ajax.reload();
             }
+            if ($.fn.DataTable.isDataTable('#pengadaan_distributions_table')) {
+                $('#pengadaan_distributions_table').DataTable().ajax.reload();
+            }
         }
 
         function updateText(selector, value, isNumber, suffix) {
@@ -343,6 +374,43 @@
                     }}
                 ],
                 order: [[1, 'desc']],
+            });
+        }
+
+        function initDistTable() {
+            distTable = $('#pengadaan_distributions_table').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: "{{ route('admin.laporan.pengadaan.distributions.data') }}",
+                    type: "GET",
+                    data: function(d) {
+                        d.search.value = d.search.value || '';
+                        d.date_range = $('#kt_daterangepicker').val();
+                        d.status_filter = $('#status_filter').val();
+                        d.type_filter = $('#type_filter').val();
+                        d.warehouse_filter = $('#warehouse_filter').length ? $('#warehouse_filter').val() : '';
+                    }
+                },
+                columns: [
+                    { data: 'date', name: 'd.date' },
+                    { data: 'sio_code', name: 'sio.code' },
+                    { data: 'sio_type', name: 'sio.type', render: function(v){ return '<span class="badge badge-light-primary fw-bolder">' + (v || '-') + '</span>'; } },
+                    { data: 'to_warehouse', name: 'wto.name', defaultContent: '-' },
+                    { data: null, name: 'i.nama_barang', render: function(row){
+                        var name = row.item_name || '-';
+                        var sku = row.sku || '-';
+                        return '<div class="d-flex flex-column"><span class="fw-bolder">' + name + '</span><span class="text-muted fs-8">' + sku + '</span></div>';
+                    } },
+                    { data: 'quantity', name: 'd.quantity', className: 'text-end', render: numFormat },
+                    { data: 'koli', name: 'd.koli', className: 'text-end', render: numFormat },
+                    { data: 'dist_status', name: 'd.status', render: function(v){
+                        var map = { draft: 'badge-light-warning', completed: 'badge-light-success' };
+                        return '<span class="badge ' + (map[v] || 'badge-light') + ' fw-bolder">' + (v || '-') + '</span>';
+                    } },
+                    { data: 'note', name: 'd.note', render: function(v){ return v ? $('<div>').text(v).html() : '-'; } },
+                ],
+                order: [[0, 'desc']],
             });
         }
 

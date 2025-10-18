@@ -252,4 +252,113 @@ class LaporanPengadaanController extends Controller
             'data' => $data,
         ]);
     }
+
+    public function distributionsData(Request $request)
+    {
+        $searchValue = $request->input('search.value', '');
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 10);
+        $draw = (int) $request->input('draw', 0);
+
+        $dateRange = $request->input('date_range');
+        $statusFilter = $request->input('status_filter'); // SIO status
+        $typeFilter = $request->input('type_filter');
+        $warehouseFilter = $request->input('warehouse_filter');
+
+        $query = DB::table('stock_in_order_item_distributions as d')
+            ->join('stock_in_order_items as si', 'd.stock_in_order_item_id', '=', 'si.id')
+            ->join('stock_in_orders as sio', 'si.stock_in_order_id', '=', 'sio.id')
+            ->leftJoin('items as i', 'si.item_id', '=', 'i.id')
+            ->leftJoin('warehouses as wdoc', 'sio.warehouse_id', '=', 'wdoc.id')
+            ->leftJoin('warehouses as wto', 'd.to_warehouse_id', '=', 'wto.id')
+            ->select([
+                'd.id', 'd.date', 'd.quantity', 'd.koli', 'd.status as dist_status', 'd.note',
+                'sio.code as sio_code', 'sio.type as sio_type', 'sio.status as sio_status',
+                'wdoc.name as document_warehouse', 'wto.name as to_warehouse',
+                'i.nama_barang as item_name', 'i.sku as sku',
+            ]);
+
+        // Date filter uses distribution date
+        if ($dateRange) {
+            $dates = explode(' - ', $dateRange);
+            if (count($dates) === 2) {
+                try {
+                    $startDate = Carbon::createFromFormat('d/m/Y', $dates[0])->startOfDay();
+                    $endDate = Carbon::createFromFormat('d/m/Y', $dates[1])->endOfDay();
+                    $query->whereBetween('d.date', [$startDate->toDateString(), $endDate->toDateString()]);
+                } catch (\Exception $e) {
+                    // ignore
+                }
+            }
+        }
+
+        // Warehouse restriction: follow SIO document warehouse for consistency
+        if (auth()->user() && auth()->user()->warehouse_id) {
+            $query->where('sio.warehouse_id', auth()->user()->warehouse_id);
+        } elseif (!empty($warehouseFilter)) {
+            $query->where('sio.warehouse_id', $warehouseFilter);
+        }
+
+        if ($statusFilter && $statusFilter !== 'semua') {
+            $query->where('sio.status', $statusFilter);
+        }
+        if ($typeFilter && $typeFilter !== 'semua') {
+            $query->where('sio.type', $typeFilter);
+        }
+
+        // Total before search
+        $totalRecords = (clone $query)->count();
+
+        if (!empty($searchValue)) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('sio.code', 'LIKE', "%{$searchValue}%")
+                  ->orWhere('i.nama_barang', 'LIKE', "%{$searchValue}%")
+                  ->orWhere('i.sku', 'LIKE', "%{$searchValue}%")
+                  ->orWhere('wto.name', 'LIKE', "%{$searchValue}%")
+                  ->orWhere('d.note', 'LIKE', "%{$searchValue}%");
+            });
+        }
+
+        // Ordering
+        $columns = [
+            0 => 'd.date',
+            1 => 'sio.code',
+            2 => 'sio.type',
+            3 => 'wto.name',
+            4 => 'i.nama_barang',
+            5 => 'd.quantity',
+            6 => 'd.koli',
+            7 => 'd.status',
+        ];
+        $orderByColumnIndex = (int) $request->input('order.0.column', 0);
+        $orderByColumnName = $columns[$orderByColumnIndex] ?? 'd.date';
+        $orderDirection = $request->input('order.0.dir', 'desc');
+
+        $data = $query
+            ->orderBy($orderByColumnName, $orderDirection)
+            ->offset($start)
+            ->limit($length)
+            ->get()
+            ->map(function ($r) {
+                return [
+                    'date' => $r->date,
+                    'sio_code' => $r->sio_code,
+                    'sio_type' => $r->sio_type,
+                    'to_warehouse' => $r->to_warehouse,
+                    'item_name' => $r->item_name,
+                    'sku' => $r->sku,
+                    'quantity' => (float) $r->quantity,
+                    'koli' => (float) $r->koli,
+                    'dist_status' => $r->dist_status,
+                    'note' => $r->note,
+                ];
+            });
+
+        return response()->json([
+            'draw' => $draw,
+            'recordsTotal' => $totalRecords,
+            'recordsFiltered' => $totalRecords,
+            'data' => $data,
+        ]);
+    }
 }
