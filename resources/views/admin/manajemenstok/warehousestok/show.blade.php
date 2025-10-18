@@ -14,7 +14,7 @@
                 <!-- Info Card -->
                 <div class="card card-xl-stretch mb-5 mb-xl-8">
                     <div class="card-body p-6">
-                        <div class="d-flex align-items-center">
+                        <div class="d-flex align-items-center mb-4">
                             <div class="symbol symbol-45px me-5">
                                 <div class="symbol-label bg-light-primary">
                                     <i class="fas fa-box text-primary"></i>
@@ -24,6 +24,15 @@
                                 <div class="fs-4 fw-bolder text-gray-800">{{ $item->nama_barang }}</div>
                                 <div class="text-gray-600">SKU: <span class="fw-bold">{{ $item->sku }}</span></div>
                                 <div class="text-gray-600">Warehouse: <span class="fw-bold">{{ $warehouse->name }}</span></div>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-3">
+                            <div class="d-flex align-items-center p-4 bg-light-primary rounded border-dashed border-primary flex-grow-1">
+                                <span class="svg-icon svg-icon-2 me-3 text-primary"><i class="fas fa-warehouse"></i></span>
+                                <div>
+                                    <div class="text-gray-600 fw-semibold">Stok Saat Ini</div>
+                                    <div class="fs-4 fw-bolder text-gray-800" id="current_stock_value">-</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -75,7 +84,7 @@
                     </div>
                     <div class="card-body pt-0">
                         <div class="table-responsive">
-                            <table class="table align-middle" id="daily_table">
+                            <table class="table align-middle table-row-dashed" id="daily_table">
                                 <thead><tr><th>Tanggal</th><th class="text-end">Perubahan</th><th class="text-end">Stok</th></tr></thead>
                                 <tbody></tbody>
                             </table>
@@ -98,7 +107,7 @@
                     </div>
                     <div class="card-body pt-0">
                         <div class="table-responsive">
-                            <table class="table align-middle table-row-dashed table-striped" id="movement_table">
+                            <table class="table align-middle table-row-dashed" id="movement_table">
                                 <thead>
                                     <tr>
                                         <th class="w-40px">No</th>
@@ -125,20 +134,8 @@
     </div>
 @endsection
 
-@push('styles')
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <style>
-        /* Keep table headers visible and avoid overlap */
-        #daily_table thead th, #movement_table thead th{ position: sticky; top: 0; background: #fff; z-index: 2; }
-        #movement_table tbody td{ vertical-align: middle; }
-        .card.card-flush, .card.card-xl-stretch{ position: relative; z-index: 2; }
-        /* Ensure card bodies clip their content */
-        .card .card-body{ overflow: hidden; }
-    </style>
-@endpush
 
 @push('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         (function(){
             const warehouseId = {{ $warehouse->id }};
@@ -180,7 +177,7 @@
                     summaryCard('fa-arrow-up', 'danger', 'Keluar', fmt(s.out)),
                     summaryCard('fa-warehouse', 'primary', 'Stok Saat Ini', fmt(s.last_stock))
                 ].join('');
-                document.getElementById('summary_cards').innerHTML = html + `<div class="col-12 text-muted mt-2">Rentang: ${s.date_from} s/d ${s.date_to}</div>`;
+                document.getElementById('summary_cards').innerHTML = html + `<div class="col-12 text-muted mt-2">Rentang: ${s.date_from} s/d ${s.date_to}</div>`; const cs = document.getElementById('current_stock_value'); if (cs) cs.textContent = fmt(s.last_stock);
             }
 
             function renderDaily(p){
@@ -272,3 +269,10 @@
         })();
     </script>
 @endpush
+
+
+
+
+
+
+
