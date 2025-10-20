@@ -111,7 +111,6 @@
                         </div>
                         <div class="d-flex align-items-center" style="gap:.5rem;">
                             <span class="badge bg-light text-dark" id="items-visible-count">0 baris</span>
-                            <button type="button" class="btn btn-primary" id="add-item-btn"><i class="bi bi-plus-lg me-1"></i>Tambah Item</button>
                         </div>
                     </div>
 
@@ -131,7 +130,13 @@
                             <tbody>
                                 <!-- Item rows will be added here -->
                             </tbody>
-                            
+                            <tfoot>
+                                <tr>
+                                    <td colspan="7">
+                                        <button type="button" class="btn btn-light-primary" id="add-item-btn">+ Tambah Item</button>
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
 
