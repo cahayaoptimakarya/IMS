@@ -94,6 +94,7 @@
                         <thead>
                             <tr class="text-start text-gray-500 fw-bolder fs-7 text-uppercase gs-0">
                                 <th class="min-w-250px">Item</th>
+                                <th class="min-w-160px">Tempat</th>
                                 <th class="min-w-120px">Qty Sistem</th>
                                 <th class="min-w-120px">Koli Sistem</th>
                                 <th class="min-w-120px">Qty Fisik</th>
@@ -113,6 +114,10 @@
                                             <option value="{{ $item->id }}" {{ $item->id == $it->item_id ? 'selected' : '' }}>{{ $item->sku ? $item->sku.' - ' : '' }}{{ $item->nama_barang }}</option>
                                         @endforeach
                                     </select>
+                                </td>
+                                <td>
+                                    @php $selected = $items->firstWhere('id', $it->item_id); @endphp
+                                    <input type="text" class="form-control form-control-white item-tempat" value="{{ $selected->tempat ?? '' }}" readonly>
                                 </td>
                                 <td><input type="number" step="any" name="items[{{ $i }}][system_quantity]" class="form-control form-control-white sys-qty" value="{{ $it->system_quantity }}" readonly></td>
                                 <td><input type="number" step="any" name="items[{{ $i }}][system_koli]" class="form-control form-control-white sys-koli" value="{{ $it->system_koli }}" readonly></td>
@@ -148,6 +153,7 @@ function addRow(){
         <td>
             <select name="items[${rowIndex}][item_id]" class="form-select form-select-solid item-select" data-control="select2" required></select>
         </td>
+        <td><input type="text" class="form-control form-control-solid item-tempat" value="" readonly></td>
         <td><input type="number" step="any" name="items[${rowIndex}][system_quantity]" class="form-control form-control-solid sys-qty" value="0"></td>
         <td><input type="number" step="any" name="items[${rowIndex}][system_koli]" class="form-control form-control-solid sys-koli" value="0"></td>
         <td><input type="number" step="any" name="items[${rowIndex}][physical_quantity]" class="form-control form-control-solid phy-qty" value="0"></td>
@@ -293,6 +299,7 @@ $(document).ready(function(){
             function(res){
                 $tr.find('.sys-qty').val(res.quantity);
                 $tr.find('.sys-koli').val(res.koli);
+                $tr.find('.item-tempat').val(res.tempat || '');
                 recalc($tr);
             }
         );
@@ -310,6 +317,7 @@ $(document).ready(function(){
                 function(res){
                     $tr.find('.sys-qty').val(res.quantity);
                     $tr.find('.sys-koli').val(res.koli);
+                    $tr.find('.item-tempat').val(res.tempat || '');
                     recalc($tr);
                 }
             );

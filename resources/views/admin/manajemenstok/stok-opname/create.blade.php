@@ -95,6 +95,7 @@
                         <thead>
                             <tr class="text-start text-gray-500 fw-bolder fs-7 text-uppercase gs-0">
                                 <th class="min-w-250px">Item</th>
+                                <th class="min-w-160px">Tempat</th>
                                 <th class="min-w-120px">Qty Sistem</th>
                                 <th class="min-w-120px">Koli Sistem</th>
                                 <th class="min-w-120px">Qty Fisik</th>
@@ -129,6 +130,7 @@ function addRow(){
         <td>
             <select name="items[${rowIndex}][item_id]" class="form-select form-select-solid item-select" data-control="select2" required></select>
         </td>
+        <td><input type="text" class="form-control form-control-white item-tempat" value="" readonly></td>
         <td><input type="number" step="any" name="items[${rowIndex}][system_quantity]" class="form-control form-control-white sys-qty" value="0" readonly></td>
         <td><input type="number" step="any" name="items[${rowIndex}][system_koli]" class="form-control form-control-white sys-koli" value="0" readonly></td>
         <td><input type="number" step="any" name="items[${rowIndex}][physical_quantity]" class="form-control form-control-solid phy-qty" value="0"></td>
@@ -272,6 +274,7 @@ $(document).ready(function(){
             function(res){
                 $tr.find('.sys-qty').val(res.quantity);
                 $tr.find('.sys-koli').val(res.koli);
+                $tr.find('.item-tempat').val(res.tempat || '');
                 recalc($tr);
             }
         );
@@ -289,6 +292,7 @@ $(document).ready(function(){
                 function(res){
                     $tr.find('.sys-qty').val(res.quantity);
                     $tr.find('.sys-koli').val(res.koli);
+                    $tr.find('.item-tempat').val(res.tempat || '');
                     recalc($tr);
                 }
             );
