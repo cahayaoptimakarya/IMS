@@ -54,7 +54,6 @@
             </div>
             <div class="d-flex align-items-center gap-3">
               <div class="summary" id="items-summary">0 item • Total: 0 Qty | 0 Koli</div>
-              <button type="button" class="btn btn-sm btn-light-primary" id="add-row">Tambah Baris</button>
             </div>
           </div>
         </div>
@@ -80,6 +79,13 @@
               </tr>
               @endforeach
             </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="5">
+                  <button type="button" class="btn btn-light-primary" id="add-row">+ Tambah Baris</button>
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
 
