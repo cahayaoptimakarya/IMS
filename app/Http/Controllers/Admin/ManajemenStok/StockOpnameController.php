@@ -337,9 +337,12 @@ class StockOpnameController extends Controller
             ->where('item_id', $request->item_id)
             ->first();
 
+        $item = Item::find($request->item_id);
+
         return response()->json([
             'quantity' => (float) ($inv->quantity ?? 0),
             'koli' => (float) ($inv->koli ?? 0),
+            'tempat' => $item->tempat ?? null,
         ]);
     }
 
