@@ -51,6 +51,7 @@ class ItemController extends Controller
             'uom_id' => 'required|exists:uoms,id',
             'item_category_id' => 'required|exists:item_categories,id|not_in:null',
             'nama_barang' => 'required|string',
+            'tempat' => 'nullable|string|max:255',
             'deskripsi' => 'nullable|string',
             'low_stock_threshold' => 'nullable|integer|min:0',
         ]);
@@ -115,6 +116,7 @@ class ItemController extends Controller
             'uom_id' => 'required|exists:uoms,id',
             'item_category_id' => 'required|exists:item_categories,id|not_in:null',
             'nama_barang' => 'required|string',
+            'tempat' => 'nullable|string|max:255',
             'deskripsi' => 'nullable|string',
             'low_stock_threshold' => 'nullable|integer|min:0',
         ]);

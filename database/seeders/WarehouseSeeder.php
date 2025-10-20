@@ -17,6 +17,7 @@ class WarehouseSeeder extends Seeder
     {
         Warehouse::updateOrCreate(['name' => 'Gudang Seha']);
         Warehouse::updateOrCreate(['name' => 'Gudang Nanggewer']);
+        Warehouse::updateOrCreate(['name' => 'Gudang Surabaya']);
         Warehouse::updateOrCreate(['name' => 'Gudang Ciseeng']);
     }
 }

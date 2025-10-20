@@ -19,6 +19,7 @@ return new class extends Migration
             $table->foreignId('item_category_id')->nullable()->constrained('item_categories')->onDelete('set null');
             $table->integer('low_stock_threshold')->default(100);
             $table->string('nama_barang');
+            $table->string('tempat')->nullable();
             $table->text('deskripsi')->nullable();
             $table->timestamps();
         });

@@ -91,6 +91,15 @@
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
                             </div>
+
+                            <div class="fv-row mb-7">
+                                <label for="tempat" class="form-label">Tempat</label>
+                                <input type="text" class="form-control form-control-solid" id="tempat" name="tempat"
+                                       value="{{ old('tempat', $item->tempat) }}" placeholder="Misal: Rak A-1" />
+                                @error('tempat')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
                         </div>
                     </div>
 

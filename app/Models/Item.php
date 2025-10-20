@@ -14,6 +14,7 @@ class Item extends Model
         'sku',
         'uom_id',
         'nama_barang',
+        'tempat',
         'deskripsi',
         'item_category_id',
         'low_stock_threshold',

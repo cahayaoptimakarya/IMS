@@ -15,7 +15,7 @@ class ItemCategorySeeder extends Seeder
      */
     public function run()
     {
-        ItemCategory::updateOrCreate(['name' => 'Elektronik']);
-        ItemCategory::updateOrCreate(['name' => 'Peralatan Rumah']);
+        ItemCategory::updateOrCreate(['name' => 'Barang - barang']);
+        ItemCategory::updateOrCreate(['name' => 'Peralatan']);
     }
 }

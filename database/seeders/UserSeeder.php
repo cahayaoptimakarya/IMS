@@ -24,11 +24,20 @@ class UserSeeder extends Seeder
         // Get warehouses
         $gudangSeha = Warehouse::where('name', 'Gudang Seha')->first();
         $gudangNanggewer = Warehouse::where('name', 'Gudang Nanggewer')->first();
+        $gudangSurabaya = Warehouse::where('name', 'Gudang Surabaya')->first();
 
         User::updateOrCreate(
-            ['email' => 'superadmin@developer.com'],
+            ['email' => 'Abdillahrah94@gmail.com'],
             [
-                'name' => 'Super Admin',
+                'name' => 'Abdillah',
+                'password' => Hash::make('Password!2'),
+                'jabatan_id' => $developerJabatan->id ?? null,
+            ]
+        );
+        User::updateOrCreate(
+            ['email' => 'eganugrahaid@gmail.com'],
+            [
+                'name' => 'Ega Nugraha',
                 'password' => Hash::make('Password!2'),
                 'jabatan_id' => $developerJabatan->id ?? null,
             ]
@@ -36,9 +45,9 @@ class UserSeeder extends Seeder
 
         if ($gudangSeha) {
             User::updateOrCreate(
-                ['email' => 'mawar@admin.com'],
+                ['email' => 'badrukasep58@gmail.com'],
                 [
-                    'name' => 'mawar',
+                    'name' => 'Badru',
                     'password' => Hash::make('Password!2'),
                     'jabatan_id' => $adminJabatan->id ?? null,
                     'warehouse_id' => $gudangSeha->id
@@ -48,12 +57,24 @@ class UserSeeder extends Seeder
 
         if ($gudangNanggewer) {
             User::updateOrCreate(
-                ['email' => 'melati@admin.com'],
+                ['email' => 'Adi.saksana310376@gmail.com'],
                 [
-                    'name' => 'melati',
+                    'name' => 'Adi Saksana',
                     'password' => Hash::make('Password!2'),
                     'jabatan_id' => $adminJabatan->id ?? null,
                     'warehouse_id' => $gudangNanggewer->id
+                ]
+            );
+        }
+
+        if ($gudangSurabaya) {
+            User::updateOrCreate(
+                ['email' => 'surabaya2025@gmail.com'],
+                [
+                    'name' => 'Surabaya 2025',
+                    'password' => Hash::make('Password!2'),
+                    'jabatan_id' => $adminJabatan->id ?? null,
+                    'warehouse_id' => $gudangSurabaya->id
                 ]
             );
         }
