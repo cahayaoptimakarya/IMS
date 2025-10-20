@@ -8,6 +8,14 @@
 @endpush
 
 @section('content')
+    @push('styles')
+        <style>
+            .koli-badge { background: #F3F6F9; color: #3F4254; border-radius: 8px; padding: 2px 8px; font-weight: 600; }
+            .qty-emph { font-size: 1.75rem; font-weight: 700; color: #1E1E2D; }
+            .stat-label { font-size: .8rem; color: #7E8299; }
+            .icon-pill { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:10px; }
+        </style>
+    @endpush
     <div class="content flex-row-fluid" id="kt_content">
         <!--begin::Info-->
         <div class="card mb-5 mb-xl-8">
@@ -67,18 +75,20 @@
                                     <div
                                         class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3">
                                         <div class="d-flex align-items-center">
-                                            <i class="ki-duotone ki-package fs-3 text-primary me-2">
+                                            <i class="ki-duotone ki-cube-2 fs-3 text-primary me-2">
                                                 <span class="path1"></span>
                                                 <span class="path2"></span>
                                                 <span class="path3"></span>
                                                 <span class="path4"></span>
                                             </i>
-                                            <div>
-                                                <div class="fs-2 fw-bolder" id="current_stock_value">-</div>
-                                                <div class="fs-7 text-gray-600" id="current_koli_value">Koli: -</div>
+                                            <div class="d-flex flex-column">
+                                                <div class="qty-emph" id="current_stock_value">-</div>
+                                                <div class="mt-1">
+                                                    <span class="koli-badge" id="current_koli_value">Koli: -</span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="fw-semibold fs-6 text-gray-400">Stok Saat Ini</div>
+                                        <div class="fw-semibold fs-6 text-gray-400">Stok Saat Ini (Qty | Koli)</div>
                                     </div>
                                 </div>
                             </div>
@@ -137,7 +147,10 @@
         <div class="card mb-5 mb-xl-8">
             <div class="card-header border-0">
                 <h3 class="card-title align-items-start flex-column">
-                    <span class="card-label fw-bolder text-dark">Ringkasan Periode</span>
+                    <span class="card-label fw-bolder text-dark">
+                        <i class="ki-duotone ki-chart-line fs-2 me-2"><span class="path1"></span><span class="path2"></span></i>
+                        Ringkasan Periode
+                    </span>
                     <span class="text-muted mt-1 fw-semibold fs-7">Ikhtisar stok dalam rentang terpilih</span>
                 </h3>
             </div>
@@ -156,7 +169,10 @@
                 <div class="card card-flush h-xl-100">
                     <div class="card-header pt-7">
                         <h3 class="card-title align-items-start flex-column">
-                            <span class="card-label fw-bolder text-dark">Snapshot Harian</span>
+                            <span class="card-label fw-bolder text-dark">
+                                <i class="ki-duotone ki-calendar fs-2 me-2"><span class="path1"></span><span class="path2"></span></i>
+                                Snapshot Harian
+                            </span>
                             <span class="text-muted mt-1 fw-semibold fs-7">Perubahan stok per hari</span>
                         </h3>
                     </div>
@@ -165,9 +181,9 @@
                             <table class="table align-middle table-row-dashed fs-6 gy-5" id="daily_table">
                                 <thead>
                                     <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                        <th>Tanggal</th>
-                                        <th class="text-end">Perubahan</th>
-                                        <th class="text-end">Stok</th>
+                                        <th><i class="ki-duotone ki-calendar fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>Tanggal</th>
+                                        <th class="text-end"><i class="ki-duotone ki-arrow-left-right fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>Perubahan</th>
+                                        <th class="text-end"><i class="ki-duotone ki-cube-2 fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>Stok</th>
                                     </tr>
                                 </thead>
                                 <tbody class="fw-semibold text-gray-600">
@@ -190,7 +206,10 @@
                 <div class="card card-flush h-xl-100">
                     <div class="card-header pt-7">
                         <h3 class="card-title align-items-start flex-column">
-                            <span class="card-label fw-bolder text-dark">Detail Pergerakan Stok</span>
+                            <span class="card-label fw-bolder text-dark">
+                                <i class="ki-duotone ki-arrow-left-right fs-2 me-2"><span class="path1"></span><span class="path2"></span></i>
+                                Detail Pergerakan Stok
+                            </span>
                             <span class="text-muted mt-1 fw-semibold fs-7">Urut dari terbaru</span>
                         </h3>
                     </div>
@@ -199,13 +218,13 @@
                             <table class="table align-middle table-row-dashed fs-6 gy-5" id="movement_table">
                                 <thead>
                                     <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                        <th class="ps-4 w-25px">No</th>
-                                        <th>Tanggal</th>
-                                        <th>Jenis</th>
-                                        <th>Deskripsi</th>
-                                        <th class="text-end">Qty</th>
-                                        <th class="text-end">Koli</th>
-                                        <th class="text-end">Stok Akhir</th>
+                                        <th class="ps-4 w-25px"><i class="ki-duotone ki-hash fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>No</th>
+                                        <th><i class="ki-duotone ki-calendar fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>Tanggal</th>
+                                        <th><i class="ki-duotone ki-arrow-left-right fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>Jenis</th>
+                                        <th><i class="ki-duotone ki-notepad fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>Deskripsi</th>
+                                        <th class="text-end"><i class="ki-duotone ki-package fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>Qty</th>
+                                        <th class="text-end"><i class="ki-duotone ki-cube-2 fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>Koli</th>
+                                        <th class="text-end"><i class="ki-duotone ki-chart-line fs-6 me-1"><span class="path1"></span><span class="path2"></span></i>Stok Akhir</th>
                                     </tr>
                                 </thead>
                                 <tbody class="fw-semibold text-gray-600">
@@ -278,8 +297,8 @@
                             <div class="d-flex flex-stack">
                                 <div class="d-flex flex-column">
                                     <div class="text-${color} fw-semibold fs-7">${label}</div>
-                                    <div class="fw-bolder fs-2 text-gray-800">${qtyValue} <span class="fs-6 text-muted">Qty</span></div>
-                                    <div class="fw-semibold text-gray-700">${koliValue} <span class="fs-8 text-muted">Koli</span></div>
+                                    <div class="fw-bolder fs-2 text-gray-800">${qtyValue} <span class="stat-label">Qty</span></div>
+                                    <div class="mt-1"><span class="koli-badge">Koli: ${koliValue}</span></div>
                                 </div>
                                 <span class="symbol symbol-45px">
                                     <span class="symbol-label bg-${color} bg-opacity-25">
@@ -293,9 +312,9 @@
 
             function renderSummary(s) {
                 const html = [
-                    summaryCard('ki-duotone ki-arrow-down-left', 'success', 'Stok Masuk', fmt(s.in), fmt2(s.in_koli)),
-                    summaryCard('ki-duotone ki-arrow-up-right', 'danger', 'Stok Keluar', fmt(s.out), fmt2(s.out_koli)),
-                    summaryCard('ki-duotone ki-package', 'primary', 'Stok Saat Ini', fmt(s.last_stock), fmt2(s.last_koli))
+                    summaryCard('ki-duotone ki-arrow-down', 'success', 'Stok Masuk', fmt(s.in), fmt2(s.in_koli)),
+                    summaryCard('ki-duotone ki-arrow-up', 'danger', 'Stok Keluar', fmt(s.out), fmt2(s.out_koli)),
+                    summaryCard('ki-duotone ki-cube-2', 'primary', 'Stok Saat Ini', fmt(s.last_stock), fmt2(s.last_koli))
                 ].join('');
                 document.getElementById('summary_cards').innerHTML = html +
                     `<div class="col-12 text-muted mt-2 fs-7">Rentang: ${s.date_from} s/d ${s.date_to}</div>`;
