@@ -99,6 +99,9 @@
                                     <td>
                                         <div class="fw-bold">{{ $row->item->nama_barang ?? '-' }}</div>
                                         <div class="text-muted fs-7">{{ $row->item->description ?? '' }}</div>
+                                        @if(!empty($row->item->tempat))
+                                            <div class="text-muted fs-7">Tempat: {{ $row->item->tempat }}</div>
+                                        @endif
                                     </td>
                                     <td class="text-end">{{ number_format($row->system_quantity, 2, ',', '.') }}</td>
                                     <td class="text-end">{{ number_format($row->system_koli, 2, ',', '.') }}</td>
