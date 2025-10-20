@@ -26,12 +26,17 @@
                             </div>
                             <div class="mb-5">
                                 <label class="form-label required">Gudang</label>
-                                <select name="warehouse_id" class="form-select form-select-solid" data-control="select2" required>
-                                    <option value="">Pilih Gudang</option>
-                                    @foreach($warehouses as $w)
-                                        <option value="{{ $w->id }}" {{ old('warehouse_id', $assembly->warehouse_id) == $w->id ? 'selected' : '' }}>{{ $w->name }}</option>
-                                    @endforeach
-                                </select>
+                                @if(auth()->user() && auth()->user()->warehouse_id)
+                                    <input type="hidden" name="warehouse_id" value="{{ auth()->user()->warehouse_id }}">
+                                    <input type="text" class="form-control form-control-solid" value="{{ optional(auth()->user()->warehouse)->name }}" readonly>
+                                @else
+                                    <select name="warehouse_id" class="form-select form-select-solid" data-control="select2" required>
+                                        <option value="">Pilih Gudang</option>
+                                        @foreach($warehouses as $w)
+                                            <option value="{{ $w->id }}" {{ old('warehouse_id', $assembly->warehouse_id) == $w->id ? 'selected' : '' }}>{{ $w->name }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
                                 @error('warehouse_id')
                                     <span class="text-danger">{{ $message }}</span>
                                 @enderror
@@ -367,7 +372,7 @@
             $('#components-body .component-row').each(function(){ fetchRowStock($(this)); });
         }
         function fetchRowStock($row) {
-            const wh = $('select[name="warehouse_id"]').val();
+            const wh = $('[name="warehouse_id"]').val();
             const item = $row.find('select[name="components[item_id][]"]').val();
             const $qty = $row.find('.stock-display .stock-qty');
             const $koli = $row.find('.stock-display .stock-koli');
@@ -382,7 +387,7 @@
                 })
                 .fail(function(){ $qty.text('-'); $koli.text('-'); });
         }
-        $('select[name="warehouse_id"]').on('change', updateAllRowsStock);
+        $('[name="warehouse_id"]').on('change', updateAllRowsStock);
         updateAllRowsStock();
 
         // submit confirm & basic checks
@@ -390,7 +395,7 @@
             e.preventDefault();
             const form = this;
             const date = $('input[name="date"]').val();
-            const wh = $('select[name="warehouse_id"]').val();
+            const wh = $('[name="warehouse_id"]').val();
             const finished = $('select[name="finished_item_id"]').val();
             const recipeOpt = $('#recipe_id').find('option:selected');
             const recipeFinished = recipeOpt.data('finished');

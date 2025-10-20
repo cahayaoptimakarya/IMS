@@ -134,17 +134,19 @@
             <div class="card-body pt-0">
                 <div class="dataTables_wrapper dt-bootstrap4 no-footer">
                     <div class="table-responsive">
-                        <table class="table align-middle table-row-dashed fs-6 gy-5" id="table-on-page">
-                            <thead>
-                             <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                <th>Kode</th>
-                                <th>Tanggal</th>
-                                <th>Gudang</th>
-                                <th>Produk Jadi</th>
-                                <th>Status</th>
-                                <th class="text-center">Actions</th>
-                              </tr>
-                            </thead>
+                            <table class="table align-middle table-row-dashed fs-6 gy-5" id="table-on-page">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>Kode</th>
+                                        <th>Tanggal</th>
+                                        @if(!(auth()->user() && auth()->user()->warehouse_id))
+                                            <th>Gudang</th>
+                                        @endif
+                                        <th>Produk Jadi</th>
+                                        <th>Status</th>
+                                        <th class="text-center">Actions</th>
+                                      </tr>
+                                </thead>
                             <tbody class="fw-bold text-gray-600"></tbody>
                         </table>
                     </div>
@@ -188,6 +190,24 @@
 
         function loadDataTable(){
             if ($.fn.DataTable.isDataTable('#table-on-page')) { $('#table-on-page').DataTable().destroy(); }
+            var hasBoundWarehouse = @json((bool) (auth()->user() && auth()->user()->warehouse_id));
+            var columns = [
+                { data: 'code', name: 'a.code' },
+                { data: 'date', name: 'a.date' }
+            ];
+            if (!hasBoundWarehouse) {
+                columns.push({ data: 'warehouse_name', name: 'w.name' });
+            }
+            columns.push(
+                { data: 'finished_sku', name: 'i.sku' },
+                { data: 'status', name: 'a.status' },
+                { data: 'id', name: 'a.id', orderable: false, searchable: false }
+            );
+
+            var idxFinished = hasBoundWarehouse ? 2 : 3;
+            var idxStatus = hasBoundWarehouse ? 3 : 4;
+            var idxActions = hasBoundWarehouse ? 4 : 5;
+
             $('#table-on-page').DataTable({
                 processing: true,
                 serverSide: true,
@@ -197,20 +217,13 @@
                     data: function(d){ d.search.value = $('#search_input').val(); d.status = $('#status_filter').val() || 'semua'; d.date = ($('#date_filter_options').val() === 'semua') ? 'semua' : ($('#date_filter').val() || 'semua'); }
                 },
                 drawCallback: function(){ KTMenu.createInstances(); },
-                columns: [
-                    { data: 'code', name: 'a.code' },
-                    { data: 'date', name: 'a.date' },
-                    { data: 'warehouse_name', name: 'w.name' },
-                    { data: 'finished_sku', name: 'i.sku' },
-                    { data: 'status', name: 'a.status' },
-                    { data: 'id', name: 'a.id', orderable: false, searchable: false },
-                ],
+                columns: columns,
                 order: [[1, 'desc']],
                 columnDefs: [
                     { targets: 1, render: function(data){ const d=new Date(data); if(isNaN(d)) return data||''; const day=('0'+d.getDate()).slice(-2); const month=d.toLocaleString('en-GB',{month:'short'}); const year=d.getFullYear(); return `${day} ${month} ${year}`; }},
-                    { targets: 3, render: function(data, type, row){ const sku=row.finished_sku||'-'; const name=row.finished_name||''; return `<div class="d-flex flex-column"><div class="fw-bold text-primary">${sku}</div><div class="text-muted small">${name}</div></div>`; }},
-                    { targets: 4, render: function(data){ let cls='primary', label=data; if(data==='completed'){cls='success';} else if(data==='draft'){cls='warning';} else if(data==='dalam proses'){cls='primary';} return `<span class="badge badge-light-${cls}">${label}</span>`; }},
-                    { targets: 5, render: function(data, type, row){
+                    { targets: idxFinished, render: function(data, type, row){ const sku=row.finished_sku||'-'; const name=row.finished_name||''; return `<div class="d-flex flex-column"><div class="fw-bold text-primary">${sku}</div><div class="text-muted small">${name}</div></div>`; }},
+                    { targets: idxStatus, render: function(data){ let cls='primary', label=data; if(data==='completed'){cls='success';} else if(data==='draft'){cls='warning';} else if(data==='dalam proses'){cls='primary';} return `<span class="badge badge-light-${cls}">${label}</span>`; }},
+                    { targets: idxActions, render: function(data, type, row){
                         let editUrl = "{{ route('admin.manajemenstok.perakitan.edit', ':id') }}".replace(':id', row.id);
                         let showUrl = "{{ route('admin.manajemenstok.perakitan.show', ':id') }}".replace(':id', row.id);
                         let destroyUrl = "{{ route('admin.manajemenstok.perakitan.destroy', ':id') }}".replace(':id', row.id);

@@ -57,6 +57,11 @@ class PerakitanController extends Controller
                 ->leftJoin('warehouses as w', 'a.warehouse_id', '=', 'w.id')
                 ->leftJoin('items as i', 'a.finished_item_id', '=', 'i.id');
 
+            // Restrict by user's warehouse if applicable
+            if (auth()->user() && auth()->user()->warehouse_id) {
+                $base->where('a.warehouse_id', auth()->user()->warehouse_id);
+            }
+
             $totalRecords = (clone $base)->count('a.id');
 
             // Apply filters
@@ -117,6 +122,9 @@ class PerakitanController extends Controller
 
         $assemblies = Assembly::query()
             ->with(['warehouse', 'finishedItem'])
+            ->when(auth()->user() && auth()->user()->warehouse_id, function($q){
+                $q->where('warehouse_id', auth()->user()->warehouse_id);
+            })
             ->when($search !== '', function ($q) use ($search) {
                 $q->where('code', 'LIKE', "%{$search}%")
                   ->orWhere('notes', 'LIKE', "%{$search}%")
@@ -154,7 +162,10 @@ class PerakitanController extends Controller
 
     public function create()
     {
-        $warehouses = Warehouse::orderBy('name')->get();
+        // Limit warehouses to user's warehouse if bound
+        $warehouses = auth()->user() && auth()->user()->warehouse_id
+            ? Warehouse::where('id', auth()->user()->warehouse_id)->get()
+            : Warehouse::orderBy('name')->get();
         $items = Item::orderBy('nama_barang')->get();
         $recipes = AssemblyRecipe::with('finishedItem', 'items.item')->where('is_active', true)->orderBy('code')->get();
         $nextCode = $this->generateCode();
@@ -199,7 +210,10 @@ class PerakitanController extends Controller
             }
         }
 
-        $warehouseId = (int) $request->input('warehouse_id');
+        // Enforce user's warehouse if bound
+        $warehouseId = auth()->user() && auth()->user()->warehouse_id
+            ? (int) auth()->user()->warehouse_id
+            : (int) $request->input('warehouse_id');
         $itemIds = $request->input('components.item_id', []);
         $quantitiesRecipes = $request->input('components.quantity_recipes', []);
         $quantitiesPlan = $request->input('components.quantity_plan', []);
@@ -303,7 +317,9 @@ class PerakitanController extends Controller
             return redirect()->route('admin.manajemenstok.perakitan.index')->with('error', 'Dokumen sudah '. $assembly->status .', tidak dapat diedit.');
         }
         $assembly->load('components', 'finishedItem', 'warehouse', 'recipe');
-        $warehouses = Warehouse::orderBy('name')->get();
+        $warehouses = auth()->user() && auth()->user()->warehouse_id
+            ? Warehouse::where('id', auth()->user()->warehouse_id)->get()
+            : Warehouse::orderBy('name')->get();
         $items = Item::orderBy('nama_barang')->get();
         $recipes = AssemblyRecipe::with('finishedItem', 'items.item')->where('is_active', true)->orderBy('code')->get();
         return view('admin.manajemenstok.perakitan.edit', compact('assembly', 'warehouses', 'items', 'recipes'));
@@ -352,7 +368,9 @@ class PerakitanController extends Controller
         }
 
         // Validate stock sufficiency prior to persisting changes
-        $warehouseId = (int) $request->input('warehouse_id');
+        $warehouseId = auth()->user() && auth()->user()->warehouse_id
+            ? (int) auth()->user()->warehouse_id
+            : (int) $request->input('warehouse_id');
         $itemIds = $request->input('components.item_id', []);
         $quantitiesPlan = $request->input('components.quantity_plan', []);
         $shortages = [];
@@ -667,6 +685,9 @@ class PerakitanController extends Controller
         $search = trim((string) $request->input('search', ''));
 
         $base = Assembly::query();
+        if (auth()->user() && auth()->user()->warehouse_id) {
+            $base->where('warehouse_id', auth()->user()->warehouse_id);
+        }
         if ($search !== '') {
             $base->where(function ($q) use ($search) {
                 $q->where('code', 'LIKE', "%{$search}%")
