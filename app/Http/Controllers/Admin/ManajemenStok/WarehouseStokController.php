@@ -86,6 +86,7 @@ class WarehouseStokController extends Controller
             $query->select([
                 'items.sku as sku',
                 'items.nama_barang as item_name',
+                'items.koli as koli_per_item',
                 'warehouses.name as warehouse_name',
                 'inventories.quantity',
                 'inventories.koli',
@@ -181,6 +182,7 @@ class WarehouseStokController extends Controller
                         'warehouse_name' => $row->warehouse_name,
                         'item_name' => $row->item_name,
                         'sku' => $row->sku,
+                        'koli_per_item' => (float) ($row->koli_per_item ?? 0),
                         'item_id' => (int) $row->item_id,
                         'warehouse_id' => (int) $row->warehouse_id,
                         'opening_qty' => round($openingQty, 2),
@@ -368,6 +370,7 @@ public function export(Request $request)
                 'warehouse_name' => $row->warehouse_name,
                 'item_name' => $row->item_name,
                 'sku' => $row->sku,
+                'koli_per_item' => (float) ($row->koli_per_item ?? 0),
                 'opening_qty' => round($openingQty, 2),
                 'opening_koli' => round($openingKoli, 2),
                 'incoming_qty' => round($incomingQty, 2),
@@ -387,6 +390,7 @@ public function export(Request $request)
     $headings = array_merge($headings, [
         'Nama Barang',
         'SKU',
+        'Koli per Item',
         'Stok Awal (Qty)',
         'Stok Awal (Koli)',
         'Stok Masuk (Qty)',
@@ -404,6 +408,7 @@ public function export(Request $request)
         }
         $line[] = $row['item_name'] ?? '';
         $line[] = $row['sku'] ?? '';
+        $line[] = (float) ($row['koli_per_item'] ?? 0);
         $line[] = (float) ($row['opening_qty'] ?? 0);
         $line[] = (float) ($row['opening_koli'] ?? 0);
         $line[] = (float) ($row['incoming_qty'] ?? 0);

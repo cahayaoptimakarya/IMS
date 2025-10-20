@@ -27,6 +27,7 @@
             font-size: 0.75rem;
             color: #a1a5b7;
         }
+        .item-cell .meta { font-size: 0.75rem; color:#a1a5b7; }
     </style>
 @endpush
 
@@ -144,6 +145,7 @@
                                         <th class="min-w-150px" rowspan="2">Gudang</th>
                                     @endif
                                     <th class="min-w-220px " rowspan="2">Item</th>
+                                    <th class="min-w-140px" rowspan="2">Koli/Pcs</th>
                                     <th colspan="2">Saldo Awal</th>
                                     <th colspan="2">Stok Masuk</th>
                                     <th colspan="2">Stok Keluar</th>
@@ -211,13 +213,15 @@
                 });
             };
 
-            const formatItemCell = (name, sku, url) => {
+            const formatItemCell = (name, sku, url, perKoli) => {
                 const displayName = name || '-';
                 const displaySku = sku ? sku : 'SKU: -';
+                const koliText = perKoli ? ('1 koli = ' + formatNumber(perKoli) + ' item') : '';
                 return `
                     <div class="d-flex flex-column item-cell">
                         <a href="${url}" class="text-primary fw-bold mb-1">${displaySku}</a>
                         <span class="sku">${displayName}</span>
+                        ${koliText ? '<span class="meta">' + koliText + '</span>' : ''}
                     </div>
                 `;
             };
@@ -287,6 +291,7 @@
                     columns.push({ data: 'warehouse_name', name: 'warehouses.name' });
                 }
                 columns.push({ data: 'item_name', name: 'items.nama_barang' });
+                columns.push({ data: 'koli_per_item', name: 'items.koli', orderable: false, searchable: false, className: 'text-center' });
                 metricKeys.forEach((key) => {
                     columns.push({ data: key, name: key, orderable: false, searchable: false, className: 'text-center' });
                 });
@@ -312,7 +317,8 @@
                     columnDefs: (function () {
                         const defs = [];
                         const itemColumnIndex = hasWarehouseColumn ? 1 : 0;
-                        const metricStartIndex = itemColumnIndex + 1;
+                        const koliColumnIndex = itemColumnIndex + 1;
+                        const metricStartIndex = koliColumnIndex + 1;
                         const metricIndices = metricKeys.map((_, idx) => metricStartIndex + idx);
 
                         if (hasWarehouseColumn) {
@@ -330,7 +336,14 @@
                                 const showUrl = `{{ route('admin.manajemenstok.warehousestok.show', [':warehouse', ':item']) }}`
                                     .replace(':warehouse', row.warehouse_id)
                                     .replace(':item', row.item_id);
-                                return formatItemCell(data, row.sku, showUrl);
+                                return formatItemCell(data, row.sku, showUrl, row.koli_per_item);
+                            },
+                        });
+
+                        defs.push({
+                            targets: [koliColumnIndex],
+                            render: function (data) {
+                                return data ? formatNumber(data) : '0';
                             },
                         });
 
