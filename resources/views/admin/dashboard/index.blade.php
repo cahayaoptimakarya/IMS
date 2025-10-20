@@ -38,10 +38,16 @@
             @endif
 
             @include('admin.dashboard._summary_card', [
-                'delay' => '0.3s', 'icon' => 'arrow-down', 'iconBg' => 'success', 'value' => number_format($todayStockIn, 0, ',', '.'), 'label' => 'Stok Masuk Hari Ini'
+                'delay' => '0.3s', 'icon' => 'arrow-down', 'iconBg' => 'success',
+                'value' => number_format($todayStockIn, 0, ',', '.'),
+                'label' => 'Stok Masuk Hari Ini',
+                'meta' => 'Koli: ' . number_format($todayStockInKoli ?? 0, 0, ',', '.')
             ])
             @include('admin.dashboard._summary_card', [
-                'delay' => '0.4s', 'icon' => 'arrow-up', 'iconBg' => 'danger', 'value' => number_format($todayStockOut, 0, ',', '.'), 'label' => 'Stok Keluar Hari Ini'
+                'delay' => '0.4s', 'icon' => 'arrow-up', 'iconBg' => 'danger',
+                'value' => number_format($todayStockOut, 0, ',', '.'),
+                'label' => 'Stok Keluar Hari Ini',
+                'meta' => 'Koli: ' . number_format($todayStockOutKoli ?? 0, 0, ',', '.')
             ])
         </div>
         <!--end::Row-->

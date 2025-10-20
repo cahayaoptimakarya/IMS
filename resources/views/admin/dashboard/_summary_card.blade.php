@@ -1,4 +1,4 @@
-@props(['delay' => '0.1s', 'icon' => 'box', 'iconBg' => 'primary', 'value' => '-', 'label' => '', 'bucket' => null])
+@props(['delay' => '0.1s', 'icon' => 'box', 'iconBg' => 'primary', 'value' => '-', 'label' => '', 'bucket' => null, 'meta' => null])
 
 <div class="col-xl-3">
     <div class="card card-xl-stretch mb-xl-8 summary-card card-animate {{ $bucket ? 'cursor-pointer' : '' }}"
@@ -21,6 +21,9 @@
                 <div>
                     <div class="text-dark fw-bolder fs-2">{{ $value }}</div>
                     <div class="text-muted fw-bold">{{ $label }}</div>
+                    @if($meta)
+                        <div class="text-muted fs-8 mt-1">{{ $meta }}</div>
+                    @endif
                 </div>
             </div>
         </div>

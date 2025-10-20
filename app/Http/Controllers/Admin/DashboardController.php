@@ -31,11 +31,15 @@ class DashboardController extends Controller
                 ->take(5)
                 ->get();
 
-            // Stock-in today: sum only from movements linked to stock_in_order_items
+            // Stock-in today
             $todayStockIn = StockMovement::where('warehouse_id', $warehouseId)
                 ->where('type', 'stock_in')
                 ->whereDate('date', today())
                 ->sum('quantity');
+            $todayStockInKoli = StockMovement::where('warehouse_id', $warehouseId)
+                ->where('type', 'stock_in')
+                ->whereDate('date', today())
+                ->sum('koli');
 
             // Stock-out today: sum only from movements linked to stock_out_items
             $todayStockOut = StockMovement::where('warehouse_id', $warehouseId)
@@ -43,6 +47,11 @@ class DashboardController extends Controller
                 ->where('reference_type', 'stock_out_items')
                 ->whereDate('date', today())
                 ->sum('quantity');
+            $todayStockOutKoli = StockMovement::where('warehouse_id', $warehouseId)
+                ->where('type', 'stock_out')
+                ->where('reference_type', 'stock_out_items')
+                ->whereDate('date', today())
+                ->sum('koli');
 
             // Incoming transfers en route to this warehouse
             $pendingTransfers = TransferRequest::where('to_warehouse_id', $warehouseId)
@@ -94,6 +103,8 @@ class DashboardController extends Controller
                 'recentActivities',
                 'todayStockIn',
                 'todayStockOut',
+                'todayStockInKoli',
+                'todayStockOutKoli',
                 'pendingTransfers',
                 'lowStockItems',
                 'zeroStockItems',
@@ -114,9 +125,15 @@ class DashboardController extends Controller
             $todayStockIn = StockMovement::where('type', 'stock_in')
                 ->whereDate('date', today())
                 ->sum('quantity');
+            $todayStockInKoli = StockMovement::where('type', 'stock_in')
+                ->whereDate('date', today())
+                ->sum('koli');
             $todayStockOut = StockMovement::where('type', 'stock_out')
                 ->whereDate('date', today())
                 ->sum('quantity');
+            $todayStockOutKoli = StockMovement::where('type', 'stock_out')
+                ->whereDate('date', today())
+                ->sum('koli');
             $recentActivities = UserActivity::with('user')->latest()->take(5)->get();
 
             // Stock reminders (system-wide) using per-item low_stock_threshold
@@ -146,6 +163,8 @@ class DashboardController extends Controller
                 'totalWarehouses',
                 'todayStockIn',
                 'todayStockOut',
+                'todayStockInKoli',
+                'todayStockOutKoli',
                 'recentActivities',
                 'zeroStockItems',
                 'lowStockItems',
