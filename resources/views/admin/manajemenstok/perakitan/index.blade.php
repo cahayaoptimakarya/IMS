@@ -157,9 +157,13 @@
     @push('scripts')
 <script>
     $(function() {
-        toastr.options = { positionClass: 'toast-top-center', progressBar: true };
-        @if (Session::has('success')) toastr.success("{{ session('success') }}"); @endif
-        @if (Session::has('error')) toastr.error("{{ session('error') }}"); @endif
+        // Flash notifications via SweetAlert
+        @if (Session::has('success'))
+            Swal.fire({ icon: 'success', text: "{{ addslashes(session('success')) }}" });
+        @endif
+        @if (Session::has('error'))
+            Swal.fire({ icon: 'error', text: "{{ addslashes(session('error')) }}" });
+        @endif
         const canDelete = @json($canDelete);
         const csrfToken = "{{ csrf_token() }}";
 
@@ -329,8 +333,13 @@
             }).then(function(res){
                 if (res.value) {
                     $.post(url, { _token: csrfToken })
-                      .done(function(resp){ toastr.success(resp.message || 'Dokumen diproses'); $('#table-on-page').DataTable().ajax.reload(null,false); loadCounts(); })
-                      .fail(function(xhr){ toastr.error(xhr.responseJSON?.message || 'Gagal memproses dokumen'); });
+                      .done(function(resp){
+                          Swal.fire({ icon: 'success', text: resp.message || 'Dokumen diproses' });
+                          $('#table-on-page').DataTable().ajax.reload(null,false); loadCounts();
+                      })
+                      .fail(function(xhr){
+                          Swal.fire({ icon: 'error', text: (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal memproses dokumen' });
+                      });
                 }
             });
         });
@@ -351,9 +360,44 @@
             }).then(function(res){
                 if (res.value) {
                     $.ajax({ url: form.attr('action'), type: 'POST', data: form.serialize() })
-                      .done(function(resp){ toastr.success(resp.message || 'Berhasil dihapus'); $('#table-on-page').DataTable().ajax.reload(null,false); loadCounts(); })
-                      .fail(function(xhr){ toastr.error(xhr.responseJSON?.message || 'Gagal menghapus'); });
+                      .done(function(resp){
+                          Swal.fire({ icon: 'success', text: resp.message || 'Berhasil dihapus' });
+                          $('#table-on-page').DataTable().ajax.reload(null,false); loadCounts();
+                      })
+                      .fail(function(xhr){
+                          Swal.fire({ icon: 'error', text: (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal menghapus' });
+                      });
                 }
+            });
+        });
+
+        // Approve submit handling (SweetAlert feedback)
+        $('#approveForm').on('submit', function(e){
+            e.preventDefault();
+            const $form = $(this);
+            const action = $form.attr('action');
+            const data = $form.serialize();
+            const code = $('#approve_code').text() || '';
+            Swal.fire({
+                text: code ? `Apakah Anda yakin ingin menyelesaikan & approve ${code}?` : 'Apakah Anda yakin ingin menyelesaikan & approve dokumen ini?',
+                icon: 'question',
+                showCancelButton: true,
+                buttonsStyling: false,
+                confirmButtonText: 'Ya, Approve & Selesaikan',
+                cancelButtonText: 'Batal',
+                customClass: { confirmButton: 'btn fw-bold btn-success', cancelButton: 'btn fw-bold btn-active-light-primary' }
+            }).then(function(res){
+                if (!res.value) return;
+                $.post(action, data)
+                  .done(function(resp){
+                      $('#approveModal').modal('hide');
+                      Swal.fire({ icon: 'success', text: resp.message || 'Perakitan selesai dan diapprove' });
+                      $('#table-on-page').DataTable().ajax.reload(null,false); loadCounts();
+                  })
+                  .fail(function(xhr){
+                      const msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal menyelesaikan perakitan';
+                      Swal.fire({ icon: 'error', text: msg });
+                  });
             });
         });
 
