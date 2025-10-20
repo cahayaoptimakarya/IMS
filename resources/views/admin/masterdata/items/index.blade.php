@@ -6,16 +6,18 @@
         /* Improve Item/SKU cell appearance */
         .item-sku-cell {
             display: flex;
-            align-items: center;
-            gap: 12px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
         }
 
         .item-sku-badge {
             background: #e6f0ff;
             color: #1e40af;
             font-weight: 700;
-            padding: 6px 8px;
+            padding: 4px 6px;
             border-radius: 6px;
+            font-size: 13px;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Helvetica Neue', monospace;
         }
 
@@ -24,6 +26,8 @@
             text-overflow: ellipsis;
             white-space: nowrap;
             max-width: 320px;
+            font-size: 12px;
+            line-height: 1.2;
         }
 
         @media (max-width: 576px) {
@@ -31,6 +35,14 @@
                 max-width: 140px;
             }
         }
+        /* CSV helper styling */
+        .csv-help .csv-col {
+            display:inline-flex; align-items:center; justify-content:center;
+            width:22px; height:22px; border-radius:6px; font-weight:700; font-size:12px;
+            background:#EEF2FF; color:#3730A3; margin-right:8px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Helvetica Neue', monospace;
+        }
+        .csv-help code { background:#F3F4F6; padding:2px 6px; border-radius:4px; }
     </style>
 @endpush
 
@@ -115,9 +127,35 @@
                             style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
                     </form>
 
-                    <div class="w-100 d-block d-md-inline-block text-muted small mt-2 mt-md-0">CSV columns: A=SKU, B=Nama
-                        Barang, C=Koli (default 10), D=Low Stock (default 100), E=Item Category ID (default 1), F=UOM ID
-                        (default 1)</div>
+                    <div class="w-100 mt-3">
+                        <div class="alert alert-light-primary border csv-help p-4 mb-0">
+                            <div class="fw-bold mb-1">Format CSV Import</div>
+                            <div class="text-gray-700 small">Gunakan delimiter <code>;</code> (titik koma). Header tidak wajib.</div>
+                            <div class="row g-3 mt-2 small">
+                                <div class="col-md-6">
+                                    <ul class="mb-0 list-unstyled">
+                                        <li><span class="csv-col">A</span> SKU</li>
+                                        <li class="mt-1"><span class="csv-col">B</span> Nama Barang</li>
+                                        <li class="mt-1"><span class="csv-col">C</span> Koli per item (default 10)</li>
+                                        <li class="mt-1"><span class="csv-col">D</span> Low Stock Threshold (default 100)</li>
+                                        <li class="mt-1"><span class="csv-col">E</span> Item Category ID (default 1)</li>
+                                        <li class="mt-1"><span class="csv-col">F</span> UOM ID (default 1)</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <ul class="mb-0 list-unstyled">
+                                        <li><span class="csv-col">G</span> Initial Quantity (opsional)</li>
+                                        <li class="mt-1"><span class="csv-col">H</span> Warehouse ID (opsional)</li>
+                                    </ul>
+                                    <div class="text-gray-700 mt-2">
+                                        Jika G dan H diisi, sistem membuat saldo awal ke Inventory dan Stock Movement
+                                        dengan keterangan <code>Saldo awal</code> pada tanggal hari ini. Nilai koli dihitung otomatis:
+                                        <code>koli = quantity / koli_per_item</code>.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="dataTables_wrapper dt-bootstrap4 no-footer">
                     <div class="table-responsive min-h-500px">
@@ -180,6 +218,7 @@
                 return $('<div/>').text(t ?? '').html();
             }
 
+            var nf = new Intl.NumberFormat('id-ID');
             var table = $('#table-on-page').DataTable({
                 processing: true,
                 serverSide: true,
@@ -210,16 +249,20 @@
                         render: function(data, type, row) {
                             var sku = data && data.sku ? data.sku : '-';
                             var nama = data && data.nama_barang ? data.nama_barang : '';
-                            return '<div class="item-sku-cell">' +
-                                '<span class="item-sku-badge">' + escapeHtml(sku) + '</span>' +
-                                '<span class="item-name" title="' + escapeHtml(nama) + '">' +
-                                escapeHtml(nama) + '</span>' +
-                                '</div>';
+                            return '<div class="item-sku-cell">'
+                                + '<span class="item-sku-badge">' + escapeHtml(sku) + '</span>'
+                                + '<span class="item-name" title="' + escapeHtml(nama) + '">' + escapeHtml(nama) + '</span>'
+                                + '</div>';
                         }
                     },
                     {
                         data: 'low_stock_threshold',
-                        name: 'low_stock_threshold'
+                        name: 'low_stock_threshold',
+                        render: function(val){
+                            var n = (val==null||val==='') ? 0 : val;
+                            return '<span class="badge badge-light">' + nf.format(n) + '</span>';
+                        },
+                        className: 'text-end'
                     },
                     {
                         data: 'koli',
@@ -284,11 +327,10 @@
                         KTMenu.createInstances();
                     }
                 },
-                columnDefs: [{
-                    targets: [6],
-                    orderable: false,
-                    className: 'text-center'
-                }]
+                columnDefs: [
+                    { targets: [2,3], className: 'text-end' },
+                    { targets: [6], orderable: false, className: 'text-center' }
+                ]
             });
 
             // --- Debounce helper (match pattern in Pengadaan index) ---
@@ -365,6 +407,34 @@
                     $('#csv-filename').text('').addClass('d-none');
                     $('#csv-label-text').text('Pilih CSV');
                 }
+            });
+
+            // SweetAlert confirmation before import
+            $('#import-form').on('submit', function(e){
+                e.preventDefault();
+                var fileInput = document.getElementById('csv-input');
+                var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+                if (!file) {
+                    if (window.toastr) toastr.error('Pilih file CSV terlebih dahulu.');
+                    return;
+                }
+                var form = this;
+                Swal.fire({
+                    text: 'Apakah lanjutkan untuk import data file ' + file.name + ' ?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    buttonsStyling: false,
+                    confirmButtonText: 'Ya, import!',
+                    cancelButtonText: 'Tidak, batalkan',
+                    customClass: {
+                        confirmButton: 'btn fw-bold btn-primary',
+                        cancelButton: 'btn fw-bold btn-active-light-primary'
+                    }
+                }).then(function(result){
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
             });
         });
     </script>

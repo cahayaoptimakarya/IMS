@@ -7,6 +7,9 @@ use App\Models\Item;
 use App\Models\Uom;
 use App\Models\ItemCategory;
 use App\Models\UserActivity;
+use App\Models\Inventory;
+use App\Models\StockMovement;
+use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
@@ -189,6 +192,8 @@ class ItemController extends Controller
      * D: Low Stock Threshold (default 100)
      * E: Item Category ID (default 1)
      * F: UOM ID (default 1)
+     * G: Initial Quantity (optional) -> create/update Inventory + StockMovement
+     * H: Warehouse ID for initial qty (optional)
      */
     public function import(Request $request)
     {
@@ -226,6 +231,8 @@ class ItemController extends Controller
                 $low_stock = isset($row[3]) && $row[3] !== '' ? (int)$row[3] : 100;
                 $item_category_id = isset($row[4]) && $row[4] !== '' ? (int)$row[4] : 1;
                 $uom_id = isset($row[5]) && $row[5] !== '' ? (int)$row[5] : 1;
+                $init_qty = isset($row[6]) && $row[6] !== '' ? (float)$row[6] : null; // G
+                $init_warehouse_id = isset($row[7]) && $row[7] !== '' ? (int)$row[7] : null; // H
 
                 // Basic validation
                 if (!$sku || !$nama_barang) {
@@ -260,6 +267,48 @@ class ItemController extends Controller
                 ]);
 
                 $created++;
+
+                // Optional: seed initial inventory and stock movement if G and H provided
+                if (!is_null($init_qty) && !is_null($init_warehouse_id)) {
+                    if (Warehouse::where('id', $init_warehouse_id)->exists()) {
+                        $inv = Inventory::firstOrCreate(
+                            ['warehouse_id' => $init_warehouse_id, 'item_id' => $item->id],
+                            ['quantity' => 0, 'koli' => 0]
+                        );
+
+                        $beforeQty = (float) ($inv->quantity ?? 0);
+                        $beforeKoli = (float) ($inv->koli ?? 0);
+                        $perKoli = (float) ($item->koli ?: 1);
+                        if ($perKoli <= 0) { $perKoli = 1; }
+                        $targetQty = (float) $init_qty;
+                        $targetKoli = (float) ($targetQty / $perKoli);
+                        $deltaQty = $targetQty - $beforeQty;
+                        $deltaKoli = $targetKoli - $beforeKoli;
+
+                        if ($deltaQty != 0 || $deltaKoli != 0) {
+                            StockMovement::create([
+                                'warehouse_id' => $init_warehouse_id,
+                                'item_id' => $item->id,
+                                'date' => now()->toDateString(),
+                                'quantity' => $deltaQty,
+                                'koli' => $deltaKoli,
+                                'stock_before' => $beforeQty,
+                                'stock_after' => $targetQty,
+                                'type' => $deltaQty >= 0 ? 'stock_in' : 'stock_out',
+                                'description' => 'Saldo awal ' . now()->toDateString(),
+                                'user_id' => Auth::id(),
+                                'reference_id' => $item->id,
+                                'reference_type' => 'items_import',
+                            ]);
+
+                            $inv->quantity = $targetQty;
+                            $inv->koli = $targetKoli;
+                            $inv->save();
+                        }
+                    } else {
+                        $errors[] = "Baris {$rowNumber}: Warehouse ID '{$init_warehouse_id}' tidak ditemukan; stok awal diabaikan.";
+                    }
+                }
             }
 
             fclose($handle);

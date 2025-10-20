@@ -39,6 +39,7 @@ return new class extends Migration {
                 'assemblies',              // align: produksi hasil perakitan
                 'stock_in_order_item_distributions',
                 'defects',                 // barang rusak/defect
+                'items_import',                 // import item, ini relasinya ke item_id
             ])->comment('Tipe dokumen sumber (misal: goods_receipt_details atau lainnya)');
             $table->timestamps();
         });
