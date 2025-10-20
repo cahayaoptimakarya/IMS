@@ -73,7 +73,10 @@
                                                 <span class="path3"></span>
                                                 <span class="path4"></span>
                                             </i>
-                                            <div class="fs-2 fw-bolder" id="current_stock_value">-</div>
+                                            <div>
+                                                <div class="fs-2 fw-bolder" id="current_stock_value">-</div>
+                                                <div class="fs-7 text-gray-600" id="current_koli_value">Koli: -</div>
+                                            </div>
                                         </div>
                                         <div class="fw-semibold fs-6 text-gray-400">Stok Saat Ini</div>
                                     </div>
@@ -268,14 +271,15 @@
                 });
             }
 
-            function summaryCard(icon, color, label, value) {
+            function summaryCard(icon, color, label, qtyValue, koliValue) {
                 return `
                     <div class="col">
                         <div class="card card-body bg-light-${color} hoverable">
                             <div class="d-flex flex-stack">
                                 <div class="d-flex flex-column">
                                     <div class="text-${color} fw-semibold fs-7">${label}</div>
-                                    <div class="fw-bolder fs-2 text-gray-800">${value}</div>
+                                    <div class="fw-bolder fs-2 text-gray-800">${qtyValue} <span class="fs-6 text-muted">Qty</span></div>
+                                    <div class="fw-semibold text-gray-700">${koliValue} <span class="fs-8 text-muted">Koli</span></div>
                                 </div>
                                 <span class="symbol symbol-45px">
                                     <span class="symbol-label bg-${color} bg-opacity-25">
@@ -289,14 +293,16 @@
 
             function renderSummary(s) {
                 const html = [
-                    summaryCard('ki-duotone ki-arrow-down-left', 'success', 'Stok Masuk', fmt(s.in)),
-                    summaryCard('ki-duotone ki-arrow-up-right', 'danger', 'Stok Keluar', fmt(s.out)),
-                    summaryCard('ki-duotone ki-package', 'primary', 'Stok Saat Ini', fmt(s.last_stock))
+                    summaryCard('ki-duotone ki-arrow-down-left', 'success', 'Stok Masuk', fmt(s.in), fmt2(s.in_koli)),
+                    summaryCard('ki-duotone ki-arrow-up-right', 'danger', 'Stok Keluar', fmt(s.out), fmt2(s.out_koli)),
+                    summaryCard('ki-duotone ki-package', 'primary', 'Stok Saat Ini', fmt(s.last_stock), fmt2(s.last_koli))
                 ].join('');
                 document.getElementById('summary_cards').innerHTML = html +
                     `<div class="col-12 text-muted mt-2 fs-7">Rentang: ${s.date_from} s/d ${s.date_to}</div>`;
                 const cs = document.getElementById('current_stock_value');
                 if (cs) cs.textContent = fmt(s.last_stock);
+                const ck = document.getElementById('current_koli_value');
+                if (ck) ck.textContent = 'Koli: ' + fmt2(s.last_koli);
             }
 
             function renderDaily(p) {

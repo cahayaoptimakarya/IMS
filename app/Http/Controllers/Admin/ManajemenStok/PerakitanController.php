@@ -549,7 +549,14 @@ class PerakitanController extends Controller
                     'koli' => 0,
                 ]);
                 $before = (float) $inventory->quantity;
+                $beforeKoli = (float) ($inventory->koli ?? 0);
                 $inventory->decrement('quantity', $qty);
+                // Sync koli with real component usage
+                $decKoli = (float) $component->koli_real;
+                if ($decKoli > 0) {
+                    $inventory->koli = max(0, $beforeKoli - $decKoli);
+                    $inventory->save();
+                }
                 $after = (float) $inventory->fresh()->quantity;
 
                 StockMovement::create([
@@ -577,7 +584,14 @@ class PerakitanController extends Controller
                 'koli' => 0,
             ]);
             $beforeProd = (float) $prodInventory->quantity;
+            $beforeProdKoli = (float) ($prodInventory->koli ?? 0);
             $prodInventory->increment('quantity', (float) $assembly->output_quantity_real);
+            // Sync koli with real output
+            $incKoli = (float) $assembly->output_koli_real;
+            if ($incKoli > 0) {
+                $prodInventory->koli = $beforeProdKoli + $incKoli;
+                $prodInventory->save();
+            }
             $afterProd = (float) $prodInventory->fresh()->quantity;
 
             StockMovement::create([

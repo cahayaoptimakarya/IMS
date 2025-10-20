@@ -443,7 +443,11 @@ public function export(Request $request)
             ->whereBetween('date', [$dateFrom, $dateTo]);
         $in = (clone $summaryQ)->where('type', 'stock_in')->sum('quantity');
         $out = abs((clone $summaryQ)->where('type', 'stock_out')->sum('quantity'));
-        $currentStock = optional(Inventory::where('warehouse_id', $warehouse->id)->where('item_id', $item->id)->first())->quantity ?? 0;
+        $inKoli = (clone $summaryQ)->where('type', 'stock_in')->sum('koli');
+        $outKoli = abs((clone $summaryQ)->where('type', 'stock_out')->sum('koli'));
+        $inv = Inventory::where('warehouse_id', $warehouse->id)->where('item_id', $item->id)->first();
+        $currentStock = optional($inv)->quantity ?? 0;
+        $currentKoli = optional($inv)->koli ?? 0;
         // Daily snapshot (grouped deltas within range)
         $dailyGrouped = StockMovement::where('warehouse_id', $warehouse->id)
             ->where('item_id', $item->id)
@@ -489,11 +493,14 @@ public function export(Request $request)
             'summary' => [
                 'in' => (float) $in,
                 'out' => (float) $out,
+                'in_koli' => (float) $inKoli,
+                'out_koli' => (float) $outKoli,
                 'last_stock' => (float) $currentStock,
+                'last_koli' => (float) $currentKoli,
                 'date_from' => $dateFrom->toDateString(),
                 'date_to' => $dateTo->toDateString(),
             ],
-            'daily' => [
+        'daily' => [
                 'data' => $dailyData,
                 'current_page' => $dailyPage,
                 'last_page' => $dailyLastPage,
