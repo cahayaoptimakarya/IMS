@@ -83,11 +83,13 @@ class LaporanTransferGudangController extends Controller
 
         // Stats
         $stats = [
-            'total_transfers' => (clone $baseQuery)->count(),
-            'total_shipped'   => (clone $baseQuery)->where('status', 'shipped')->count(),
-            'total_completed' => (clone $baseQuery)->where('status', 'completed')->count(),
-            'total_in_process' => (clone $baseQuery)->whereIn('status', ['pending', 'approved'])->count(),
-            'total_rejected' => (clone $baseQuery)->where('status', 'rejected')->count(),
+            'total_transfers'   => (clone $baseQuery)->count(),
+            // Align with migration: no 'shipped' status; use 'on_progress'
+            'total_on_progress' => (clone $baseQuery)->where('status', 'on_progress')->count(),
+            'total_completed'   => (clone $baseQuery)->where('status', 'completed')->count(),
+            // Pending card aggregates 'pending' + 'approved'
+            'total_pending'     => (clone $baseQuery)->whereIn('status', ['pending', 'approved'])->count(),
+            'total_rejected'    => (clone $baseQuery)->where('status', 'rejected')->count(),
         ];
 
         // Trend (count per date)
@@ -169,7 +171,11 @@ class LaporanTransferGudangController extends Controller
 
         // Other filters
         if (!empty($statusFilter) && $statusFilter !== 'semua') {
-            $query->where('tr.status', $statusFilter);
+            if ($statusFilter === 'pending_approved') {
+                $query->whereIn('tr.status', ['pending', 'approved']);
+            } else {
+                $query->where('tr.status', $statusFilter);
+            }
         }
         if (!empty($fromWarehouseFilter)) {
             $query->where('tr.from_warehouse_id', $fromWarehouseFilter);

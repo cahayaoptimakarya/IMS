@@ -52,7 +52,7 @@
                                         <option value="pending" {{ ($statusFilter ?? '') == 'pending' ? 'selected' : '' }}>Pending</option>
                                         <option value="approved" {{ ($statusFilter ?? '') == 'approved' ? 'selected' : '' }}>Approved</option>
                                         <option value="rejected" {{ ($statusFilter ?? '') == 'rejected' ? 'selected' : '' }}>Rejected</option>
-                                        <option value="shipped" {{ ($statusFilter ?? '') == 'shipped' ? 'selected' : '' }}>Shipped</option>
+                                        <option value="on_progress" {{ ($statusFilter ?? '') == 'on_progress' ? 'selected' : '' }}>On Progress</option>
                                         <option value="completed" {{ ($statusFilter ?? '') == 'completed' ? 'selected' : '' }}>Completed</option>
                                     </select>
                                 </div>
@@ -106,8 +106,8 @@
                         <span class="svg-icon svg-icon-3x svg-icon-white ms-n1">
                             <i class="fas fa-hourglass-half fs-2x text-white"></i>
                         </span>
-                        <div class="text-white fw-bolder fs-2 mb-2 mt-5">{{ number_format($stats['total_in_process'], 0, ',', '.') }}</div>
-                        <div class="fw-bold text-white">Dalam Proses</div>
+                        <div class="text-white fw-bolder fs-2 mb-2 mt-5">{{ number_format($stats['total_pending'], 0, ',', '.') }}</div>
+                        <div class="fw-bold text-white">Pending</div>
                     </div>
                 </a>
             </div>
@@ -117,8 +117,8 @@
                         <span class="svg-icon svg-icon-3x svg-icon-white ms-n1">
                             <i class="fas fa-truck fs-2x text-white"></i>
                         </span>
-                        <div class="text-white fw-bolder fs-2 mb-2 mt-5">{{ number_format($stats['total_shipped'], 0, ',', '.') }}</div>
-                        <div class="fw-bold text-white">Dalam Pengiriman</div>
+                        <div class="text-white fw-bolder fs-2 mb-2 mt-5">{{ number_format($stats['total_on_progress'], 0, ',', '.') }}</div>
+                        <div class="fw-bold text-white">On Progress</div>
                     </div>
                 </a>
             </div>
@@ -256,28 +256,77 @@
                 </div>
             </div>
         </div>
+        <!-- Tabs: Detail Transfer -->
         <div class="card">
             <div class="card-header border-0 pt-6">
-                <div class="card-title">
-                    <h3 class="card-label fw-bolder text-dark">Detail Laporan Transfer</h3>
-                </div>
+                <ul class="nav nav-tabs nav-line-tabs fw-bold" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#pane-pending-approved" aria-selected="true" role="tab">Pending & Approved</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" data-bs-toggle="tab" href="#pane-on-progress" aria-selected="false" role="tab">On Progress</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" data-bs-toggle="tab" href="#pane-completed" aria-selected="false" role="tab">Selesai</a>
+                    </li>
+                </ul>
             </div>
-            <div class="card-body pt-4" id="table_wrapper">
-                <div class="table-responsive">
-                    <table id="table-on-page" class="table align-middle table-row-dashed fs-6 gy-5">
-                        <thead>
-                            <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                <th>Tanggal</th>
-                                <th>Kode</th>
-                                <th>Dari Gudang</th>
-                                <th>Ke Gudang</th>
-                                <th>Status</th>
-                                <th>Jumlah Item</th>
-                                <th>Diminta Oleh</th>
-                            </tr>
-                        </thead>
-                        <tbody class="fw-bold text-gray-600"></tbody>
-                    </table>
+            <div class="card-body pt-4">
+                <div class="tab-content" id="transferTabsContent">
+                    <div class="tab-pane fade show active" id="pane-pending-approved" role="tabpanel">
+                        <div class="table-responsive">
+                            <table id="table-pending-approved" class="table align-middle table-row-dashed fs-6 gy-5">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>Tanggal</th>
+                                        <th>Kode</th>
+                                        <th>Dari Gudang</th>
+                                        <th>Ke Gudang</th>
+                                        <th>Status</th>
+                                        <th>Jumlah Item</th>
+                                        <th>Diminta Oleh</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="fw-bold text-gray-600"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="pane-on-progress" role="tabpanel">
+                        <div class="table-responsive">
+                            <table id="table-on-progress" class="table align-middle table-row-dashed fs-6 gy-5">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>Tanggal</th>
+                                        <th>Kode</th>
+                                        <th>Dari Gudang</th>
+                                        <th>Ke Gudang</th>
+                                        <th>Status</th>
+                                        <th>Jumlah Item</th>
+                                        <th>Diminta Oleh</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="fw-bold text-gray-600"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="pane-completed" role="tabpanel">
+                        <div class="table-responsive">
+                            <table id="table-completed" class="table align-middle table-row-dashed fs-6 gy-5">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>Tanggal</th>
+                                        <th>Kode</th>
+                                        <th>Dari Gudang</th>
+                                        <th>Ke Gudang</th>
+                                        <th>Status</th>
+                                        <th>Jumlah Item</th>
+                                        <th>Diminta Oleh</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="fw-bold text-gray-600"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -289,7 +338,8 @@
     <script>
         var transferTrendChart;
         var statusPieChart;
-        var table;
+        var tables = {};
+        var showUrlTemplate = "{{ route('admin.stok-masuk.request-transfer.show', ['transferRequest' => 'TR_ID']) }}";
 
         $(document).ready(function() {
             // Initialize Select2 for dropdowns if available
@@ -336,36 +386,15 @@
             initTrendChart(initialChartData.trendData);
             initStatusPie(initialChartData.pieChartData);
 
-            // Init DataTable
-            table = $('#table-on-page').DataTable({
-                processing: true,
-                serverSide: true,
-                searching: true,
-                ajax: {
-                    url: `{{ route('admin.laporan.laporan-transfer-gudang.data') }}`,
-                    data: function(d) {
-                        d.date_range = $('#kt_daterangepicker').val();
-                        d.status_filter = $('[name="status_filter"]').val() || 'semua';
-                        d.from_warehouse_filter = $('[name="from_warehouse_filter"]').val();
-                        d.to_warehouse_filter = $('[name="to_warehouse_filter"]').val();
-                    }
-                },
-                columns: [
-                    { data: 'date', name: 'tr.date' },
-                    { data: 'code', name: 'tr.code' },
-                    { data: 'from_warehouse_name', name: 'fw.name', defaultContent: '-' },
-                    { data: 'to_warehouse_name', name: 'tw.name', defaultContent: '-' },
-                    { data: 'status', name: 'tr.status', render: function(data){
-                        if(data === 'pending') return '<span class="badge badge-light-warning">Pending</span>';
-                        if(data === 'approved') return '<span class="badge badge-light-info">Approved</span>';
-                        if(data === 'rejected') return '<span class="badge badge-light-danger">Rejected</span>';
-                        if(data === 'shipped') return '<span class="badge badge-light-primary">Shipped</span>';
-                        return '<span class="badge badge-light-success">Completed</span>';
-                    }},
-                    { data: 'items_count', name: 'items_count', className: 'text-end', render: function(data){ return (parseInt(data || 0)).toLocaleString('id-ID'); } },
-                    { data: 'requester_name', name: 'u.name', defaultContent: '-' },
-                ],
-                order: [[0, 'desc']],
+            // Init first tab immediately; others lazy on tab show
+            initTransferTable('#table-pending-approved', 'pending_approved');
+            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+                var target = $(e.target).attr('href');
+                if (target === '#pane-on-progress' && !tables['#table-on-progress']) {
+                    initTransferTable('#table-on-progress', 'on_progress');
+                } else if (target === '#pane-completed' && !tables['#table-completed']) {
+                    initTransferTable('#table-completed', 'completed');
+                }
             });
 
             // Intercept filter form submit to apply via AJAX
@@ -405,6 +434,45 @@
             statusPieChart.render();
         }
 
+        function initTransferTable(selector, fixedStatus) {
+            tables[selector] = $(selector).DataTable({
+                processing: true,
+                serverSide: true,
+                searching: true,
+                ajax: {
+                    url: `{{ route('admin.laporan.laporan-transfer-gudang.data') }}`,
+                    data: function(d) {
+                        d.date_range = $('#kt_daterangepicker').val();
+                        d.status_filter = fixedStatus; // override per table
+                        d.from_warehouse_filter = $('[name="from_warehouse_filter"]').val();
+                        d.to_warehouse_filter = $('[name="to_warehouse_filter"]').val();
+                    }
+                },
+                columns: [
+                    { data: 'date', name: 'tr.date' },
+                    { data: 'code', name: 'tr.code', render: function(data, type, row){
+                        if (type === 'display') {
+                            var url = showUrlTemplate.replace('TR_ID', row.id);
+                            return '<a href="'+url+'" class="text-primary fw-bold">'+ (data || '-') +'</a>';
+                        }
+                        return data;
+                    } },
+                    { data: 'from_warehouse_name', name: 'fw.name', defaultContent: '-' },
+                    { data: 'to_warehouse_name', name: 'tw.name', defaultContent: '-' },
+                    { data: 'status', name: 'tr.status', render: function(data){
+                        if(data === 'pending') return '<span class="badge badge-light-warning">Pending</span>';
+                        if(data === 'approved') return '<span class="badge badge-light-info">Approved</span>';
+                        if(data === 'rejected') return '<span class="badge badge-light-danger">Rejected</span>';
+                        if(data === 'on_progress') return '<span class="badge badge-light-primary">On Progress</span>';
+                        return '<span class="badge badge-light-success">Completed</span>';
+                    }},
+                    { data: 'items_count', name: 'items_count', className: 'text-end', render: function(data){ return (parseInt(data || 0)).toLocaleString('id-ID'); } },
+                    { data: 'requester_name', name: 'u.name', defaultContent: '-' },
+                ],
+                order: [[0, 'desc']],
+            });
+        }
+
         function applyFiltersAjax() {
             // show loading overlay on content
             const contentWrapper = document.getElementById('kt_content');
@@ -436,8 +504,10 @@
                         statusPieChart.updateOptions({ labels: newChartData.pieChartData.labels });
                         statusPieChart.updateSeries(newChartData.pieChartData.series);
                     }
-                    // Reload table data
-                    if (table) { table.ajax.reload(); }
+                    // Reload all tables
+                    Object.keys(tables).forEach(function(key){
+                        if (tables[key]) { tables[key].ajax.reload(); }
+                    });
                 },
                 complete: function(){
                     loadingEl.remove();
