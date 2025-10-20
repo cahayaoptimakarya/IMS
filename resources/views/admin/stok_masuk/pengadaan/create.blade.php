@@ -125,7 +125,7 @@
                             {{-- Baris item akan ditambahkan oleh javascript --}}
                         </tbody>
                     </table>
-                    <button type="button" class="btn btn-primary btn-sm" id="add-item-btn">Tambah Item</button>
+                    <button type="button" class="btn btn-light-primary" id="add-item-btn">+ Tambah Item</button>
 
                     <div class="d-flex justify-content-end mt-10">
                         <a href="{{ route('admin.stok-masuk.pengadaan.index') }}"
@@ -202,7 +202,7 @@
                         </td>
                         <td><input type="number" name="items[${itemIndex}][quantity]" class="form-control form-control-solid quantity-input" value="1" min="1" required></td>
                         <td><input type="number" name="items[${itemIndex}][koli]" class="form-control form-control-solid koli-input" value="0" min="0" step="any"></td>
-                        <td><button type="button" class="btn btn-danger btn-sm remove-item-btn">X</button></td>
+                        <td class="text-center"><button type="button" class="btn btn-icon btn-light-danger remove-item-btn"><i class="fas fa-trash"></i></button></td>
                     </tr>`;
 
                 $('#items-table tbody').append(newRowHtml);
