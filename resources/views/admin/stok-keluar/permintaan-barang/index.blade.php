@@ -32,6 +32,8 @@
         #shipment_items_container .items-scroll { max-height: 420px; overflow: auto; border: 1px solid #EFF2F5; border-radius: .475rem; }
         #shipment_items_container .help-muted { font-size: 12px; color: #6B7280; }
         #shipment_items_container .empty-state { padding: 1rem; border: 1px dashed #E5E7EB; border-radius: .5rem; color: #6B7280; background: #F9FAFB; }
+        /* Ensure select2 inside modal renders full width */
+        .select2-container { width: 100% !important; }
     </style>
 @endpush
 
@@ -245,6 +247,13 @@
                     @csrf
                     <div class="modal-body">
                         <h6 class="mb-4">Detail Pengiriman</h6>
+                        <div class="mb-3">
+                            <label for="shipment_id" class="form-label">Gabung ke Shipment (status: packing)</label>
+                            <select class="form-select form-select-solid" id="shipment_id" name="shipment_id" data-control="select2" data-dropdown-parent="#kt_modal_kirim_barang">
+                                <option value=""></option>
+                            </select>
+                            <div class="form-text">Daftar shipment berstatus packing dengan gudang asal/tujuan yang sama.</div>
+                        </div>
                         <div class="mb-3">
                             <label for="shipping_date" class="form-label required">Tanggal Kirim</label>
                             <input type="text" class="form-control form-control-solid" id="shipping_date" name="shipping_date" required>
@@ -625,7 +634,8 @@
                 $('#driver_contact').val(contact || '');
             });
 
-            kirimBarangModal.addEventListener('show.bs.modal', event => {
+            // Initialize selects after modal is fully shown to ensure width + rendering correct
+            kirimBarangModal.addEventListener('shown.bs.modal', event => {
                 const button = event.relatedTarget;
                 const transferId = button.getAttribute('data-id');
                 const transferCode = button.getAttribute('data-code');
@@ -645,8 +655,92 @@
                                 </div>`);
 
                 // This URL must be created in web.php and return the items for the transfer request
-                const itemsUrl =
-                    `/admin/stok-keluar/permintaan-barang/${transferId}/items-to-ship`;
+                const itemsUrl = `/admin/stok-keluar/permintaan-barang/${transferId}/items-to-ship`;
+                const packingShipmentsUrl = `/admin/stok-keluar/permintaan-barang/${transferId}/packing-shipments`;
+
+                // Load candidate packing shipments
+                const shipmentSelect = $('#shipment_id');
+                // Re-init select2 safely with fresh options
+                if (shipmentSelect.hasClass('select2-hidden-accessible')) {
+                    shipmentSelect.select2('destroy');
+                }
+                shipmentSelect.html('<option value=""></option>');
+                shipmentSelect.select2({
+                    dropdownParent: $('#kt_modal_kirim_barang'),
+                    placeholder: '-- Buat Shipment Baru --',
+                    allowClear: true,
+                    width: '100%'
+                });
+                shipmentSelect.val('').trigger('change');
+                // Ensure rendered text updates correctly when user selects
+                shipmentSelect.off('select2:select.selectText change.selectText');
+                shipmentSelect.on('select2:select.selectText change.selectText', function(e) {
+                    const val = $(this).val();
+                    const text = val ? $(this).find('option:selected').text() : '-- Buat Shipment Baru --';
+                    const $rendered = $(this).next('.select2-container').find('.select2-selection__rendered');
+                    $rendered.text(text).attr('title', text);
+                });
+
+                // Ensure other selects inside modal are initialized properly
+                const modalParent = $('#kt_modal_kirim_barang');
+                ['#select_vehicle', '#select_employee'].forEach(function(sel) {
+                    const $el = $(sel);
+                    if ($el.length) {
+                        if ($el.hasClass('select2-hidden-accessible')) {
+                            $el.select2('destroy');
+                        }
+                        // derive placeholder from first empty option or fallback
+                        const emptyOptText = $el.find('option[value=""]').first().text() || '-- Pilih --';
+                        $el.select2({
+                            dropdownParent: modalParent,
+                            placeholder: emptyOptText,
+                            allowClear: true,
+                            width: '100%'
+                        });
+                        // trigger to sync UI text with current value
+                        $el.trigger('change');
+                    }
+                });
+                let packingShipmentsCache = {};
+                $.get(packingShipmentsUrl, function(list) {
+                    if (Array.isArray(list) && list.length) {
+                        list.forEach(s => {
+                            const text = `${s.code} — ${s.shipping_date}`;
+                            shipmentSelect.append(new Option(text, s.id));
+                            packingShipmentsCache[String(s.id)] = s;
+                        });
+                        // Refresh select2 display after appending options
+                        shipmentSelect.trigger('change.select2');
+                    } else {
+                        // no packing shipments
+                    }
+                });
+
+                // Autofill form when selecting an existing shipment
+                shipmentSelect.off('change').on('change', function() {
+                    const val = $(this).val();
+                    if (!val) {
+                        // Reset to empty when creating new shipment
+                        $('#shipping_date').val('');
+                        $('#vehicle_type').val('');
+                        $('#license_plate').val('');
+                        $('#driver_name').val('');
+                        $('#driver_contact').val('');
+                        $('#description').val('');
+                        return;
+                    }
+
+                    const s = packingShipmentsCache[String(val)];
+                    if (!s) return;
+
+                    // Fill fields from existing shipment
+                    if (s.shipping_date) $('#shipping_date').val(s.shipping_date);
+                    $('#vehicle_type').val(s.vehicle_type || '');
+                    $('#license_plate').val(s.license_plate || '');
+                    $('#driver_name').val(s.driver_name || '');
+                    $('#driver_contact').val(s.driver_contact || '');
+                    $('#description').val(s.description || '');
+                });
 
                 $.ajax({
                     url: itemsUrl,
