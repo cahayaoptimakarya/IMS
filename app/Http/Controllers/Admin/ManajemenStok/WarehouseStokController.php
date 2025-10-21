@@ -265,6 +265,11 @@ public function export(Request $request)
     $orderByColumnIndex = (int) $request->input('order.0.column', 0);
     $orderByColumnName = $columnMap[$orderByColumnIndex] ?? ($columnMap[array_key_first($columnMap)] ?? 'items.nama_barang');
     $orderDirection = $request->input('order.0.dir', 'asc');
+    // Hindari mengurutkan berdasarkan kolom dummy 'rownum' saat export
+    if ($orderByColumnName === 'rownum') {
+        $orderByColumnName = 'items.nama_barang';
+        $orderDirection = 'asc';
+    }
     $query = Inventory::query()
         ->join('items', 'inventories.item_id', '=', 'items.id')
         ->join('warehouses', 'inventories.warehouse_id', '=', 'warehouses.id');
@@ -291,6 +296,7 @@ public function export(Request $request)
     $query->select([
         'items.sku as sku',
         'items.nama_barang as item_name',
+        'items.koli as koli_per_item',
         'warehouses.name as warehouse_name',
         'inventories.quantity',
         'inventories.koli',
