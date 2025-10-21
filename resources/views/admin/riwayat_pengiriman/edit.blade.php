@@ -4,8 +4,9 @@
     <style>
         .items-toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap}
         .badge-sku{background:#F1F5F9;color:#0F172A;padding:.25rem .5rem;border-radius:.375rem;font-weight:700}
-        .items-scroll{max-height:420px;overflow:auto;border:1px solid #EFF2F5;border-radius:.5rem}
-        .items-scroll .table thead th{position:sticky;top:0;background:#fff;z-index:1}
+        /* Natural layout: no inner scroll box */
+        .items-scroll{max-height:none!important;overflow:visible!important;border:0!important;border-radius:0}
+        .items-scroll .table thead th{position:static!important;top:auto!important;background:inherit!important;z-index:auto}
         /* Match modal: remove hover + borders */
         .items-scroll .table tbody tr:hover{background-color:transparent!important;box-shadow:none}
         .items-scroll .table> :not(caption)>*>*{border-bottom:0!important}
@@ -97,6 +98,8 @@
                                 <h5 class="mb-0">Item Dalam Pengiriman</h5>
                                 <div id="summary" class="text-muted"></div>
                             </div>
+                            <!-- Deleted items holder -->
+                            <div id="deleted_items_container"></div>
                             <div class="items-scroll">
                                 <table class="table align-middle table-sm table-borderless">
                                     <thead>
@@ -105,6 +108,7 @@
                                             <th width="200">Qty Kirim</th>
                                             <th width="180">Koli Kirim</th>
                                             <th>Keterangan</th>
+                                            <th width="70" class="text-center">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody id="items_tbody">
@@ -138,6 +142,11 @@
                                                 <td>
                                                     <input type="text" class="form-control form-control-sm form-control-solid" name="items[{{ $detail->id }}][description]" value="{{ old('items.'.$detail->id.'.description', $detail->description) }}" placeholder="Keterangan">
                                                 </td>
+                                                <td class="text-center">
+                                                    <button type="button" class="btn btn-sm btn-icon btn-danger btn-remove" data-id="{{ $detail->id }}" title="Hapus">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -160,6 +169,7 @@
         const tbody = document.getElementById('items_tbody');
         const summary = document.getElementById('summary');
         const form = document.getElementById('shipment_edit_form');
+        const deletedHolder = document.getElementById('deleted_items_container');
         const shipDate = document.getElementById('shipping_date');
         const selectVehicle = document.getElementById('select_vehicle');
         const selectEmployee = document.getElementById('select_employee');
@@ -237,6 +247,39 @@
             updateSummary();
         });
 
+        // Handle remove item: add hidden input and remove row
+        tbody.addEventListener('click', function(e){
+            const btn = e.target.closest('.btn-remove');
+            if (!btn) return;
+            const id = btn.getAttribute('data-id');
+            const doRemove = window.Swal ? null : confirm('Hapus item ini dari pengiriman?');
+            const proceed = function(){
+                if (deletedHolder && id) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'delete_items[]';
+                    input.value = id;
+                    deletedHolder.appendChild(input);
+                }
+                const row = btn.closest('tr');
+                if (row) row.remove();
+                updateSummary();
+            };
+            if (window.Swal) {
+                Swal.fire({
+                    text: 'Hapus item ini dari pengiriman?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Hapus',
+                    cancelButtonText: 'Batal',
+                    buttonsStyling: false,
+                    customClass: { confirmButton: 'btn fw-bold btn-danger', cancelButton: 'btn fw-bold btn-active-light-primary' }
+                }).then(res => { if (res.isConfirmed) proceed(); });
+            } else {
+                if (doRemove) proceed();
+            }
+        });
+
         // Removed plus/minus stepper controls (match modal behavior)
 
         updateSummary();
@@ -271,6 +314,4 @@
     })();
 </script>
 @endpush
-
-
 

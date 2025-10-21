@@ -374,7 +374,7 @@ class PermintaanBarangController extends Controller
                     $koliToShip = $itemData['koli'] ?? 0;
 
                     // Buat Shipment Item Detail
-                    ShipmentItemDetail::create([
+                    $shipmentDetail = ShipmentItemDetail::create([
                         'shipment_id' => $shipment->id,
                         'reference_id' => $transferRequestItem->id,
                         'reference_type' => 'transfer_request_items',
@@ -406,9 +406,9 @@ class PermintaanBarangController extends Controller
                         'koli' => -$koliToShip,
                         'type' => 'stock_out',
                         'user_id' => auth()->id(),
-                        // Mengacu pada baris item permintaan transfer sesuai enum reference_type
-                        'reference_id' => $transferRequestItem->id,
-                        'reference_type' => 'transfer_request_items',
+                        // Mengacu langsung ke baris shipment detail sebagai referensi gerak stok
+                        'reference_id' => $shipmentDetail->id,
+                        'reference_type' => 'shipment_item_details',
                     ]);
 
                     // Update sisa kuantitas di item permintaan transfer

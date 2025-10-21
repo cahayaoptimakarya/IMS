@@ -40,6 +40,7 @@ return new class extends Migration {
                 'stock_in_order_item_distributions',
                 'defects',                 // barang rusak/defect
                 'items_import',                 // import item, ini relasinya ke item_id
+                'shipment_item_details'
             ])->comment('Tipe dokumen sumber (misal: goods_receipt_details atau lainnya)');
             $table->timestamps();
         });

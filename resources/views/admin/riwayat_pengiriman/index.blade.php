@@ -149,6 +149,12 @@
     <script>
         $(function() {
             toastr.options = {"closeButton": true, "progressBar": true, "positionClass": "toast-top-center"};
+            @if (session('success'))
+                toastr.success("{{ session('success') }}");
+            @endif
+            @if (session('error'))
+                toastr.error("{{ session('error') }}");
+            @endif
 
             $('#date_filter').flatpickr({dateFormat: 'Y-m-d'});
 
