@@ -234,7 +234,7 @@
                                                 <div class="text-end fw-semibold ordered-koli-display">0.00</div>
                                                 <input type="hidden" name="details[{{ $i }}][ordered_koli]" value="0">
                                             </td>
-                                            <td><input type="number" step="0.01" min="0" name="details[{{ $i }}][received_quantity]" class="form-control form-control-solid text-end received-quantity" value="{{ number_format($d->received_quantity ?? 0, 2, '.', '') }}" max=""></td>
+                                            <td><input type="number" step="1" min="0" name="details[{{ $i }}][received_quantity]" class="form-control form-control-solid text-end received-quantity" value="{{ (int) ($d->received_quantity ?? 0) }}" max=""></td>
                                             <td><input type="number" step="0.01" min="0" name="details[{{ $i }}][received_koli]" class="form-control form-control-solid text-end received-koli" value="{{ number_format($d->received_koli ?? 0, 2, '.', '') }}" max=""></td>
                                             <td><input type="text" name="details[{{ $i }}][notes]" class="form-control form-control-solid" value="{{ $d->notes }}" placeholder="Catatan"></td>
                                             <td class="text-center">
@@ -359,13 +359,13 @@
                     const row = `
                     <tr data-name="${(label||'').toString().toLowerCase()}" data-koli-ratio="${detail.item_koli_ratio||1}" data-remaining-qty="${remQty}" data-remaining-koli="${remKoli}">
                         <td>
-                            <input type="text" class="form-control form-control-solid" value="${label}" readonly>
+                            <input type="text" class="form-control form-control-white" value="${label}" readonly>
                             <input type="hidden" name="details[${index}][item_id]" value="${detail.item_id||''}">
                             <input type="hidden" name="details[${index}][shipment_item_id]" value="${detail.shipment_item_id||''}">
                             <input type="hidden" name="details[${index}][order_item_id]" value="${detail.order_item_id||''}">
                         </td>
-                        <td><input type="number" step="1" min="0" name="details[${index}][ordered_quantity]" class="form-control form-control-solid text-end" value="${remQty}" readonly></td>
-                        <td><input type="number" step="0.01" min="0" name="details[${index}][ordered_koli]" class="form-control form-control-solid text-end" value="${remKoli.toFixed(2)}" readonly></td>
+                        <td><input type="number" step="1" min="0" name="details[${index}][ordered_quantity]" class="form-control form-control-white text-end" value="${remQty}" readonly></td>
+                        <td><input type="number" step="0.01" min="0" name="details[${index}][ordered_koli]" class="form-control form-control-white text-end" value="${remKoli.toFixed(2)}" readonly></td>
                         <td><input type="number" step="1" min="0" max="${maxQty}" name="details[${index}][received_quantity]" class="form-control form-control-solid text-end received-quantity" value="${presetQty}"></td>
                         <td><input type="number" step="0.01" min="0" max="${maxKoli}" name="details[${index}][received_koli]" class="form-control form-control-solid text-end received-koli" value="${presetKoli}"></td>
                         <td><input type="text" name="details[${index}][notes]" class="form-control form-control-solid" value="${presetNotes}" placeholder="Catatan"></td>

@@ -517,9 +517,12 @@ class PenerimaanBarangController extends Controller
                 });
             }
         } elseif ($type === GoodsReceipt::REFERENCE_TYPE_TRANSFER_REQUEST) {
-            // Find the latest shipment for the given Transfer Request
+            // Find the latest shipment for the given Transfer Request via shipment item details
             $shipment = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
-                ->where('reference_id', $id)
+                ->whereHas('itemDetails', function($q) use ($id) {
+                    $q->where('reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                      ->whereIn('reference_id', DB::table('transfer_request_items')->where('transfer_request_id', $id)->pluck('id'));
+                })
                 ->latest('shipping_date')
                 ->first();
 
@@ -533,7 +536,7 @@ class PenerimaanBarangController extends Controller
                     // Pass the SHIPPED quantity and koli to the form
                     return [
                         'item_id' => $detail->item_id,
-                        'item_label' => $detail->item->sku . ' - ' . $detail->item->name,
+                        'item_label' => ($detail->item->sku ?? '-') . ' - ' . ($detail->item->nama_barang ?? $detail->item->name ?? '-'),
                         'remaining_quantity' => $detail->quantity_shipped, // This is the shipped quantity
                         'remaining_koli' => $detail->koli_shipped,       // This is the shipped koli
                         'item_koli_ratio' => $detail->item->koli ?? 1,
@@ -556,8 +559,12 @@ class PenerimaanBarangController extends Controller
             $id = $request->input('id');
             if ($type && $id && $type === GoodsReceipt::REFERENCE_TYPE_TRANSFER_REQUEST) {
                 $shipment = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
-                                    ->where('reference_id', $id)
-                                    ->first();
+                    ->whereHas('itemDetails', function($q) use ($id){
+                        $q->where('reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                          ->whereIn('reference_id', DB::table('transfer_request_items')->where('transfer_request_id', $id)->pluck('id'));
+                    })
+                    ->latest('shipping_date')
+                    ->first();
             }
         }
 
@@ -583,20 +590,11 @@ class PenerimaanBarangController extends Controller
         if (!$warehouseId) return response()->json([]);
 
         $shipments = Shipment::query()
-            ->leftJoin('transfer_requests as tr', function($j){
-                $j->on('shipments.reference_id', '=', 'tr.id')->where('shipments.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST);
-            })
-            ->leftJoin('stock_in_orders as sio', function($j){
-                $j->on('shipments.reference_id', '=', 'sio.id')->where('shipments.reference_type', Shipment::REFERENCE_TYPE_STOCK_IN_ORDER);
-            })
-            ->where(function($q) use ($warehouseId){
-                $q->where('tr.to_warehouse_id', $warehouseId)
-                  ->orWhere('sio.warehouse_id', $warehouseId);
-            })
+            ->where('to_warehouse_id', $warehouseId)
             // Exclude finished shipments
             ->where(function($q){
                 $q->whereNull('shipments.status')
-                  ->orWhere('shipments.status', '!=', 'selesai');
+                  ->orWhere('shipments.status', '=', 'dalam perjalanan');
             })
             ->orderByDesc('shipments.shipping_date')
             ->get(['shipments.id','shipments.code','shipments.shipping_date','shipments.reference_type'])
