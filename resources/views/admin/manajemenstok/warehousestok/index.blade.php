@@ -28,6 +28,22 @@
             color: #a1a5b7;
         }
         .item-cell .meta { font-size: 0.75rem; color:#a1a5b7; }
+        /* Ringkasan bergaya chip tanpa background biru */
+        #warehouse-info { font-size: 1rem; }
+        #filter-info { font-size: 0.925rem; }
+        .info-line { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: center; }
+        .info-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px dashed #E4E6EF;
+            border-radius: 0.475rem;
+            padding: 0.45rem 0.75rem;
+            background-color: #fff;
+        }
+        .info-chip .icon { width: 18px; height: 18px; }
+        .info-chip .label { color: #7E8299; }
+        .info-chip .value { color: #181C32; font-weight: 600; }
     </style>
 @endpush
 
@@ -131,8 +147,9 @@
             </div>
             <div class="card-body pt-0">
                 <div class="text-center mb-5">
-                    <h3 class="mb-0">Ringkasan Stok Gudang</h3>
-                    <small id="filter-info" class="text-muted"></small>
+                    <h3 class="mb-1">Ringkasan Stok Gudang</h3>
+                    <div id="warehouse-info" class="mt-1"></div>
+                    <div id="filter-info" class="info-line mt-2"></div>
                 </div>
                 <div class="dataTables_wrapper dt-bootstrap4 no-footer">
                     <div class="table-responsive min-h-500px">
@@ -186,6 +203,7 @@
             const $dateFrom = $('#date_from');
             const $dateTo = $('#date_to');
             const $filterInfo = $('#filter-info');
+            const $warehouseInfo = $('#warehouse-info');
 
             flatpickr('#date_from', {
                 dateFormat: 'Y-m-d',
@@ -200,6 +218,19 @@
             });
 
             let table = null;
+
+            const escapeHtml = (unsafe) => {
+                if (unsafe === null || unsafe === undefined) return '';
+                return String(unsafe)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            };
+            const iconWarehouse = `<svg class=\"icon text-primary\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M3 10.5L12 5l9 5.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z\"/></svg>`;
+            const iconCalendar = `<svg class=\"icon text-gray-500\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v3H3V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1Zm14 9v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9h18Z\"/></svg>`;
+            const iconTag = `<svg class=\"icon text-gray-500\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M21 13.5 13.5 21a2.121 2.121 0 0 1-3 0L3 13.5V3h10.5L21 10.5a2.121 2.121 0 0 1 0 3ZM7.5 7.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z\"/></svg>`;
 
             const formatNumber = (value) => {
                 const number = parseFloat(value ?? 0);
@@ -269,7 +300,27 @@
                 const categoryText = resolveCategoryText(categoryValue);
                 const dateText = resolveDateText(dateFromValue, dateToValue);
 
-                $filterInfo.text(`Tanggal: ${dateText} | Gudang: ${warehouseText} | Kategori: ${categoryText}`);
+                const warehouseHtml = `
+                    <div class=\"info-line\">
+                        <div class=\"info-chip fs-5\">${iconWarehouse}
+                            <span class=\"label\"></span>
+                            <span class=\"value text-primary\">${escapeHtml(warehouseText)}</span>
+                        </div>
+                    </div>
+                `;
+                $warehouseInfo.html(warehouseHtml);
+
+                const filterHtml = `
+                    <div class=\"info-chip\">${iconCalendar}
+                        <span class=\"label\">Tanggal:</span>
+                        <span class=\"value\">${escapeHtml(dateText)}</span>
+                    </div>
+                    <div class=\"info-chip\">${iconTag}
+                        <span class=\"label\">Kategori:</span>
+                        <span class=\"value\">${escapeHtml(categoryText)}</span>
+                    </div>
+                `;
+                $filterInfo.html(filterHtml);
 
                 if ($.fn.DataTable.isDataTable('#table-on-page')) {
                     $('#table-on-page').DataTable().destroy();
@@ -329,7 +380,9 @@
                             defs.push({
                                 targets: baseIndex,
                                 render: function (data) {
-                                    return data || '-';
+                                    if (!data) return '-';
+                                    const icon = `<svg class="icon text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M3 10.5L12 5l9 5.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z"/></svg>`;
+                                    return `<span class="d-inline-flex align-items-center gap-2">${icon}<span class="fw-semibold text-gray-800">${escapeHtml(data)}</span></span>`;
                                 },
                             });
                         }
