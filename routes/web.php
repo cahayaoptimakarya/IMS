@@ -168,6 +168,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
     // Riwayat Pengiriman
     Route::get('/admin/riwayat-pengiriman', [RiwayatPengirimanController::class, 'index'])->name('admin.riwayat-pengiriman.index');
     Route::get('/admin/riwayat-pengiriman/status-counts', [RiwayatPengirimanController::class, 'getStatusCounts'])->name('admin.riwayat-pengiriman.status-counts');
+    Route::post('/admin/riwayat-pengiriman/{shipment}/mark-in-transit', [RiwayatPengirimanController::class, 'markInTransit'])->name('admin.riwayat-pengiriman.mark-in-transit');
     Route::get('/admin/riwayat-pengiriman/{shipment}/edit', [RiwayatPengirimanController::class, 'edit'])->name('admin.riwayat-pengiriman.edit');
     Route::put('/admin/riwayat-pengiriman/{shipment}', [RiwayatPengirimanController::class, 'update'])->name('admin.riwayat-pengiriman.update');
     Route::get('/admin/riwayat-pengiriman/{shipment}', [RiwayatPengirimanController::class, 'show'])->name('admin.riwayat-pengiriman.show');

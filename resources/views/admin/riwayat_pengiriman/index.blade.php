@@ -242,8 +242,10 @@
                                         <a href="${showUrl}" class="menu-link px-3">Detail</a>
                                     </div>`;
                         @if($canEdit)
-                        if (String(row.status).toLowerCase() !== 'selesai' && String(row.status).toLowerCase() !== 'completed') {
+                        if (String(row.status).toLowerCase() === 'packing') {
                             menu += `<div class="menu-item px-3"><a href="${editUrl}" class="menu-link px-3">Edit</a></div>`;
+                            // Kirim action only when packing
+                            menu += `<div class="menu-item px-3"><a href="#" class="menu-link px-3 btn-kirim" data-id="${data}" data-code="${row.code}">Kirim</a></div>`;
                         }
                         @endif
                         menu += `</div></div>`;
@@ -270,6 +272,39 @@
             $('#apply_filter').on('click', function(){ table.draw(); });
             $('#status_filter, #ref_type_filter').on('change', function(){ table.draw(); });
             $('#search_input').on('input', debounce(function(){ table.search($('#search_input').val()).draw(); }, 400));
+
+            // Delegate Kirim action
+            $(document).on('click', '.btn-kirim', function(e){
+                e.preventDefault();
+                const id = $(this).data('id');
+                const code = $(this).data('code');
+                Swal.fire({
+                    text: `Apakah Anda yakin mengirim shipment ${code}?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Kirim',
+                    cancelButtonText: 'Batal',
+                    buttonsStyling: false,
+                    customClass: {
+                        confirmButton: 'btn fw-bold btn-primary',
+                        cancelButton: 'btn fw-bold btn-active-light-primary'
+                    }
+                }).then(function(res){
+                    if (!res.isConfirmed) return;
+                    $.post({
+                        url: "{{ route('admin.riwayat-pengiriman.mark-in-transit', ['shipment' => 'SHIPMENT_ID']) }}".replace('SHIPMENT_ID', id),
+                        data: { _token: '{{ csrf_token() }}' },
+                        success: function(resp){
+                            toastr.success(resp.message || 'Shipment dikirim.');
+                            table.draw(false);
+                        },
+                        error: function(xhr){
+                            const msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal mengirim shipment.';
+                            toastr.error(msg);
+                        }
+                    });
+                });
+            });
 
             // initial load
             table.draw();

@@ -181,6 +181,20 @@ class RiwayatPengirimanController extends Controller
         ]);
     }
 
+    public function markInTransit(Request $request, Shipment $shipment)
+    {
+        if (strtolower((string)$shipment->status) !== 'packing') {
+            return response()->json(['success' => false, 'message' => 'Hanya shipment dengan status packing yang dapat dikirim.'], 422);
+        }
+
+        $shipment->status = 'dalam perjalanan';
+        $shipment->shipping_date = $shipment->shipping_date ?: now()->toDateString();
+        $shipment->shipped_by = auth()->id();
+        $shipment->save();
+
+        return response()->json(['success' => true, 'message' => 'Shipment telah ditandai dalam perjalanan.']);
+    }
+
     public function show(Shipment $shipment)
     {
         // Load item details and header warehouses
