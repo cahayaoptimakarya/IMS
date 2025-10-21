@@ -651,7 +651,7 @@ class PenerimaanBarangController extends Controller
         try {
             $goodsReceipt->load('details');
 
-            // Derive reference from shipment (goods_receipts table does not store reference columns)
+            // Derive reference from shipment (header may not hold reference_id in new schema)
             $referenceType = null;
             $referenceId = null;
             $linkedShipment = null;
@@ -659,12 +659,35 @@ class PenerimaanBarangController extends Controller
                 $linkedShipment = Shipment::find($goodsReceipt->shipment_id);
                 if ($linkedShipment) {
                     $referenceType = $linkedShipment->reference_type;
-                    $referenceId = $linkedShipment->reference_id;
+                    // Derive reference id via shipment item details without changing business logic
+                    if ($referenceType === Shipment::REFERENCE_TYPE_TRANSFER_REQUEST) {
+                        $referenceId = DB::table('shipment_item_details as sid')
+                            ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
+                            ->where('sid.shipment_id', $linkedShipment->id)
+                            ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                            ->value('tri.transfer_request_id');
+                    } elseif ($referenceType === Shipment::REFERENCE_TYPE_STOCK_IN_ORDER) {
+                        $referenceId = DB::table('shipment_item_details as sid')
+                            ->join('stock_in_order_items as sioi', 'sioi.id', '=', 'sid.reference_id')
+                            ->where('sid.shipment_id', $linkedShipment->id)
+                            ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM)
+                            ->value('sioi.stock_in_order_id');
+                    }
                 }
             }
 
             // 1) Adjust source document for SIO, and set parent statuses
             if ($referenceType === GoodsReceipt::REFERENCE_TYPE_STOCK_IN_ORDER) {
+                // Derive all Stock In Orders referenced by this shipment (support multi-SIO in one shipment)
+                $sioIdsFromShipment = collect();
+                if ($linkedShipment) {
+                    $sioIdsFromShipment = DB::table('shipment_item_details as sid')
+                        ->join('stock_in_order_items as sioi', 'sioi.id', '=', 'sid.reference_id')
+                        ->where('sid.shipment_id', $linkedShipment->id)
+                        ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM)
+                        ->pluck('sioi.stock_in_order_id')
+                        ->unique();
+                }
                 foreach ($goodsReceipt->details as $d) {
                     // Prefer precise mapping through shipment_item_details -> reference_id
                     $sourceItem = null;
@@ -676,9 +699,13 @@ class PenerimaanBarangController extends Controller
                     }
                     // Fallback by stock_in_order_id + item_id if precise link unavailable
                     if (!$sourceItem) {
-                        $sourceItem = StockInOrderItem::where('stock_in_order_id', $referenceId)
-                            ->where('item_id', $d->item_id)
-                            ->first();
+                        $query = StockInOrderItem::query()->where('item_id', $d->item_id);
+                        if ($sioIdsFromShipment && $sioIdsFromShipment->count()) {
+                            $query->whereIn('stock_in_order_id', $sioIdsFromShipment->all());
+                        } elseif ($referenceId) {
+                            $query->where('stock_in_order_id', $referenceId);
+                        }
+                        $sourceItem = $query->first();
                     }
                     if ($sourceItem) {
                         $newRemainingQty = max(0, ($sourceItem->remaining_quantity ?? 0) - ($d->accepted_quantity ?? $d->received_quantity ?? 0));
@@ -704,29 +731,43 @@ class PenerimaanBarangController extends Controller
                     }
                 }
 
-                $stockInOrder = StockInOrder::find($referenceId);
-                if ($stockInOrder) {
-                    $totalRemainingQty = (float) $stockInOrder->items()->sum('remaining_quantity');
-                    $receiptDate = $goodsReceipt->receipt_date ?: now()->toDateString();
-                    if (empty($stockInOrder->shipping_at)) {
-                        $stockInOrder->shipping_at = $receiptDate;
+                // Update related SIO headers status (support multiple)
+                $sioHeaderIds = $sioIdsFromShipment && $sioIdsFromShipment->count() ? $sioIdsFromShipment : collect([$referenceId])->filter();
+                foreach ($sioHeaderIds as $sioId) {
+                    $stockInOrder = StockInOrder::find($sioId);
+                    if ($stockInOrder) {
+                        $totalRemainingQty = (float) $stockInOrder->items()->sum('remaining_quantity');
+                        $receiptDate = $goodsReceipt->receipt_date ?: now()->toDateString();
+                        if (empty($stockInOrder->shipping_at)) {
+                            $stockInOrder->shipping_at = $receiptDate;
+                        }
+                        if ($totalRemainingQty <= 0) {
+                            $stockInOrder->status = 'completed';
+                            if (empty($stockInOrder->completed_at)) {
+                                $stockInOrder->completed_at = $receiptDate;
+                            }
+                        } else {
+                            $stockInOrder->status = 'on_shipping';
+                        }
+                        $stockInOrder->save();
                     }
-                    if ($totalRemainingQty <= 0) {
-                        $stockInOrder->status = 'completed';
-                        $stockInOrder->completed_at = $receiptDate;
-                    } else {
-                        $stockInOrder->status = 'on_shipping';
-                    }
-                    $stockInOrder->save();
                 }
             } elseif ($referenceType === GoodsReceipt::REFERENCE_TYPE_TRANSFER_REQUEST) {
-                // Do not adjust remaining on transfer request here; shipment handles it
-                $transferRequest = TransferRequest::find($referenceId);
-                if ($transferRequest) {
-                    $totalRemainingQty = $transferRequest->items()->sum('remaining_quantity');
-                    $transferRequest->completed_at = $receiptDate = $goodsReceipt->receipt_date ?: now()->toDateString();
-                    $transferRequest->status = ($totalRemainingQty <= 0) ? 'completed' : 'on_progress';
-                    $transferRequest->save();
+                // Handle multiple Transfer Requests linked via shipment item details
+                $trIds = DB::table('shipment_item_details as sid')
+                    ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
+                    ->where('sid.shipment_id', $linkedShipment ? $linkedShipment->id : 0)
+                    ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                    ->pluck('tri.transfer_request_id')->unique();
+                foreach ($trIds as $trId) {
+                    $transferRequest = TransferRequest::find($trId);
+                    if ($transferRequest) {
+                        $totalRemainingQty = (float) $transferRequest->items()->sum('remaining_quantity');
+                        $receiptDate = $goodsReceipt->receipt_date ?: now()->toDateString();
+                        $transferRequest->completed_at = $receiptDate;
+                        $transferRequest->status = ($totalRemainingQty <= 0) ? 'completed' : 'on_progress';
+                        $transferRequest->save();
+                    }
                 }
             }
 
@@ -803,27 +844,41 @@ class PenerimaanBarangController extends Controller
                     // If this shipment belongs to a Stock In Order, and all conditions met,
                     // set the Stock In Order status to completed.
                     if ($shipment->reference_type === Shipment::REFERENCE_TYPE_STOCK_IN_ORDER) {
-                        $stockInOrderId = $shipment->reference_id;
-                        $sio = StockInOrder::find($stockInOrderId);
-                        if ($sio) {
-                            $remaining = (float) $sio->items()->sum('remaining_quantity');
-                            $hasOpenShipments = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_STOCK_IN_ORDER)
-                                ->where('reference_id', $stockInOrderId)
-                                ->where(function($q){
-                                    $q->whereNull('status')
-                                      ->orWhere('status', '!=', 'selesai');
-                                })
-                                ->exists();
-                            if ($remaining <= 0 && !$hasOpenShipments) {
-                                $sio->status = 'completed';
-                                $receiptDate = $goodsReceipt->receipt_date ?: now()->toDateString();
-                                if (empty($sio->shipping_at)) {
-                                    $sio->shipping_at = $receiptDate;
+                        // Handle potentially multiple Stock In Orders via details
+                        $sioIds = DB::table('shipment_item_details as sid')
+                            ->join('stock_in_order_items as sioi', 'sioi.id', '=', 'sid.reference_id')
+                            ->where('sid.shipment_id', $shipment->id)
+                            ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM)
+                            ->pluck('sioi.stock_in_order_id')->unique();
+                        foreach ($sioIds as $stockInOrderId) {
+                            $sio = StockInOrder::find($stockInOrderId);
+                            if ($sio) {
+                                $remaining = (float) $sio->items()->sum('remaining_quantity');
+                                // Determine open shipments for this SIO by joining through details
+                                $hasOpenShipments = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_STOCK_IN_ORDER)
+                                    ->where(function($qq) use ($stockInOrderId){
+                                        $qq->whereIn('id', DB::table('shipment_item_details as sid2')
+                                            ->join('stock_in_order_items as sioi2', 'sioi2.id', '=', 'sid2.reference_id')
+                                            ->where('sid2.reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM)
+                                            ->where('sioi2.stock_in_order_id', $stockInOrderId)
+                                            ->pluck('sid2.shipment_id'));
+                                    })
+                                    ->where(function($q){
+                                        $q->whereNull('status')
+                                          ->orWhere('status', '!=', 'selesai');
+                                    })
+                                    ->exists();
+                                if ($remaining <= 0 && !$hasOpenShipments) {
+                                    $sio->status = 'completed';
+                                    $receiptDate = $goodsReceipt->receipt_date ?: now()->toDateString();
+                                    if (empty($sio->shipping_at)) {
+                                        $sio->shipping_at = $receiptDate;
+                                    }
+                                    if (empty($sio->completed_at)) {
+                                        $sio->completed_at = $receiptDate;
+                                    }
+                                    $sio->save();
                                 }
-                                if (empty($sio->completed_at)) {
-                                    $sio->completed_at = $receiptDate;
-                                }
-                                $sio->save();
                             }
                         }
                     }
@@ -831,19 +886,39 @@ class PenerimaanBarangController extends Controller
                     // If this shipment belongs to a Transfer Request, and all conditions met,
                     // set the Transfer Request status to completed (mirror SIO behavior)
                     if ($shipment->reference_type === Shipment::REFERENCE_TYPE_TRANSFER_REQUEST) {
-                        $transferRequestId = $shipment->reference_id;
-                        $tr = TransferRequest::find($transferRequestId);
-                        if ($tr) {
-                            $remainingTr = (int) $tr->items()->sum('remaining_quantity');
-                            $hasOpenTrShipments = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
-                                ->where('reference_id', $transferRequestId)
-                                ->where(function ($q) {
-                                    $q->whereNull('status')->orWhere('status', '!=', 'selesai');
-                                })
-                                ->exists();
-                            if ($remainingTr <= 0 && !$hasOpenTrShipments) {
-                                $tr->status = 'completed';
-                                $tr->save();
+                        // Evaluate completion per each TR linked via shipment details
+                        $trIds2 = DB::table('shipment_item_details as sid')
+                            ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
+                            ->where('sid.shipment_id', $shipment->id)
+                            ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                            ->pluck('tri.transfer_request_id')->unique();
+                        foreach ($trIds2 as $transferRequestId) {
+                            $tr = TransferRequest::find($transferRequestId);
+                            if ($tr) {
+                                $remainingTr = (float) $tr->items()->sum('remaining_quantity');
+                                // Determine open shipments referencing this TR via details
+                                $hasOpenTrShipments = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
+                                    ->where(function($qq) use ($transferRequestId){
+                                        $qq->whereIn('id', DB::table('shipment_item_details as sid3')
+                                            ->join('transfer_request_items as tri3', 'tri3.id', '=', 'sid3.reference_id')
+                                            ->where('sid3.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                                            ->where('tri3.transfer_request_id', $transferRequestId)
+                                            ->pluck('sid3.shipment_id'));
+                                    })
+                                    ->where(function ($q) {
+                                        $q->whereNull('status')->orWhere('status', '!=', 'selesai');
+                                    })
+                                    ->exists();
+                                if ($remainingTr <= 0 && !$hasOpenTrShipments) {
+                                    $tr->status = 'completed';
+                                    $tr->save();
+                                } else {
+                                    // keep on_progress if any remaining
+                                    if ($remainingTr > 0 && strtolower((string)$tr->status) !== 'on_progress') {
+                                        $tr->status = 'on_progress';
+                                        $tr->save();
+                                    }
+                                }
                             }
                         }
                     }
