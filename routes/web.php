@@ -113,6 +113,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::post('permintaan-barang/{transferRequest}/update-status', [PermintaanBarangController::class, 'updateStatus'])->name('permintaan-barang.updateStatus');
         Route::post('permintaan-barang/{transferRequest}/create-shipment', [PermintaanBarangController::class, 'createShipment'])->name('permintaan-barang.createShipment');
         Route::get('permintaan-barang/{transferRequest}/items-to-ship', [PermintaanBarangController::class, 'getItemsToShip'])->name('permintaan-barang.items-to-ship');
+        Route::get('permintaan-barang/{transferRequest}/packing-shipments', [PermintaanBarangController::class, 'getPackingShipments'])->name('permintaan-barang.packing-shipments');
 
         // Retur Out
         Route::get('retur-out/status-counts', [\App\Http\Controllers\Admin\StokKeluar\ReturnOutController::class, 'getStatusCounts'])->name('retur-out.status-counts');

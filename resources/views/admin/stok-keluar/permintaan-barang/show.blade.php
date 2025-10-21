@@ -139,11 +139,11 @@
                         </div>
                     </div>
 
-                    @if(isset($transferRequest->shipments) && $transferRequest->shipments->count())
+                    @if(isset($shipments) && $shipments->count())
                         <div class="shipments-print-break" style="margin-top:36px;">
                             <div class="section-title fs-4">Lampiran: Pengiriman</div>
                             <div class="accordion" id="shipmentsAccordion">
-                            @foreach ($transferRequest->shipments as $shipment)
+                            @foreach ($shipments as $shipment)
                                 @php
                                     $shipQty = $shipment->itemDetails->sum('quantity_shipped');
                                     $shipKoli = $shipment->itemDetails->sum('koli_shipped');
@@ -161,7 +161,7 @@
                                                     <div class="fw-bold">{{ $shipment->code ?? '-' }}</div>
                                                     <div class="text-muted small">Tanggal: {{ $shipment->shipping_date ? \Carbon\Carbon::parse($shipment->shipping_date)->format('d M Y') : '-' }}</div>
                                                     <div class="mt-1">
-                                                        <span class="badge badge-light-{{ $badge }}">Status: {{ ucfirst($st) }}</span>
+                                                        <span class="badge badge-light-{{ $badge }}">Status: {{ ucwords($st) }}</span>
                                                     </div>
                                                 </div>
                                                 <div class="text-end">

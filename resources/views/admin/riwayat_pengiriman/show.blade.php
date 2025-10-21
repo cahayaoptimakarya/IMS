@@ -49,10 +49,11 @@
             $ribbonBg = 'primary';
             if (strtolower((string)$status) === 'selesai' || strtolower((string)$status) === 'completed') { $ribbonBg = 'success'; }
             elseif (strtolower((string)$status) === 'dalam perjalanan' || strtolower((string)$status) === 'on_progress') { $ribbonBg = 'warning'; }
+            elseif (strtolower((string)$status) === 'packing') { $ribbonBg = 'info'; }
         @endphp
         <div class="card">
             <div class="doc-ribbon-top d-print-none">
-                Status: <span class="badge badge-light-{{ $ribbonBg }}">{{ $status ? ucfirst($status) : '-' }}</span>
+                Status: <span class="badge badge-light-{{ $ribbonBg }}">{{ $status ? ucwords($status) : '-' }}</span>
             </div>
             <div class="card-body p-lg-12">
                 <div class="doc-wrapper">
@@ -65,7 +66,7 @@
                             <div class="meta-row"><span class="meta-label">Kode SJ</span><span class="meta-value">{{ $shipment->code ?? '-' }}</span></div>
                             <div class="meta-row"><span class="meta-label">Tanggal Kirim</span><span class="meta-value">{{ $shipment->shipping_date ? \Carbon\Carbon::parse($shipment->shipping_date)->format('d M Y') : '-' }}</span></div>
                             <div class="meta-row"><span class="meta-label">Referensi</span><span class="meta-value">{{ $referenceCode ?? '-' }}</span></div>
-                            <div class="meta-row"><span class="meta-label">Status</span><span class="meta-value"><span class="badge badge-light-{{ $ribbonBg }}">{{ $status ? ucfirst($status) : '-' }}</span></span></div>
+                            <div class="meta-row"><span class="meta-label">Status</span><span class="meta-value"><span class="badge badge-light-{{ $ribbonBg }}">{{ $status ? ucwords($status) : '-' }}</span></span></div>
                         </div>
                     </div>
 

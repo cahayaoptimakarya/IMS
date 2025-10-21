@@ -11,8 +11,9 @@ class Shipment extends Model
 
     protected $fillable = [
         'code',
-        'reference_id',
         'reference_type',
+        'from_warehouse_id',
+        'to_warehouse_id',
         'shipping_date',
         'vehicle_type',
         'license_plate',
@@ -23,10 +24,14 @@ class Shipment extends Model
         'shipped_by',
     ];
 
-    public function transferRequest()
+    public function fromWarehouse()
     {
-        return $this->belongsTo(TransferRequest::class, 'reference_id')
-            ->where('reference_type', self::REFERENCE_TYPE_TRANSFER_REQUEST);
+        return $this->belongsTo(Warehouse::class, 'from_warehouse_id');
+    }
+
+    public function toWarehouse()
+    {
+        return $this->belongsTo(Warehouse::class, 'to_warehouse_id');
     }
 
     public function goodsReceipts()

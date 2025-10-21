@@ -18,14 +18,11 @@ class ShipmentObserver
             return;
         }
 
-        $tr = TransferRequest::find($shipment->reference_id);
-        if (!$tr) return;
-
         // Notify destination warehouse users that shipment is on the way
-        $recipients = User::where('warehouse_id', $tr->to_warehouse_id)->get();
+        $recipients = User::where('warehouse_id', $shipment->to_warehouse_id)->get();
         foreach ($recipients as $user) {
-            $user->notify(new TransferRequestShipped($shipment, $tr));
+            // TransferRequest context is optional now; pass null
+            $user->notify(new TransferRequestShipped($shipment, null));
         }
     }
 }
-

@@ -43,29 +43,38 @@ class RiwayatPengirimanController extends Controller
                 7 => 's.id',
             ];
 
+            // Join via shipment item details to derive reference code (post-migration)
             $base = Shipment::query()->from('shipments as s')
-                ->leftJoin('transfer_requests as tr', function ($j) {
-                    $j->on('s.reference_id', '=', 'tr.id')
-                        ->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST);
+                // Warehouses from shipment header (not from reference)
+                ->leftJoin('warehouses as fw', 's.from_warehouse_id', '=', 'fw.id')
+                ->leftJoin('warehouses as tw', 's.to_warehouse_id', '=', 'tw.id')
+                // Transfer Request chain: sid_tr -> tri -> tr
+                ->leftJoin('shipment_item_details as sid_tr', function ($j) {
+                    $j->on('sid_tr.shipment_id', '=', 's.id')
+                      ->where('sid_tr.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM);
                 })
-                ->leftJoin('warehouses as fw', 'tr.from_warehouse_id', '=', 'fw.id')
-                ->leftJoin('warehouses as tw', 'tr.to_warehouse_id', '=', 'tw.id')
-                ->leftJoin('stock_in_orders as sio', function ($j) {
-                    $j->on('s.reference_id', '=', 'sio.id')
-                        ->where('s.reference_type', Shipment::REFERENCE_TYPE_STOCK_IN_ORDER);
+                ->leftJoin('transfer_request_items as tri', 'tri.id', '=', 'sid_tr.reference_id')
+                ->leftJoin('transfer_requests as tr', 'tr.id', '=', 'tri.transfer_request_id')
+                // Stock In Order chain: sid_sio -> sioi -> sio
+                ->leftJoin('shipment_item_details as sid_sio', function ($j) {
+                    $j->on('sid_sio.shipment_id', '=', 's.id')
+                      ->where('sid_sio.reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM);
                 })
-                ->leftJoin('warehouses as wio', 'sio.warehouse_id', '=', 'wio.id');
+                ->leftJoin('stock_in_order_items as sioi', 'sioi.id', '=', 'sid_sio.reference_id')
+                ->leftJoin('stock_in_orders as sio', 'sio.id', '=', 'sioi.stock_in_order_id');
 
             if (auth()->user() && auth()->user()->warehouse_id) {
                 $wid = (int) auth()->user()->warehouse_id;
-                // Only show shipments originating from the user's warehouse (transfer requests only)
-                $base->where(function ($q) use ($wid) {
-                    $q->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
-                      ->where('tr.from_warehouse_id', $wid);
-                });
+                // Show shipments originating from the user's warehouse (use header columns)
+                $base->where('s.from_warehouse_id', $wid);
             }
 
-            $totalRecords = (clone $base)->count();
+            // Total records (respect warehouse visibility only)
+            $totalRecordsQuery = Shipment::query();
+            if (auth()->user() && auth()->user()->warehouse_id) {
+                $totalRecordsQuery->where('from_warehouse_id', auth()->user()->warehouse_id);
+            }
+            $totalRecords = $totalRecordsQuery->count();
 
             if ($statusFilter && $statusFilter !== 'semua') {
                 $base->where('s.status', $statusFilter);
@@ -89,25 +98,26 @@ class RiwayatPengirimanController extends Controller
                         ->orWhere('sio.code', 'LIKE', "%{$searchValue}%")
                         ->orWhere('fw.name', 'LIKE', "%{$searchValue}%")
                         ->orWhere('tw.name', 'LIKE', "%{$searchValue}%")
-                        ->orWhere('wio.name', 'LIKE', "%{$searchValue}%")
                         ->orWhere('s.driver_name', 'LIKE', "%{$searchValue}%")
                         ->orWhere('s.license_plate', 'LIKE', "%{$searchValue}%");
                 });
             }
 
-            $totalFiltered = (clone $base)->count();
+            // Distinct shipments after joins
+            $totalFiltered = (clone $base)->distinct('s.id')->count('s.id');
 
             $orderColumnIndex = (int) $request->input('order.0.column', 0);
             $orderColumnName = $columns[$orderColumnIndex] ?? $columns[0];
             $orderDirection = $request->input('order.0.dir', 'asc');
 
             $rows = $base->select([
-                    's.id', 's.code', 's.shipping_date', 's.status', 's.reference_type', 's.reference_id',
-                    DB::raw('COALESCE(tr.code, sio.code) as reference_code'),
+                    's.id', 's.code', 's.shipping_date', 's.status', 's.reference_type',
+                    DB::raw('COALESCE(MAX(tr.code), MAX(sio.code)) as reference_code'),
                     DB::raw('fw.name as from_warehouse_name'),
-                    DB::raw('COALESCE(tw.name, wio.name) as to_warehouse_name'),
+                    DB::raw('tw.name as to_warehouse_name'),
                     's.vehicle_type', 's.license_plate', 's.driver_name'
                 ])
+                ->groupBy('s.id', 's.code', 's.shipping_date', 's.status', 's.reference_type', 'fw.name', 'tw.name', 's.vehicle_type', 's.license_plate', 's.driver_name')
                 ->orderBy($orderColumnName, $orderDirection)
                 ->offset($start)
                 ->limit($length)
@@ -120,7 +130,6 @@ class RiwayatPengirimanController extends Controller
                         'status' => $r->status,
                         'reference_type' => $r->reference_type,
                         'reference_code' => $r->reference_code,
-                        'reference_id' => $r->reference_id,
                         'from_warehouse_name' => $r->from_warehouse_name,
                         'to_warehouse_name' => $r->to_warehouse_name,
                         'vehicle' => trim(($r->vehicle_type ? $r->vehicle_type.' ' : '') . ($r->license_plate ?? '')),
@@ -137,7 +146,7 @@ class RiwayatPengirimanController extends Controller
         }
 
         $warehouses = Warehouse::orderBy('name')->get();
-        $statusOptions = ['dalam perjalanan', 'selesai'];
+        $statusOptions = ['packing', 'dalam perjalanan', 'selesai'];
         return view('admin.riwayat_pengiriman.index', compact('warehouses', 'statusOptions'));
     }
 
@@ -146,18 +155,11 @@ class RiwayatPengirimanController extends Controller
         $refTypeFilter = $request->input('reference_type');
         $dateFilter = $request->input('date');
 
-        $base = Shipment::query()->from('shipments as s')
-            ->leftJoin('transfer_requests as tr', function ($j) {
-                $j->on('s.reference_id', '=', 'tr.id')
-                    ->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST);
-            });
+        $base = Shipment::query()->from('shipments as s');
 
         if (auth()->user() && auth()->user()->warehouse_id) {
             $wid = (int) auth()->user()->warehouse_id;
-            $base->where(function ($q) use ($wid) {
-                $q->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
-                  ->where('tr.from_warehouse_id', $wid);
-            });
+            $base->where('s.from_warehouse_id', $wid);
         }
 
         if ($refTypeFilter && $refTypeFilter !== 'semua') {
@@ -173,6 +175,7 @@ class RiwayatPengirimanController extends Controller
         }
 
         return response()->json([
+            'packing' => (clone $base)->where('s.status', 'packing')->count(),
             'in_transit' => (clone $base)->where('s.status', 'dalam perjalanan')->count(),
             'completed' => (clone $base)->where('s.status', 'selesai')->count(),
         ]);
@@ -180,32 +183,32 @@ class RiwayatPengirimanController extends Controller
 
     public function show(Shipment $shipment)
     {
-        $shipment->load(['itemDetails.item']);
+        // Load item details and header warehouses
+        $shipment->load(['itemDetails.item', 'fromWarehouse', 'toWarehouse']);
 
-        // Determine reference code and warehouses
+        // Determine reference code(s) via shipment item details chain
         $referenceCode = null;
-        $fromWarehouse = null;
-        $toWarehouse = null;
-
         if ($shipment->reference_type === Shipment::REFERENCE_TYPE_TRANSFER_REQUEST) {
-            $tr = DB::table('transfer_requests as tr')
-                ->leftJoin('warehouses as fw', 'tr.from_warehouse_id', '=', 'fw.id')
-                ->leftJoin('warehouses as tw', 'tr.to_warehouse_id', '=', 'tw.id')
-                ->where('tr.id', $shipment->reference_id)
-                ->select('tr.code as reference_code', 'fw.name as from_name', 'tw.name as to_name')
-                ->first();
-            $referenceCode = $tr->reference_code ?? null;
-            $fromWarehouse = $tr->from_name ?? null;
-            $toWarehouse = $tr->to_name ?? null;
+            $codes = DB::table('shipment_item_details as sid')
+                ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
+                ->join('transfer_requests as tr', 'tr.id', '=', 'tri.transfer_request_id')
+                ->where('sid.shipment_id', $shipment->id)
+                ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                ->pluck('tr.code');
+            $referenceCode = $codes->unique()->implode(', ');
         } else {
-            $sio = DB::table('stock_in_orders as sio')
-                ->leftJoin('warehouses as w', 'sio.warehouse_id', '=', 'w.id')
-                ->where('sio.id', $shipment->reference_id)
-                ->select('sio.code as reference_code', 'w.name as to_name')
-                ->first();
-            $referenceCode = $sio->reference_code ?? null;
-            $toWarehouse = $sio->to_name ?? null;
+            $codes = DB::table('shipment_item_details as sid')
+                ->join('stock_in_order_items as sioi', 'sioi.id', '=', 'sid.reference_id')
+                ->join('stock_in_orders as sio', 'sio.id', '=', 'sioi.stock_in_order_id')
+                ->where('sid.shipment_id', $shipment->id)
+                ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM)
+                ->pluck('sio.code');
+            $referenceCode = $codes->unique()->implode(', ');
         }
+
+        // Warehouses from shipment header
+        $fromWarehouse = optional($shipment->fromWarehouse)->name;
+        $toWarehouse = optional($shipment->toWarehouse)->name;
 
         // Load receipts for this shipment (if any)
         $receipts = \App\Models\GoodsReceipt::where('shipment_id', $shipment->id)

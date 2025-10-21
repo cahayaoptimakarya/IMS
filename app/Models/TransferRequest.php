@@ -45,13 +45,15 @@ class TransferRequest extends Model
 
     public function shipment()
     {
-        return $this->hasOne(Shipment::class, 'reference_id')
+        return $this->hasOne(Shipment::class, 'from_warehouse_id', 'from_warehouse_id')
+            ->whereColumn('shipments.to_warehouse_id', 'transfer_requests.to_warehouse_id')
             ->where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST);
     }
 
     public function shipments()
     {
-        return $this->hasMany(Shipment::class, 'reference_id')
+        return $this->hasMany(Shipment::class, 'from_warehouse_id', 'from_warehouse_id')
+            ->whereColumn('shipments.to_warehouse_id', 'transfer_requests.to_warehouse_id')
             ->where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST);
     }
 }

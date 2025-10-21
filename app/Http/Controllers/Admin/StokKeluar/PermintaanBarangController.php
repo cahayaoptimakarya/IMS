@@ -166,14 +166,38 @@ class PermintaanBarangController extends Controller
 
     public function show(TransferRequest $transferRequest)
     {
+        // Load dasar TR + items
         $transferRequest->load([
             'fromWarehouse',
             'toWarehouse',
             'requester',
             'items.item',
-            'shipments.itemDetails.item',
         ]);
-        return view('admin.stok-keluar.permintaan-barang.show', compact('transferRequest'));
+
+        // Alur data shipment: ShipmentItemDetail -> TransferRequestItem -> TransferRequest
+        $transferRequestItemIds = $transferRequest->items->pluck('id')->all();
+
+        $shipments = Shipment::query()
+            ->whereHas('itemDetails', function ($q) use ($transferRequestItemIds) {
+                $q->where('reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                  ->whereIn('reference_id', $transferRequestItemIds);
+            })
+            ->with(['itemDetails' => function ($q) use ($transferRequestItemIds) {
+                $q->where('reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                  ->whereIn('reference_id', $transferRequestItemIds)
+                  ->with('item');
+            }])
+            ->orderByDesc('shipping_date')
+            ->get();
+
+        // Hitung total agar tersedia di view
+        $totalQuantity = $transferRequest->items->sum('quantity');
+        $totalKoli = $transferRequest->items->sum('koli');
+
+        return view(
+            'admin.stok-keluar.permintaan-barang.show',
+            compact('transferRequest', 'totalQuantity', 'totalKoli', 'shipments')
+        );
     }
 
     public function updateStatus(Request $request, TransferRequest $transferRequest)
@@ -235,6 +259,30 @@ class PermintaanBarangController extends Controller
         return response()->json($items);
     }
 
+    public function getPackingShipments(TransferRequest $transferRequest)
+    {
+        $shipments = Shipment::query()
+            ->where('status', 'packing')
+            ->where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
+            ->where('from_warehouse_id', $transferRequest->from_warehouse_id)
+            ->where('to_warehouse_id', $transferRequest->to_warehouse_id)
+            ->select(
+                'id',
+                'code',
+                'shipping_date',
+                'vehicle_type',
+                'license_plate',
+                'driver_name',
+                'driver_contact',
+                'description',
+                'status'
+            )
+            ->orderByDesc('shipping_date')
+            ->get();
+
+        return response()->json($shipments);
+    }
+
     public function createShipment(Request $request, TransferRequest $transferRequest)
     {
         $validated = $request->validate([
@@ -244,6 +292,7 @@ class PermintaanBarangController extends Controller
             'driver_name' => 'required|string|max:255',
             'driver_contact' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+            'shipment_id' => 'nullable|exists:shipments,id',
             'items' => 'required|array',
             'items.*.quantity' => 'nullable|numeric|min:0',
             'items.*.koli' => 'nullable|numeric|min:0',
@@ -284,19 +333,39 @@ class PermintaanBarangController extends Controller
                     }
                 }
 
-                // 2. Buat Shipment Header
-                $shipment = Shipment::create([
-                    'code' => 'SHIP-' . date('Ymd') . '-' . str_pad(Shipment::count() + 1, 4, '0', STR_PAD_LEFT),
-                    'reference_id' => $transferRequest->id,
-                    'reference_type' => Shipment::REFERENCE_TYPE_TRANSFER_REQUEST,
-                    'shipping_date' => $validated['shipping_date'],
-                    'vehicle_type' => $validated['vehicle_type'],
-                    'license_plate' => $validated['license_plate'],
-                    'driver_name' => $validated['driver_name'],
-                    'driver_contact' => $validated['driver_contact'],
-                    'description' => $validated['description'],
-                    'shipped_by' => auth()->id(),
-                ]);
+                // 2. Ambil atau buat Shipment Header
+                if (!empty($validated['shipment_id'])) {
+                    $shipment = Shipment::where('id', $validated['shipment_id'])
+                        ->where('status', 'packing')
+                        ->where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
+                        ->where('from_warehouse_id', $transferRequest->from_warehouse_id)
+                        ->where('to_warehouse_id', $transferRequest->to_warehouse_id)
+                        ->firstOrFail();
+                    // Perbarui info umum jika diisi
+                    $shipment->shipping_date = $validated['shipping_date'];
+                    $shipment->vehicle_type = $validated['vehicle_type'];
+                    $shipment->license_plate = $validated['license_plate'];
+                    $shipment->driver_name = $validated['driver_name'];
+                    $shipment->driver_contact = $validated['driver_contact'];
+                    $shipment->description = $validated['description'];
+                    $shipment->shipped_by = auth()->id();
+                    $shipment->save();
+                } else {
+                    $shipment = Shipment::create([
+                        'code' => 'SHIP-' . date('Ymd') . '-' . str_pad(Shipment::count() + 1, 4, '0', STR_PAD_LEFT),
+                        'reference_type' => Shipment::REFERENCE_TYPE_TRANSFER_REQUEST,
+                        'from_warehouse_id' => $transferRequest->from_warehouse_id,
+                        'to_warehouse_id' => $transferRequest->to_warehouse_id,
+                        'shipping_date' => $validated['shipping_date'],
+                        'vehicle_type' => $validated['vehicle_type'],
+                        'license_plate' => $validated['license_plate'],
+                        'driver_name' => $validated['driver_name'],
+                        'driver_contact' => $validated['driver_contact'],
+                        'description' => $validated['description'],
+                        'status' => 'packing',
+                        'shipped_by' => auth()->id(),
+                    ]);
+                }
 
                 // 3. Proses setiap item
                 foreach ($itemsToShip as $id => $itemData) {

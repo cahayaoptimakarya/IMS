@@ -43,6 +43,10 @@
                             </div>
                             <div class="status-metrics" style="display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
                                 <div class="metric" style="text-align:center;min-width:88px;">
+                                    <div class="chip chip-indigo" id="status_packing" style="display:inline-block;padding:6px 12px;border-radius:10px;font-weight:700;background:#EDE9FE;color:#6366F1;">0</div>
+                                    <div class="text-muted fs-8 mt-1">Packing</div>
+                                </div>
+                                <div class="metric" style="text-align:center;min-width:88px;">
                                     <div class="chip chip-primary" id="status_in_transit" style="display:inline-block;padding:6px 12px;border-radius:10px;font-weight:700;background:#E6F0FF;color:#3B82F6;">0</div>
                                     <div class="text-muted fs-8 mt-1">Dalam Perjalanan</div>
                                 </div>
@@ -85,6 +89,7 @@
                                     <label class="form-label fs-6 fw-bold">Status</label>
                                     <select id="status_filter" class="form-select form-select-solid" data-kt-select2="true" data-placeholder="Pilih status">
                                         <option value="semua">Semua</option>
+                                        <option value="packing">Packing</option>
                                         <option value="dalam perjalanan">Dalam Perjalanan</option>
                                         <option value="selesai">Selesai</option>
                                     </select>
@@ -154,6 +159,7 @@
                 let badge = 'badge-light-primary';
                 if (st === 'selesai') badge = 'badge-light-success';
                 else if (st === 'dalam perjalanan') badge = 'badge-light-warning';
+                else if (st === 'packing') badge = 'badge-light-info';
                 return `<span class="badge ${badge}">${s || '-'}</span>`;
             }
 
@@ -163,6 +169,7 @@
                     date: $('#date_filter').val()
                 };
                 $.get("{{ route('admin.riwayat-pengiriman.status-counts') }}", params, function(res){
+                    $('#status_packing').text(res.packing || 0);
                     $('#status_in_transit').text(res.in_transit || 0);
                     $('#status_completed').text(res.completed || 0);
                 });
