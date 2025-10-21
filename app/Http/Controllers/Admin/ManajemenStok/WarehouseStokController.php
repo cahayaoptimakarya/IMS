@@ -43,9 +43,13 @@ class WarehouseStokController extends Controller
             }
             $columnMap = [];
             $columnIndex = 0;
+            // Kolom 0: nomor urut (non-orderable di client), taruh placeholder agar index sinkron
+            $columnMap[$columnIndex++] = 'rownum';
             if (Auth::user()->warehouse_id === null) {
+                // Kolom 1 jika admin: gudang
                 $columnMap[$columnIndex++] = 'warehouses.name';
             }
+            // Kolom berikutnya: item dan sku
             $columnMap[$columnIndex++] = 'items.nama_barang';
             $columnMap[$columnIndex++] = 'items.sku';
             $orderByColumnIndex = (int) $request->input('order.0.column', 0);
@@ -55,10 +59,14 @@ class WarehouseStokController extends Controller
                 ->join('items', 'inventories.item_id', '=', 'items.id')
                 ->join('warehouses', 'inventories.warehouse_id', '=', 'warehouses.id');
             $userWarehouseId = Auth::user()->warehouse_id;
-            if ($userWarehouseId) {
-                $query->where('inventories.warehouse_id', $userWarehouseId);
-            } elseif ($warehouseFilter && $warehouseFilter !== 'semua') {
-                $query->where('inventories.warehouse_id', $warehouseFilter);
+            $resolvedWarehouseFilter = null;
+            if ($warehouseFilter === null || $warehouseFilter === '') {
+                $resolvedWarehouseFilter = $userWarehouseId ?: null; // default ke gudang user saat pertama kali masuk
+            } elseif ($warehouseFilter !== 'semua') {
+                $resolvedWarehouseFilter = $warehouseFilter;
+            }
+            if ($resolvedWarehouseFilter) {
+                $query->where('inventories.warehouse_id', $resolvedWarehouseFilter);
             }
             if ($categoryFilter && $categoryFilter !== 'semua') {
                 $query->where('items.item_category_id', $categoryFilter);
@@ -71,10 +79,8 @@ class WarehouseStokController extends Controller
                 });
             }
             $totalRecordsQuery = Inventory::query();
-            if ($userWarehouseId) {
-                $totalRecordsQuery->where('warehouse_id', $userWarehouseId);
-            } elseif ($warehouseFilter && $warehouseFilter !== 'semua') {
-                $totalRecordsQuery->where('warehouse_id', $warehouseFilter);
+            if ($resolvedWarehouseFilter) {
+                $totalRecordsQuery->where('warehouse_id', $resolvedWarehouseFilter);
             }
             if ($categoryFilter && $categoryFilter !== 'semua') {
                 $totalRecordsQuery->whereHas('item', function ($q) use ($categoryFilter) {
@@ -160,7 +166,7 @@ class WarehouseStokController extends Controller
             $data = $query->offset($start)
                 ->limit($length)
                 ->get()
-                ->map(function ($row) {
+                ->map(function ($row, $i) use ($start) {
                     $quantity = (float) $row->quantity;
                     $koli = (float) $row->koli;
                     $beforeQty = (float) ($row->before_qty ?? 0);
@@ -179,6 +185,7 @@ class WarehouseStokController extends Controller
                     $closingQty = $openingQty + $withinQty;
                     $closingKoli = $openingKoli + $withinKoli;
                     return [
+                        'rownum' => (int) ($start + $i + 1),
                         'warehouse_name' => $row->warehouse_name,
                         'item_name' => $row->item_name,
                         'sku' => $row->sku,
@@ -248,6 +255,8 @@ public function export(Request $request)
     }
     $columnMap = [];
     $columnIndex = 0;
+    // Kolom 0: nomor urut (non-orderable di client), placeholder agar index sinkron
+    $columnMap[$columnIndex++] = 'rownum';
     if (Auth::user()->warehouse_id === null) {
         $columnMap[$columnIndex++] = 'warehouses.name';
     }
@@ -260,10 +269,14 @@ public function export(Request $request)
         ->join('items', 'inventories.item_id', '=', 'items.id')
         ->join('warehouses', 'inventories.warehouse_id', '=', 'warehouses.id');
     $userWarehouseId = Auth::user()->warehouse_id;
-    if ($userWarehouseId) {
-        $query->where('inventories.warehouse_id', $userWarehouseId);
-    } elseif ($warehouseFilter && $warehouseFilter !== 'semua') {
-        $query->where('inventories.warehouse_id', $warehouseFilter);
+    $resolvedWarehouseFilter = null;
+    if ($warehouseFilter === null || $warehouseFilter === '') {
+        $resolvedWarehouseFilter = $userWarehouseId ?: null; // default ke gudang user saat pertama kali masuk
+    } elseif ($warehouseFilter !== 'semua') {
+        $resolvedWarehouseFilter = $warehouseFilter;
+    }
+    if ($resolvedWarehouseFilter) {
+        $query->where('inventories.warehouse_id', $resolvedWarehouseFilter);
     }
     if ($categoryFilter && $categoryFilter !== 'semua') {
         $query->where('items.item_category_id', $categoryFilter);

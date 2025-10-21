@@ -338,7 +338,7 @@ class RequestTransferController extends Controller
     {
         $items = Inventory::with('item')
             ->where('warehouse_id', $warehouse_id)
-            ->where('quantity', '>', 0)
+            // ->where('quantity', '>', 0)
             ->get();
 
         return response()->json($items);

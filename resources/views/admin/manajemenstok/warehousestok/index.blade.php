@@ -86,18 +86,16 @@
                         </div>
                         <div class="separator border-gray-200"></div>
                         <div class="px-7 py-5">
-                            @if (auth()->user()->warehouse_id === null)
-                                <div class="mb-10">
-                                    <label class="form-label fs-5 fw-bold mb-3">Gudang:</label>
-                                    <select class="form-select form-select-solid fw-bolder" data-kt-select2="true"
-                                        id="warehouse_filter" data-dropdown-parent="#kt-toolbar-filter">
-                                        <option value="semua">Semua Gudang</option>
-                                        @foreach ($warehouses as $warehouse)
-                                            <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @endif
+                            <div class="mb-10">
+                                <label class="form-label fs-5 fw-bold mb-3">Gudang:</label>
+                                <select class="form-select form-select-solid fw-bolder" data-kt-select2="true"
+                                    id="warehouse_filter" data-dropdown-parent="#kt-toolbar-filter">
+                                    <option value="semua">Semua Gudang</option>
+                                    @foreach ($warehouses as $warehouse)
+                                        <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                             <div class="mb-10">
                                 <label class="form-label fs-5 fw-bold mb-3">Kategori Item:</label>
                                 <select class="form-select form-select-solid fw-bolder" data-kt-select2="true"
@@ -141,6 +139,7 @@
                         <table class="table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer" id="table-on-page">
                             <thead>
                                 <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0 text-center">
+                                    <th class="min-w-50px" rowspan="2">No</th>
                                     @if (auth()->user()->warehouse_id === null)
                                         <th class="min-w-150px" rowspan="2">Gudang</th>
                                     @endif
@@ -227,14 +226,16 @@
             };
 
             const resolveWarehouseText = (value) => {
-                if (userWarehouseId) {
-                    return userWarehouseName || 'Gudang Anda';
-                }
                 if (!value || value === 'semua') {
                     return 'Semua Gudang';
                 }
                 const option = $warehouseFilter.find('option:selected');
-                return option.length ? option.text() : 'Semua Gudang';
+                if (option.length) return option.text();
+                // fallback ke nama gudang user bila cocok
+                if (userWarehouseId && String(value) === String(userWarehouseId)) {
+                    return userWarehouseName || 'Gudang Anda';
+                }
+                return 'Semua Gudang';
             };
 
             const resolveCategoryText = (value) => {
@@ -259,7 +260,7 @@
             };
 
             const loadDataTable = () => {
-                const warehouseValue = userWarehouseId ? userWarehouseId : ($warehouseFilter?.val() || 'semua');
+                const warehouseValue = ($warehouseFilter?.val() || (userWarehouseId || 'semua'));
                 const categoryValue = $categoryFilter.val() || 'semua';
                 const dateFromValue = $dateFrom.val();
                 const dateToValue = $dateTo.val();
@@ -287,6 +288,8 @@
                 ];
 
                 const columns = [];
+                // nomor urut
+                columns.push({ data: 'rownum', name: 'rownum', orderable: false, searchable: false, className: 'text-center' });
                 if (hasWarehouseColumn) {
                     columns.push({ data: 'warehouse_name', name: 'warehouses.name' });
                 }
@@ -312,18 +315,19 @@
                             d.date_to = dateToValue;
                         },
                     },
-                    order: [[hasWarehouseColumn ? 1 : 0, 'asc']],
+                    order: [[hasWarehouseColumn ? 2 : 1, 'asc']],
                     columns,
                     columnDefs: (function () {
                         const defs = [];
-                        const itemColumnIndex = hasWarehouseColumn ? 1 : 0;
+                        const baseIndex = 1; // setelah kolom No
+                        const itemColumnIndex = hasWarehouseColumn ? (baseIndex + 1) : baseIndex;
                         const koliColumnIndex = itemColumnIndex + 1;
                         const metricStartIndex = koliColumnIndex + 1;
                         const metricIndices = metricKeys.map((_, idx) => metricStartIndex + idx);
 
                         if (hasWarehouseColumn) {
                             defs.push({
-                                targets: 0,
+                                targets: baseIndex,
                                 render: function (data) {
                                     return data || '-';
                                 },
@@ -367,6 +371,10 @@
                 };
             };
 
+            // set default pilihan warehouse ke gudang user jika ada
+            if (userWarehouseId) {
+                $warehouseFilter.val(String(userWarehouseId)).trigger('change');
+            }
             loadDataTable();
 
             $('#apply_filter').on('click', function () {
@@ -374,9 +382,7 @@
             });
 
             $('#kt-toolbar-filter [type="reset"]').on('click', function () {
-                if (!userWarehouseId) {
-                    $warehouseFilter.val('semua').trigger('change');
-                }
+                $warehouseFilter.val(userWarehouseId ? String(userWarehouseId) : 'semua').trigger('change');
                 $categoryFilter.val('semua').trigger('change');
                 $dateFrom.val(defaultDateFrom);
                 $dateTo.val(defaultDateTo);
@@ -404,7 +410,7 @@
                     if (result.isConfirmed) {
                         const params = new URLSearchParams();
                         const searchValue = $searchInput.val();
-                        const warehouseValue = userWarehouseId ? userWarehouseId : ($warehouseFilter?.val() || 'semua');
+                        const warehouseValue = ($warehouseFilter?.val() || (userWarehouseId || 'semua'));
                         const categoryValue = $categoryFilter?.val() || 'semua';
                         const dateFromValue = $dateFrom.val();
                         const dateToValue = $dateTo.val();
