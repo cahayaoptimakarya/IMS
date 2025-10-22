@@ -73,7 +73,7 @@
                         </span>
                         <div class="text-white fw-bolder fs-2 mb-2 mt-5 kpi-ordered-qty">{{ number_format($stats['ordered_qty'] ?? 0, 2, ',', '.') }}</div>
                         <div class="fw-bold text-white">Qty Diajukan</div>
-                        <div class="fw-bold text-white-75 mt-2">Koli: <span class="kpi-ordered-koli">{{ number_format($stats['ordered_koli'] ?? 0, 2, ',', '.') }}</span></div>
+                        <div class="fw-bolder text-white mt-2">Koli: <span class="kpi-ordered-koli text-white fw-bolder">{{ number_format($stats['ordered_koli'] ?? 0, 2, ',', '.') }}</span></div>
                     </div>
                 </a>
             </div>
@@ -85,7 +85,7 @@
                         </span>
                         <div class="text-white fw-bolder fs-2 mb-2 mt-5 kpi-distributed-qty">{{ number_format($stats['distributed_qty'] ?? 0, 2, ',', '.') }}</div>
                         <div class="fw-bold text-white">Qty Terdistribusi</div>
-                        <div class="fw-bold text-white-75 mt-2">Koli: <span class="kpi-distributed-koli">{{ number_format($stats['distributed_koli'] ?? 0, 2, ',', '.') }}</span></div>
+                        <div class="fw-bolder text-white mt-2">Koli: <span class="kpi-distributed-koli text-white fw-bolder">{{ number_format($stats['distributed_koli'] ?? 0, 2, ',', '.') }}</span></div>
                     </div>
                 </a>
             </div>
@@ -97,7 +97,7 @@
                         </span>
                         <div class="text-white fw-bolder fs-2 mb-2 mt-5 kpi-accepted-qty">{{ number_format($stats['accepted_qty'] ?? 0, 2, ',', '.') }}</div>
                         <div class="fw-bold text-white">Qty Diterima</div>
-                        <div class="fw-bold text-white-75 mt-2">Koli: <span class="kpi-accepted-koli">{{ number_format($stats['accepted_koli'] ?? 0, 2, ',', '.') }}</span></div>
+                        <div class="fw-bolder text-white mt-2">Koli: <span class="kpi-accepted-koli text-white fw-bolder">{{ number_format($stats['accepted_koli'] ?? 0, 2, ',', '.') }}</span></div>
                     </div>
                 </a>
             </div>

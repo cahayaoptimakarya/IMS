@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin\Laporan;
 
 use App\Http\Controllers\Controller;
 use App\Models\Warehouse;
+use App\Models\ShipmentItemDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -83,13 +84,19 @@ class LaporanPengadaanController extends Controller
             )
             ->first();
 
-        // Goods receipts accepted totals for pengadaan
+        // Goods receipts accepted totals for pengadaan (join shipments via shipment_item_details -> SIO items)
+        $shipmentIdsSub = DB::table('shipment_item_details as sid')
+            ->join('stock_in_order_items as sioi', 'sioi.id', '=', 'sid.reference_id')
+            ->joinSub($sioIdsQuery, 's', function ($j) {
+                $j->on('sioi.stock_in_order_id', '=', 's.id');
+            })
+            ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM)
+            ->select('sid.shipment_id');
+
         $receiptTotals = DB::table('goods_receipt_details as grd')
             ->join('goods_receipts as gr', 'grd.goods_receipt_id', '=', 'gr.id')
             ->join('shipments as sh', 'gr.shipment_id', '=', 'sh.id')
-            ->joinSub($sioIdsQuery, 's', function ($j) {
-                $j->on('sh.reference_id', '=', 's.id');
-            })
+            ->whereIn('sh.id', $shipmentIdsSub)
             ->where('sh.reference_type', 'stock in order')
             ->where('gr.type', 'pengadaan')
             ->whereBetween('gr.receipt_date', [$startDate->toDateString(), $endDate->toDateString()])
