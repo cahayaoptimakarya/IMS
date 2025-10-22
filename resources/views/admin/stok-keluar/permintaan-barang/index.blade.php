@@ -775,7 +775,7 @@
                             const requestedKoli = parseFloat(item.koli ?? 0);
                             const row = `
                                 <tr data-name="${(item.item.nama_barang || '').toLowerCase()}" data-sku="${(item.item.sku || '').toLowerCase()}"
-                                    data-koli-ratio="${koliRatio}" data-max-qty="${item.remaining_quantity}" data-max-koli="${item.remaining_koli}">
+                                    data-koli-ratio="${koliRatio}" data-max-qty="${item.ship_remaining_quantity}" data-max-koli="${item.ship_remaining_koli}">
                                     <td class="item-cell">
                                         <div class="d-flex flex-column">
                                             <div class="d-flex align-items-center gap-2">
@@ -788,15 +788,20 @@
                                         <input type="hidden" name="items[${item.id}][item_id]" value="${item.item_id}">
                                     </td>
                                         <td>
-                                            <input type="number" step="any" class="form-control form-control-solid form-control-sm qty-input" name="items[${item.id}][quantity]" value="${item.remaining_quantity}" min="0" max="${item.remaining_quantity}" placeholder="Qty">
-                                            <div class="help-muted mt-1">Maks: ${item.remaining_quantity} Qty</div>
+                                            <input type="number" step="any" class="form-control form-control-solid form-control-sm qty-input" name="items[${item.id}][quantity]" value="${item.ship_remaining_quantity}" min="0" max="${item.ship_remaining_quantity}" placeholder="Qty">
+                                            <div class="help-muted mt-1">Maks: ${item.ship_remaining_quantity} Qty</div>
                                         </td>
                                         <td>
-                                            <input type="number" step="any" class="form-control form-control-solid form-control-sm koli-input" name="items[${item.id}][koli]" value="${item.remaining_koli}" min="0" max="${item.remaining_koli}" placeholder="Koli">
-                                            <div class="help-muted mt-1">Maks: ${item.remaining_koli} Koli</div>
+                                            <input type="number" step="any" class="form-control form-control-solid form-control-sm koli-input" name="items[${item.id}][koli]" value="${item.ship_remaining_koli}" min="0" max="${item.ship_remaining_koli}" placeholder="Koli">
+                                            <div class="help-muted mt-1">Maks: ${item.ship_remaining_koli} Koli</div>
                                         </td>
                                 </tr>`;
                             tbody.append(row);
+                            // Override meta text to use ship_remaining_* if available
+                            const $lastRow = tbody.find('tr').last();
+                            const remQty = (item.ship_remaining_quantity ?? item.remaining_quantity ?? 0);
+                            const remKoli = (item.ship_remaining_koli ?? item.remaining_koli ?? 0);
+                            $lastRow.find('.item-meta').text(`Diminta: ${requestedQty} Qty (${requestedKoli} Koli) • Sisa: ${remQty} Qty (${remKoli} Koli) • Rasio: 1 Koli = ${koliRatio} Qty`);
                         });
 
                         table.append(thead).append(tbody);

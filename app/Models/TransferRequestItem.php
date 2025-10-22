@@ -12,8 +12,10 @@ class TransferRequestItem extends Model
         'item_id',
         'quantity',
         'koli',
-        'remaining_quantity',
-        'remaining_koli',
+        'received_quantity',
+        'received_koli',
+        'ship_remaining_quantity',
+        'ship_remaining_koli',
         'description',
     ];
 

@@ -274,8 +274,8 @@ class RiwayatPengirimanController extends Controller
                 $tri = TransferRequestItem::find($detail->reference_id);
                 if ($tri) {
                     $lineMax[$detail->id] = [
-                        'max_qty' => (float) ($tri->remaining_quantity ?? 0) + (float) ($detail->quantity_shipped ?? 0),
-                        'max_koli' => (float) ($tri->remaining_koli ?? 0) + (float) ($detail->koli_shipped ?? 0),
+                        'max_qty' => (float) ($tri->ship_remaining_quantity ?? 0) + (float) ($detail->quantity_shipped ?? 0),
+                        'max_koli' => (float) ($tri->ship_remaining_koli ?? 0) + (float) ($detail->koli_shipped ?? 0),
                     ];
                 } else {
                     $lineMax[$detail->id] = [ 'max_qty' => (float) ($detail->quantity_shipped ?? 0), 'max_koli' => (float) ($detail->koli_shipped ?? 0) ];
@@ -340,8 +340,8 @@ class RiwayatPengirimanController extends Controller
 
                     $tri = TransferRequestItem::find($detail->reference_id);
                     if ($tri) {
-                        $maxQty = (float) ($tri->remaining_quantity ?? 0) + $oldQty;
-                        $maxKoli = (float) ($tri->remaining_koli ?? 0) + $oldKoli;
+                        $maxQty = (float) ($tri->ship_remaining_quantity ?? 0) + $oldQty;
+                        $maxKoli = (float) ($tri->ship_remaining_koli ?? 0) + $oldKoli;
                         if ($newQty > $maxQty || $newKoli > $maxKoli) {
                             throw ValidationException::withMessages(['items' => 'Kuantitas kirim melebihi sisa yang diminta untuk item ' . ($detail->item->nama_barang ?? $detail->item->name ?? 'ID '.$detail->item_id) . '.']);
                         }
@@ -446,8 +446,8 @@ class RiwayatPengirimanController extends Controller
 
                         // Update TRI remaining accordingly
                         if ($tri) {
-                            $tri->remaining_quantity = (float) ($tri->remaining_quantity ?? 0) - $deltaQty; // subtract positive delta, add if negative
-                            $tri->remaining_koli = (float) ($tri->remaining_koli ?? 0) - $deltaKoli;
+                            $tri->ship_remaining_quantity = (float) ($tri->ship_remaining_quantity ?? 0) - $deltaQty; // subtract positive delta, add if negative
+                            $tri->ship_remaining_koli = (float) ($tri->ship_remaining_koli ?? 0) - $deltaKoli;
                             $tri->save();
                         }
                     }
@@ -481,8 +481,8 @@ class RiwayatPengirimanController extends Controller
                     // Restore TRI remaining if available
                     $tri = TransferRequestItem::find($detail->reference_id);
                     if ($tri) {
-                        $tri->remaining_quantity = (float) ($tri->remaining_quantity ?? 0) + $oldQty;
-                        $tri->remaining_koli = (float) ($tri->remaining_koli ?? 0) + $oldKoli;
+                        $tri->ship_remaining_quantity = (float) ($tri->ship_remaining_quantity ?? 0) + $oldQty;
+                        $tri->ship_remaining_koli = (float) ($tri->ship_remaining_koli ?? 0) + $oldKoli;
                         $tri->save();
                     }
 

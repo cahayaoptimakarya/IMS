@@ -152,8 +152,8 @@ class RequestTransferController extends Controller
                     'item_id' => $item['item_id'],
                     'quantity' => $item['quantity'],
                     'koli' => $item['koli'] ?? 0,
-                    'remaining_quantity' => $item['quantity'],
-                    'remaining_koli' => $item['koli'] ?? 0,
+                    'ship_remaining_quantity' => $item['quantity'],
+                    'ship_remaining_koli' => $item['koli'] ?? 0,
                     'description' => $item['description'],
                 ]);
             }
@@ -282,8 +282,8 @@ class RequestTransferController extends Controller
                     'item_id' => $item['item_id'],
                     'quantity' => $item['quantity'],
                     'koli' => $item['koli'] ?? 0,
-                    'remaining_quantity' => $item['quantity'],
-                    'remaining_koli' => $item['koli'] ?? 0,
+                    'ship_remaining_quantity' => $item['quantity'],
+                    'ship_remaining_koli' => $item['koli'] ?? 0,
                     'description' => $item['description'],
                 ]);
             }

@@ -17,8 +17,10 @@ return new class extends Migration
             $table->integer('item_id');
             $table->decimal('quantity', 20, 2)->default(0);
             $table->decimal('koli', 20, 2)->default(0); 
-            $table->decimal('remaining_quantity', 20, 2)->default(0);
-            $table->decimal('remaining_koli', 20, 2)->default(0);
+            $table->decimal('received_quantity', 20, 2)->default(0);
+            $table->decimal('received_koli', 20, 2)->default(0);
+            $table->decimal('ship_remaining_quantity', 20, 2)->default(0);
+            $table->decimal('ship_remaining_koli', 20, 2)->default(0);
             $table->mediumText('description')->nullable();
             $table->enum('status', ['pending', 'on_progress', 'completed', 'cancel'])->default('pending');
             $table->timestamps();

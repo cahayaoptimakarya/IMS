@@ -252,7 +252,7 @@ class PermintaanBarangController extends Controller
     public function getItemsToShip(TransferRequest $transferRequest)
     {
         $items = $transferRequest->items()
-            ->where('remaining_quantity', '>', 0)
+            ->where('ship_remaining_quantity', '>', 0)
             ->with('item:id,nama_barang,koli,sku')
             ->get();
 
@@ -320,7 +320,7 @@ class PermintaanBarangController extends Controller
                     $quantityToShip = $itemData['quantity'] ?? 0;
                     $koliToShip = $itemData['koli'] ?? 0;
 
-                    if ($quantityToShip > $transferRequestItem->remaining_quantity || $koliToShip > $transferRequestItem->remaining_koli) {
+                    if ($quantityToShip > $transferRequestItem->ship_remaining_quantity || $koliToShip > $transferRequestItem->ship_remaining_koli) {
                         throw ValidationException::withMessages(['items' => 'Kuantitas kirim untuk item ' . $transferRequestItem->item->name . ' melebihi sisa yang diminta.']);
                     }
 
@@ -412,8 +412,8 @@ class PermintaanBarangController extends Controller
                     ]);
 
                     // Update sisa kuantitas di item permintaan transfer
-                    $transferRequestItem->remaining_quantity -= $quantityToShip;
-                    $transferRequestItem->remaining_koli -= $koliToShip;
+                    $transferRequestItem->ship_remaining_quantity -= $quantityToShip;
+                    $transferRequestItem->ship_remaining_koli -= $koliToShip;
                     $transferRequestItem->save();
                 }
 
