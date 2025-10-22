@@ -194,7 +194,7 @@
                         </table>
                     </div>
 
-                    @if (strtolower((string) $transferRequest->status) === 'on_progress')
+                    @if (strtolower((string) $transferRequest->status) === 'on_progress' || strtolower((string) $transferRequest->status) === 'approved'  )
                         @php
                             // Sisa barang yang belum dikirim (berdasarkan ship_remaining_* pada TRI)
                             $pendingToShip = $transferRequest->items->filter(function($it){
