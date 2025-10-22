@@ -102,6 +102,11 @@
                                     <div class="text-muted fs-8 mt-1">Rejected</div>
                                 </div>
                             </div>
+                            <div class="mb-4">
+                                <a href="{{ route('admin.stok-keluar.permintaan-barang.unshipped') }}" class="btn btn-light-primary">
+                                    Lihat Barang Belum Dikirim
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>

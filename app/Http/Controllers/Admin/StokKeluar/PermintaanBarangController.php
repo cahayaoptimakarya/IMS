@@ -260,6 +260,141 @@ class PermintaanBarangController extends Controller
         return response()->json($items);
     }
 
+    // Page: lists of items not yet shipped across transfer requests
+    public function unshippedIndex(Request $request)
+    {
+        $warehouses = Warehouse::orderBy('name')->get();
+        $userWarehouseId = auth()->user()->warehouse_id ?? null;
+
+        // Build server-rendered list so print includes all rows neatly
+        $query = DB::table('transfer_request_items as tri')
+            ->join('transfer_requests as tr', 'tri.transfer_request_id', '=', 'tr.id')
+            ->leftJoin('warehouses as fw', 'tr.from_warehouse_id', '=', 'fw.id')
+            ->leftJoin('warehouses as tw', 'tr.to_warehouse_id', '=', 'tw.id')
+            ->leftJoin('items as i', 'tri.item_id', '=', 'i.id')
+            ->where(function($q){
+                $q->where('tri.ship_remaining_quantity', '>', 0)
+                  ->orWhere('tri.ship_remaining_koli', '>', 0);
+            });
+
+        if ($userWarehouseId) {
+            $query->where('tr.to_warehouse_id', $userWarehouseId);
+        } else {
+            $fromWh = $request->query('from_warehouse_id');
+            $toWh = $request->query('to_warehouse_id');
+            if (!empty($fromWh)) { $query->where('tr.from_warehouse_id', $fromWh); }
+            if (!empty($toWh)) { $query->where('tr.to_warehouse_id', $toWh); }
+        }
+
+        $pendingItems = $query->select(
+                'tr.id as tr_id',
+                'tr.code',
+                'tr.date',
+                'i.sku',
+                'i.nama_barang',
+                'tri.ship_remaining_quantity',
+                'tri.ship_remaining_koli',
+                'fw.name as from_warehouse_name',
+                'tw.name as to_warehouse_name'
+            )
+            ->orderByDesc('tr.date')
+            ->orderByDesc('tr.id')
+            ->get();
+
+        $selectedFrom = $request->query('from_warehouse_id');
+        $selectedTo = $request->query('to_warehouse_id');
+
+        return view('admin.stok-keluar.permintaan-barang.unshipped', compact('warehouses', 'userWarehouseId', 'pendingItems', 'selectedFrom', 'selectedTo'));
+    }
+
+    // Data provider for unshipped items table (server-side DataTables)
+    public function unshippedData(Request $request)
+    {
+        $searchValue = $request->input('search.value', '');
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 10);
+        $draw = (int) $request->input('draw', 0);
+
+        $query = DB::table('transfer_request_items as tri')
+            ->join('transfer_requests as tr', 'tri.transfer_request_id', '=', 'tr.id')
+            ->leftJoin('warehouses as fw', 'tr.from_warehouse_id', '=', 'fw.id')
+            ->leftJoin('warehouses as tw', 'tr.to_warehouse_id', '=', 'tw.id')
+            ->leftJoin('items as i', 'tri.item_id', '=', 'i.id')
+            ->where(function($q){
+                $q->where('tri.ship_remaining_quantity', '>', 0)
+                  ->orWhere('tri.ship_remaining_koli', '>', 0);
+            });
+
+        if (auth()->user() && auth()->user()->warehouse_id) {
+            // When user tied to a warehouse, show requests incoming to user's warehouse
+            $query->where('tr.to_warehouse_id', auth()->user()->warehouse_id);
+        } else {
+            // Optional filters for origin and destination warehouses
+            $fromWh = $request->input('from_warehouse_id');
+            $toWh = $request->input('to_warehouse_id');
+            if (!empty($fromWh)) {
+                $query->where('tr.from_warehouse_id', $fromWh);
+            }
+            if (!empty($toWh)) {
+                $query->where('tr.to_warehouse_id', $toWh);
+            }
+        }
+
+        $totalRecords = (clone $query)->count();
+
+        if (!empty($searchValue)) {
+            $like = "%{$searchValue}%";
+            $query->where(function($q) use ($like){
+                $q->where('tr.code', 'LIKE', $like)
+                  ->orWhere('i.sku', 'LIKE', $like)
+                  ->orWhere('i.nama_barang', 'LIKE', $like)
+                  ->orWhere('fw.name', 'LIKE', $like)
+                  ->orWhere('tw.name', 'LIKE', $like);
+            });
+        }
+
+        $orderColumnIndex = (int) $request->input('order.0.column', 0);
+        $orderDir = $request->input('order.0.dir', 'desc');
+        $columns = [
+            0 => 'tr.date',
+            1 => 'tr.code',
+            2 => 'i.sku',
+            3 => 'i.nama_barang',
+            4 => 'tri.ship_remaining_quantity',
+            5 => 'tri.ship_remaining_koli',
+            6 => 'fw.name',
+            7 => 'tw.name',
+        ];
+        $orderBy = $columns[$orderColumnIndex] ?? 'tr.date';
+
+        $rows = $query->select(
+                'tr.id as tr_id',
+                'tr.date',
+                'tr.code',
+                'i.sku',
+                'i.nama_barang',
+                'tri.ship_remaining_quantity',
+                'tri.ship_remaining_koli',
+                'fw.name as from_warehouse_name',
+                'tw.name as to_warehouse_name'
+            )
+            ->orderBy($orderBy, $orderDir)
+            ->offset($start)
+            ->limit($length)
+            ->get()
+            ->map(function($r){
+                $r->date = \Carbon\Carbon::parse($r->date)->format('Y-m-d');
+                return $r;
+            });
+
+        return response()->json([
+            'draw' => $draw,
+            'recordsTotal' => $totalRecords,
+            'recordsFiltered' => $totalRecords,
+            'data' => $rows,
+        ]);
+    }
+
     public function getPackingShipments(TransferRequest $transferRequest)
     {
         $shipments = Shipment::query()

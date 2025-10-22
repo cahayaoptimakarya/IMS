@@ -6,14 +6,14 @@
         .doc-wrapper { background:#fff; border:1px solid var(--doc-border); border-radius:.5rem; padding:16px; }
         .doc-header { display:grid; grid-template-columns: 1fr 1fr 260px; gap:10px; align-items:center; margin-bottom:8px; }
         .doc-title { text-align:left; font-weight:700; color:var(--doc-text); letter-spacing:.04em; font-size:14pt; }
-        .doc-meta { border:1px solid var(--doc-border); border-radius:.375rem; padding:8px; font-size:11pt; }
+        .doc-meta { border:1px solid #000; border-radius:.375rem; padding:8px; font-size:11pt; }
         .meta-row{ display:flex; justify-content:space-between; margin-bottom:4px; }
         .meta-label{ color:var(--doc-muted); }
         .meta-value{ color:var(--doc-text); font-weight:600; }
         .sj-code{ font-size:11pt; font-weight:800; letter-spacing:.06em; }
         .title-center{ text-align:center; }
         .dest-label, .dest-value { font-size:11pt; }
-        .no-sj-inline{ margin-top:4px; display:inline-block; padding:3px 7px; border:1.5px solid var(--doc-border); border-radius:.25rem; }
+        .no-sj-inline{ margin-top:4px; display:inline-block; padding:3px 7px; border:1.5px solid #000; border-radius:.25rem; }
         .section-title{ font-weight:700; color:var(--doc-text); margin-bottom:4px; }
         .section-box{ border:1px solid var(--doc-border); border-radius:.375rem; padding:8px; }
         .table-doc{ width:100%; border-collapse:collapse; font-size:11pt; }
