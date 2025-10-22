@@ -5,25 +5,26 @@
         :root { --doc-text:#1f2937; --doc-muted:#6b7280; --doc-border:#d1d5db; }
         .doc-wrapper { background:#fff; border:1px solid var(--doc-border); border-radius:.5rem; padding:16px; }
         .doc-header { display:grid; grid-template-columns: 1fr 1fr 260px; gap:10px; align-items:center; margin-bottom:8px; }
-        .doc-title { text-align:left; font-weight:700; color:var(--doc-text); letter-spacing:.04em; }
-        .doc-meta { border:1px solid var(--doc-border); border-radius:.375rem; padding:10px; font-size:.9rem; }
+        .doc-title { text-align:left; font-weight:700; color:var(--doc-text); letter-spacing:.04em; font-size:14pt; }
+        .doc-meta { border:1px solid var(--doc-border); border-radius:.375rem; padding:8px; font-size:11pt; }
         .meta-row{ display:flex; justify-content:space-between; margin-bottom:4px; }
         .meta-label{ color:var(--doc-muted); }
         .meta-value{ color:var(--doc-text); font-weight:600; }
-        .sj-code{ font-size:1.05rem; font-weight:800; letter-spacing:.06em; }
+        .sj-code{ font-size:11pt; font-weight:800; letter-spacing:.06em; }
         .title-center{ text-align:center; }
+        .dest-label, .dest-value { font-size:11pt; }
         .no-sj-inline{ margin-top:4px; display:inline-block; padding:3px 7px; border:1.5px solid var(--doc-border); border-radius:.25rem; }
         .section-title{ font-weight:700; color:var(--doc-text); margin-bottom:4px; }
         .section-box{ border:1px solid var(--doc-border); border-radius:.375rem; padding:8px; }
-        .table-doc{ width:100%; border-collapse:collapse; font-size:.85rem; }
-        .table-doc th,.table-doc td{ border:1px solid var(--doc-border); padding:6px 8px; vertical-align:top; word-break:break-word; }
+        .table-doc{ width:100%; border-collapse:collapse; font-size:11pt; }
+        .table-doc th,.table-doc td{ border:1px solid #000; padding:6px 8px; vertical-align:top; word-break:break-word; }
         .table-doc thead th{ background:#f9fafb; color:var(--doc-text); font-weight:700; }
         .table-doc tfoot th,.table-doc tfoot td{ background:#fcfcfd; font-weight:700; }
         .doc-ribbon-top{ width:100%; padding:8px 12px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:#111827; border-bottom:1px solid var(--doc-border); border-top-left-radius:.5rem; border-top-right-radius:.5rem; background:#f3f4f6; }
         .no-print{ display:inline-flex; }
         @media print{
             @page { size:A4 portrait; margin:6mm; }
-            html, body{ font-size:10.5px; }
+            html, body{ font-size:11pt; }
             body *{ visibility:hidden; }
             #kt_content, #kt_content *{ visibility:visible; }
             #kt_content{ position:absolute; left:0; top:0; width:100%; }
@@ -31,16 +32,17 @@
             .card-body{ padding:0 !important; }
             .doc-wrapper{ border:none; padding:0; }
             .doc-header{ margin-bottom:6px; gap:6px; grid-template-columns: 1fr 1fr 220px; }
-            .doc-title{ font-size:1rem; }
-            .doc-meta{ padding:5px 6px; font-size:.75rem; }
-            .sj-code{ font-size:.95rem; }
+            .doc-title{ font-size:14pt; }
+            .doc-meta{ padding:5px 6px; font-size:11pt; }
+            .sj-code{ font-size:11pt; }
             .meta-row{ margin-bottom:1px; }
-            .section-title{ margin:6px 0 3px 0; font-size:.95rem; }
+            .section-title{ margin:6px 0 3px 0; font-size:11pt; }
+            .dest-label, .dest-value { font-size:11pt; }
             .section-box{ padding:6px; }
-            .table-doc{ font-size:.78rem; }
+            .table-doc{ font-size:11pt; }
             .table-doc th,.table-doc td{ padding:3px 5px; }
-            .table-doc thead th{ font-size:.8rem; }
-            .table-doc tfoot th,.table-doc tfoot td{ font-size:.8rem; }
+            .table-doc thead th{ font-size:11pt; }
+            .table-doc tfoot th,.table-doc tfoot td{ font-size:11pt; }
             .section-box, .doc-meta{ page-break-inside: avoid; }
             table{ page-break-inside:auto; }
             tr{ page-break-inside:avoid; page-break-after:auto; }
@@ -72,8 +74,8 @@
                 <div class="doc-wrapper">
                     <div class="doc-header">
                         <div>
-                            <div class="" style="margin-bottom:2px;">Kepada</div>
-                            <div class="meta-value" style="font-weight:700">{{ $toWarehouse ?? '-' }}</div>
+                            <div class="dest-label" style="margin-bottom:2px;">Kepada</div>
+                            <div class="meta-value dest-value" style="font-weight:700">{{ $toWarehouse ?? '-' }}</div>
                         </div>
                         <div class="title-center">
                             <div class="doc-title fs-2">SURAT JALAN</div>
@@ -165,7 +167,7 @@
                         {{-- @if(!$isCompleted) --}}
                             <button type="button" class="btn btn-success" onclick="window.print()">Cetak</button>
                         {{-- @else --}}
-                            {{-- <button type="button" class="btn btn-secondary" disabled title="Dokumen completed; tidak bisa cetak surat jalan">Cetak</button> --}}
+                            <button type="button" class="btn btn-secondary" disabled title="Dokumen completed; tidak bisa cetak surat jalan">Cetak</button>
                         {{-- @endif --}}
                     </div>
                 </div>
