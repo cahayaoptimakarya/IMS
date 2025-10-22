@@ -9,6 +9,7 @@ use App\Models\StockInOrder;
 use App\Models\StockInOrderItem;
 use App\Models\Shipment;
 use App\Models\UserActivity;
+use App\Models\ShipmentItemDetail;
 use App\Models\Warehouse;
 use App\Models\Item;
 use App\Models\Inventory;
@@ -197,10 +198,21 @@ class PengadaanController extends Controller
             'items.distributions.toWarehouse',
         ]);
 
-        // Load shipments referencing this Stock In Order (with details)
-        $shipments = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_STOCK_IN_ORDER)
-            ->where('reference_id', $stockInOrder->id)
-            ->with(['itemDetails.item'])
+        // Load shipments referencing this Stock In Order via shipment item details (post-migration)
+        $sioItemIds = $stockInOrder->items->pluck('id');
+        $shipments = Shipment::query()
+            ->where('reference_type', Shipment::REFERENCE_TYPE_STOCK_IN_ORDER)
+            ->whereIn('id', function($q) use ($stockInOrder) {
+                $q->select('sid.shipment_id')
+                  ->from('shipment_item_details as sid')
+                  ->join('stock_in_order_items as sioi', 'sioi.id', '=', 'sid.reference_id')
+                  ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM)
+                  ->where('sioi.stock_in_order_id', $stockInOrder->id);
+            })
+            ->with(['itemDetails' => function($q) use ($sioItemIds) {
+                $q->where('reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM)
+                  ->whereIn('reference_id', $sioItemIds);
+            }, 'itemDetails.item'])
             ->orderBy('shipping_date')
             ->get();
 

@@ -87,7 +87,7 @@
                             @isset($requesterName)
                                 <div class="meta-row"><span class="meta-label">Requester</span><span class="meta-value">{{ $requesterName ?: '-' }}</span></div>
                             @endisset
-                            <div class="meta-row"><span class="meta-label">Pengirim</span><span class="meta-value">{{ $shipment->vehicle_type ?? '-' }}</span></div>
+                            <div class="meta-row"><span class="meta-label">Kendaraan</span><span class="meta-value">{{ $shipment->vehicle_type ?? '-' }}</span></div>
                             <div class="meta-row"><span class="meta-label">No. Polisi</span><span class="meta-value">{{ $shipment->license_plate ?? '-' }}</span></div>
                             <div class="meta-row"><span class="meta-label">Driver</span><span class="meta-value">{{ $shipment->driver_name ?? '-' }}</span></div>
                         </div>
