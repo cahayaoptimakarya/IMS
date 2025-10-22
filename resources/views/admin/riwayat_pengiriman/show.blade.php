@@ -164,11 +164,11 @@
                     @php $isCompleted = in_array(strtolower((string)$shipment->status), ['selesai','completed']); @endphp
                     <div class="d-flex justify-content-between mt-4 no-print">
                         <a href="{{ route('admin.riwayat-pengiriman.index') }}" class="btn btn-light">Kembali</a>
-                        {{-- @if(!$isCompleted) --}}
+                        @if(!$isCompleted)
                             <button type="button" class="btn btn-success" onclick="window.print()">Cetak</button>
-                        {{-- @else --}}
+                        @else
                             <button type="button" class="btn btn-secondary" disabled title="Dokumen completed; tidak bisa cetak surat jalan">Cetak</button>
-                        {{-- @endif --}}
+                        @endif
                     </div>
                 </div>
             </div>
