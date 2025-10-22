@@ -17,6 +17,7 @@ use App\Models\UserActivity;
 use App\Models\Warehouse;
 use App\Models\Employee;
 use App\Models\Vehicle;
+use App\Models\TransferRequestItem;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -759,13 +760,61 @@ class PenerimaanBarangController extends Controller
                     ->where('sid.shipment_id', $linkedShipment ? $linkedShipment->id : 0)
                     ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
                     ->pluck('tri.transfer_request_id')->unique();
+
+                // Update received counters on related TransferRequestItems based on accepted quantities in this GR
+                foreach ($goodsReceipt->details as $d) {
+                    if (!empty($d->shipment_item_id)) {
+                        $sid = ShipmentItemDetail::find($d->shipment_item_id);
+                        if ($sid && $sid->reference_type === ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM) {
+                            $tri = TransferRequestItem::find($sid->reference_id);
+                            if ($tri) {
+                                $accQty = (int) round($d->accepted_quantity ?? $d->received_quantity ?? 0, 0);
+                                $accKoli = round((float) ($d->accepted_koli ?? $d->received_koli ?? 0), 2);
+                                $tri->received_quantity = (float) ($tri->received_quantity ?? 0) + $accQty;
+                                $tri->received_koli = (float) ($tri->received_koli ?? 0) + $accKoli;
+                                // Clamp to requested amounts
+                                if ($tri->quantity !== null && (float)$tri->received_quantity > (float)$tri->quantity) {
+                                    $tri->received_quantity = $tri->quantity;
+                                }
+                                if ($tri->koli !== null && (float)$tri->received_koli > (float)$tri->koli) {
+                                    $tri->received_koli = $tri->koli;
+                                }
+                                $itemComplete = (((float) ($tri->received_quantity ?? 0)) >= (float) ($tri->quantity ?? 0))
+                                    || (((float) ($tri->received_koli ?? 0)) >= (float) ($tri->koli ?? 0));
+                                if ($itemComplete) {
+                                    $tri->status = 'completed';
+                                } elseif (($accQty > 0) || ($accKoli > 0)) {
+                                    $tri->status = 'on_progress';
+                                }
+                                $tri->save();
+                            }
+                        }
+                    }
+                }
                 foreach ($trIds as $trId) {
                     $transferRequest = TransferRequest::find($trId);
                     if ($transferRequest) {
-                        $totalRemainingQty = (float) $transferRequest->items()->sum('remaining_quantity');
-                        $receiptDate = $goodsReceipt->receipt_date ?: now()->toDateString();
-                        $transferRequest->completed_at = $receiptDate;
-                        $transferRequest->status = ($totalRemainingQty <= 0) ? 'completed' : 'on_progress';
+                        $items = $transferRequest->items()->get(['quantity','koli','received_quantity','received_koli']);
+                        $allCompleted = $items->every(function($it){
+                            $qComplete = ((float) ($it->received_quantity ?? 0)) >= (float) ($it->quantity ?? 0);
+                            $kComplete = ((float) ($it->received_koli ?? 0)) >= (float) ($it->koli ?? 0);
+                            return $qComplete || $kComplete;
+                        });
+                        $anyReceived = $items->some(function($it){
+                            return ((float) ($it->received_quantity ?? 0)) > 0 || ((float) ($it->received_koli ?? 0)) > 0;
+                        });
+                        if ($allCompleted) {
+                            $receiptDate = $goodsReceipt->receipt_date ?: now()->toDateString();
+                            if (empty($transferRequest->completed_at)) {
+                                $transferRequest->completed_at = $receiptDate;
+                            }
+                            $transferRequest->status = 'completed';
+                        } else {
+                            // mark on_progress if any has been received
+                            if ($anyReceived) {
+                                $transferRequest->status = 'on_progress';
+                            }
+                        }
                         $transferRequest->save();
                     }
                 }
@@ -883,9 +932,37 @@ class PenerimaanBarangController extends Controller
                         }
                     }
 
-                    // If this shipment belongs to a Transfer Request, and all conditions met,
-                    // set the Transfer Request status to completed (mirror SIO behavior)
+                    // If this shipment belongs to a Transfer Request, update TRI received counters and status
                     if ($shipment->reference_type === Shipment::REFERENCE_TYPE_TRANSFER_REQUEST) {
+                        // Update received counters for TRI based on this GR details
+                        foreach ($goodsReceipt->details as $d) {
+                            if (!empty($d->shipment_item_id)) {
+                                $sid = ShipmentItemDetail::find($d->shipment_item_id);
+                                if ($sid && $sid->reference_type === ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM) {
+                                    $tri = TransferRequestItem::find($sid->reference_id);
+                                    if ($tri) {
+                                        $accQty = (int) round($d->accepted_quantity ?? $d->received_quantity ?? 0, 0);
+                                        $accKoli = round((float) ($d->accepted_koli ?? $d->received_koli ?? 0), 2);
+                                        $tri->received_quantity = (float) ($tri->received_quantity ?? 0) + $accQty;
+                                        $tri->received_koli = (float) ($tri->received_koli ?? 0) + $accKoli;
+                                        if ($tri->quantity !== null && (float)$tri->received_quantity > (float)$tri->quantity) {
+                                            $tri->received_quantity = $tri->quantity;
+                                        }
+                                        if ($tri->koli !== null && (float)$tri->received_koli > (float)$tri->koli) {
+                                            $tri->received_koli = $tri->koli;
+                                        }
+                                        $itemComplete = (((float) ($tri->received_quantity ?? 0)) >= (float) ($tri->quantity ?? 0))
+                                            || (((float) ($tri->received_koli ?? 0)) >= (float) ($tri->koli ?? 0));
+                                        if ($itemComplete) {
+                                            $tri->status = 'completed';
+                                        } elseif (($accQty > 0) || ($accKoli > 0)) {
+                                            $tri->status = 'on_progress';
+                                        }
+                                        $tri->save();
+                                    }
+                                }
+                            }
+                        }
                         // Evaluate completion per each TR linked via shipment details
                         $trIds2 = DB::table('shipment_item_details as sid')
                             ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
@@ -895,7 +972,15 @@ class PenerimaanBarangController extends Controller
                         foreach ($trIds2 as $transferRequestId) {
                             $tr = TransferRequest::find($transferRequestId);
                             if ($tr) {
-                                $remainingTr = (float) $tr->items()->sum('remaining_quantity');
+                                $items = $tr->items()->get(['quantity','koli','received_quantity','received_koli']);
+                                $allCompleted = $items->every(function($it){
+                                    $qComplete = ((float) ($it->received_quantity ?? 0)) >= (float) ($it->quantity ?? 0);
+                                    $kComplete = ((float) ($it->received_koli ?? 0)) >= (float) ($it->koli ?? 0);
+                                    return $qComplete || $kComplete;
+                                });
+                                $anyReceived = $items->some(function($it){
+                                    return ((float) ($it->received_quantity ?? 0)) > 0 || ((float) ($it->received_koli ?? 0)) > 0;
+                                });
                                 // Determine open shipments referencing this TR via details
                                 $hasOpenTrShipments = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
                                     ->where(function($qq) use ($transferRequestId){
@@ -909,16 +994,14 @@ class PenerimaanBarangController extends Controller
                                         $q->whereNull('status')->orWhere('status', '!=', 'selesai');
                                     })
                                     ->exists();
-                                if ($remainingTr <= 0 && !$hasOpenTrShipments) {
+                                if ($allCompleted && !$hasOpenTrShipments) {
                                     $tr->status = 'completed';
-                                    $tr->save();
                                 } else {
-                                    // keep on_progress if any remaining
-                                    if ($remainingTr > 0 && strtolower((string)$tr->status) !== 'on_progress') {
+                                    if ($anyReceived) {
                                         $tr->status = 'on_progress';
-                                        $tr->save();
                                     }
                                 }
+                                $tr->save();
                             }
                         }
                     }

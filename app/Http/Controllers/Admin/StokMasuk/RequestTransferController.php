@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\StokMasuk;
 use App\Http\Controllers\Controller;
 use App\Models\TransferRequest;
 use App\Models\Shipment;
+use App\Models\ShipmentItemDetail;
 use App\Models\GoodsReceipt;
 use App\Models\TransferRequestItem;
 use App\Models\UserActivity;
@@ -229,9 +230,21 @@ class RequestTransferController extends Controller
     {
         $transferRequest->load(['fromWarehouse', 'toWarehouse', 'items', 'items.item', 'requester']);
 
-        $shipments = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
-            ->where('reference_id', $transferRequest->id)
-            ->with(['itemDetails.item'])
+        // Fetch shipments linked to this Transfer Request via shipment_item_details -> transfer_request_items
+        $trItemIds = $transferRequest->items->pluck('id');
+        $shipments = Shipment::query()
+            ->where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
+            ->whereIn('id', function($q) use ($transferRequest) {
+                $q->select('sid.shipment_id')
+                  ->from('shipment_item_details as sid')
+                  ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
+                  ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                  ->where('tri.transfer_request_id', $transferRequest->id);
+            })
+            ->with(['itemDetails' => function($q) use ($trItemIds) {
+                $q->where('reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                  ->whereIn('reference_id', $trItemIds);
+            }, 'itemDetails.item'])
             ->orderBy('shipping_date')
             ->get();
 

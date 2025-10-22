@@ -194,6 +194,60 @@
                         </table>
                     </div>
 
+                    @if (strtolower((string) $transferRequest->status) === 'on_progress')
+                        @php
+                            // Sisa barang yang belum dikirim (berdasarkan ship_remaining_* pada TRI)
+                            $pendingToShip = $transferRequest->items->filter(function($it){
+                                $srq = (float) ($it->ship_remaining_quantity ?? 0);
+                                $srk = (float) ($it->ship_remaining_koli ?? 0);
+                                return ($srq > 0) || ($srk > 0);
+                            });
+                            $totalRemainQty = $pendingToShip->sum(function($it){
+                                return max(0, (float) ($it->ship_remaining_quantity ?? 0));
+                            });
+                            $totalRemainKoli = $pendingToShip->sum(function($it){
+                                return max(0, (float) ($it->ship_remaining_koli ?? 0));
+                            });
+                        @endphp
+
+                        @if($pendingToShip->count())
+                        <div class="section-title mt-8">Sisa Belum Dikirim</div>
+                        <div class="table-responsive">
+                            <table class="table-doc">
+                                <thead>
+                                    <tr>
+                                        <th style="width:160px">SKU</th>
+                                        <th>Item</th>
+                                        <th style="width:140px; text-align:right;">Sisa Qty Kirim</th>
+                                        <th style="width:140px; text-align:right;">Sisa Koli Kirim</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($pendingToShip as $pi)
+                                        @php
+                                            $remainQty = max(0, (float) ($pi->ship_remaining_quantity ?? 0));
+                                            $remainKoli = max(0, (float) ($pi->ship_remaining_koli ?? 0));
+                                        @endphp
+                                        <tr>
+                                            <td>{{ optional($pi->item)->sku ?? '-' }}</td>
+                                            <td>{{ optional($pi->item)->nama_barang ?? '-' }}</td>
+                                            <td style="text-align:right;">{{ number_format($remainQty, 0, ',', '.') }}</td>
+                                            <td style="text-align:right;">{{ number_format($remainKoli, 2, ',', '.') }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="2" style="text-align:right;">Total Sisa Kirim</th>
+                                        <th style="text-align:right;">{{ number_format($totalRemainQty, 0, ',', '.') }}</th>
+                                        <th style="text-align:right;">{{ number_format($totalRemainKoli, 2, ',', '.') }}</th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        @endif
+                    @endif
+
                     <div class="row g-6 mt-8">
                         <div class="col-12">
                             <div class="section-title">Catatan</div>
