@@ -100,9 +100,10 @@ class PenerimaanBarangController extends Controller
 
             $totalFiltered = (clone $query)->count();
 
-            $orderColumnIndex = (int) $request->input('order.0.column', 0);
+            // Default sort by receipt_date desc (latest first)
+            $orderColumnIndex = (int) $request->input('order.0.column', 1);
             $orderColumnName = $columns[$orderColumnIndex] ?? $columns[0];
-            $orderDirection = $request->input('order.0.dir', 'asc');
+            $orderDirection = $request->input('order.0.dir', 'desc');
 
             $data = $query->select(
                 'gr.id',

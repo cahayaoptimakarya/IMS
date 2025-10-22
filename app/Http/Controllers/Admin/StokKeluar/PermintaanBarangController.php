@@ -44,9 +44,10 @@ class PermintaanBarangController extends Controller
                 6 => 'requester_name',
                 7 => 'tr.id',
             ];
-            $orderByColumnIndex = $request->input('order.0.column', 0);
+            // Default sort by date desc to show latest first
+            $orderByColumnIndex = $request->input('order.0.column', 1);
             $orderByColumnName = $columns[$orderByColumnIndex] ?? $columns[0];
-            $orderDirection = $request->input('order.0.dir', 'asc');
+            $orderDirection = $request->input('order.0.dir', 'desc');
 
             $totalRecordsQuery = TransferRequest::query();
             if (auth()->user()->warehouse_id) {

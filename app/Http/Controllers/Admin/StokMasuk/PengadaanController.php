@@ -69,9 +69,10 @@ class PengadaanController extends Controller
                     5 => 'sio.id',
                 ];
             }
-            $orderByColumnIndex = $request->input('order.0.column', 0);
+            // Default sort by date desc to show latest first
+            $orderByColumnIndex = $request->input('order.0.column', 1);
             $orderByColumnName = $columns[$orderByColumnIndex] ?? $columns[0];
-            $orderDirection = $request->input('order.0.dir', 'asc');
+            $orderDirection = $request->input('order.0.dir', 'desc');
 
             // Base query
             $query = StockInOrder::query()
