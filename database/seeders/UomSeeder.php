@@ -15,6 +15,6 @@ class UomSeeder extends Seeder
      */
     public function run()
     {
-        Uom::updateOrCreate(['name' => 'Pieces']);
+        Uom::updateOrCreate(['name' => 'Pieces', 'symbol' => 'pcs']);
     }
 }
