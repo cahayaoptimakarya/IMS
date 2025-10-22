@@ -113,13 +113,55 @@ class LaporanTransferGudangController extends Controller
             'series' => $pieResult->pluck('count'),
         ];
 
+        // Build pending (not yet received) items across filtered transfer requests
+        $pendingItemsQuery = DB::table('transfer_request_items as tri')
+            ->join('transfer_requests as tr', 'tri.transfer_request_id', '=', 'tr.id')
+            ->leftJoin('items as i', 'tri.item_id', '=', 'i.id')
+            ->select([
+                'tr.code as tr_code',
+                'i.sku as sku',
+                'i.nama_barang as item_name',
+                DB::raw('GREATEST(0, (tri.quantity - COALESCE(tri.received_quantity,0))) as remain_qty'),
+                DB::raw('GREATEST(0.0, (tri.koli - COALESCE(tri.received_koli,0))) as remain_koli'),
+                'tr.from_warehouse_id',
+                'tr.to_warehouse_id',
+                'tr.date',
+                'tr.status',
+            ])
+            ->whereBetween('tr.date', [$startDate->toDateString(), $endDate->toDateString()]);
+
+        if (auth()->user() && auth()->user()->warehouse_id) {
+            $wid = auth()->user()->warehouse_id;
+            $pendingItemsQuery->where(function($q) use ($wid) {
+                $q->where('tr.from_warehouse_id', $wid)->orWhere('tr.to_warehouse_id', $wid);
+            });
+        }
+        if (!empty($statusFilter) && $statusFilter !== 'semua') {
+            $pendingItemsQuery->where('tr.status', $statusFilter);
+        }
+        if (!empty($fromWarehouseFilter)) {
+            $pendingItemsQuery->where('tr.from_warehouse_id', $fromWarehouseFilter);
+        }
+        if (!empty($toWarehouseFilter)) {
+            $pendingItemsQuery->where('tr.to_warehouse_id', $toWarehouseFilter);
+        }
+        // Only rows with any remaining to receive
+        $pendingItems = $pendingItemsQuery
+            ->where(function($q){
+                $q->whereRaw('(tri.quantity - COALESCE(tri.received_quantity,0)) > 0')
+                  ->orWhereRaw('(tri.koli - COALESCE(tri.received_koli,0)) > 0');
+            })
+            ->orderByDesc(DB::raw('GREATEST(0, (tri.quantity - COALESCE(tri.received_quantity,0)))'))
+            ->limit(100)
+            ->get();
+
         $warehouses = auth()->user() && auth()->user()->warehouse_id
             ? Warehouse::where('id', auth()->user()->warehouse_id)->get()
             : Warehouse::all();
 
         return view('admin.laporan.laporan-transfer-gudang', compact(
             'stats', 'trendData', 'pieChartData', 'warehouses', 'dateRange', 'statusFilter', 'fromWarehouseFilter', 'toWarehouseFilter',
-            'successRate', 'avgFulfillmentDays', 'topOriginDestination', 'avgItemsPerTransfer', 'agingPending'
+            'successRate', 'avgFulfillmentDays', 'topOriginDestination', 'avgItemsPerTransfer', 'agingPending', 'pendingItems'
         ));
     }
 

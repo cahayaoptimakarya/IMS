@@ -221,6 +221,48 @@
             </div>
         </div>
 
+        <!-- Item Belum Diterima -->
+        <div class="row g-5 g-xl-8 mb-8">
+            <div class="col-xl-12">
+                <div class="card card-xl-stretch mb-5 mb-xl-8">
+                    <div class="card-header border-0 pt-5">
+                        <h3 class="card-title align-items-start flex-column">
+                            <span class="card-label fw-bolder text-dark">Item Belum Diterima</span>
+                            <span class="text-muted mt-1 fw-bold fs-7">Sisa penerimaan per item (Qty & Koli) pada rentang/filter aktif</span>
+                        </h3>
+                    </div>
+                    <div class="card-body pt-5">
+                        <div class="table-responsive">
+                            <table id="table-pending-items" class="table align-middle table-row-dashed fs-7 gy-3">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>Kode TR</th>
+                                        <th>SKU</th>
+                                        <th>Nama Item</th>
+                                        <th class="text-end">Sisa Qty Terima</th>
+                                        <th class="text-end">Sisa Koli Terima</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse (($pendingItems ?? collect()) as $pi)
+                                        <tr>
+                                            <td>{{ $pi->tr_code }}</td>
+                                            <td>{{ $pi->sku ?? '-' }}</td>
+                                            <td>{{ $pi->item_name ?? '-' }}</td>
+                                            <td class="text-end">{{ number_format($pi->remain_qty ?? 0, 0, ',', '.') }}</td>
+                                            <td class="text-end">{{ number_format($pi->remain_koli ?? 0, 2, ',', '.') }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="5" class="text-center text-muted">Tidak ada data sisa penerimaan.</td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Top Origin-Destination Table -->
         <div class="row g-5 g-xl-8 mb-8">
             <div class="col-xl-12">
@@ -388,6 +430,8 @@
 
             // Init first tab immediately; others lazy on tab show
             initTransferTable('#table-pending-approved', 'pending_approved');
+            // Init pending items table (client-side)
+            initPendingItemsTable();
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
                 var target = $(e.target).attr('href');
                 if (target === '#pane-on-progress' && !tables['#table-on-progress']) {
@@ -508,10 +552,29 @@
                     Object.keys(tables).forEach(function(key){
                         if (tables[key]) { tables[key].ajax.reload(); }
                     });
+                    // Re-init pending items table markup from refreshed HTML
+                    if ($.fn.DataTable && $('#table-pending-items').length) {
+                        if ($.fn.DataTable.isDataTable('#table-pending-items')) {
+                            $('#table-pending-items').DataTable().destroy();
+                        }
+                        initPendingItemsTable();
+                    }
                 },
                 complete: function(){
                     loadingEl.remove();
                 }
+            });
+        }
+
+        function initPendingItemsTable(){
+            if (!$.fn.DataTable || !$('#table-pending-items').length) return;
+            $('#table-pending-items').DataTable({
+                paging: true,
+                searching: true,
+                order: [[0,'desc']],
+                columnDefs: [
+                    { targets: [3,4], className: 'text-end' }
+                ]
             });
         }
     </script>
