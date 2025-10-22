@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('code')->unique();
             $table->enum('reference_type', ['transfer request', 'stock in order']);
             $table->date('shipping_date');
-            $table->string('from_warehouse_id');                  
+            $table->string('from_warehouse_id')->nullable();                  
             $table->string('to_warehouse_id');                  
             $table->string('vehicle_type')->nullable();                  
             $table->string('license_plate')->nullable();                  

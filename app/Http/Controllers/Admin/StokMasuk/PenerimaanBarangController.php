@@ -342,8 +342,9 @@ class PenerimaanBarangController extends Controller
             if ($validated['type'] === 'pengadaan') {
                 $shipment = Shipment::create([
                     'code' => $this->generateShipmentCode(),
-                    'reference_id' => $validated['stock_in_order_id'],
                     'reference_type' => Shipment::REFERENCE_TYPE_STOCK_IN_ORDER,
+                    'from_warehouse_id' => null,
+                    'to_warehouse_id' => (string) $validated['warehouse_id'],
                     'shipping_date' => $validated['manual_shipment']['shipping_date'],
                     'vehicle_type' => $validated['manual_shipment']['vehicle_type'],
                     'license_plate' => $validated['manual_shipment']['license_plate'],
@@ -1179,8 +1180,9 @@ class PenerimaanBarangController extends Controller
                 // Create new shipment from manual inputs FIRST
                 $shipment = Shipment::create([
                     'code' => $this->generateShipmentCode(),
-                    'reference_id' => $validated['stock_in_order_id'],
                     'reference_type' => Shipment::REFERENCE_TYPE_STOCK_IN_ORDER,
+                    'from_warehouse_id' => null,
+                    'to_warehouse_id' => (string) $validated['warehouse_id'],
                     'shipping_date' => $validated['manual_shipment']['shipping_date'],
                     'vehicle_type' => $validated['manual_shipment']['vehicle_type'],
                     'license_plate' => $validated['manual_shipment']['license_plate'],
