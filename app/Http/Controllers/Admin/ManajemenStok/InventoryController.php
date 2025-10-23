@@ -23,7 +23,8 @@ class InventoryController extends Controller
 
             $query = Inventory::query()
                 ->join('items', 'inventories.item_id', '=', 'items.id')
-                ->leftJoin('warehouses as w', 'inventories.warehouse_id', '=', 'w.id');
+                ->leftJoin('warehouses as w', 'inventories.warehouse_id', '=', 'w.id')
+                ->leftJoin('uoms as u', 'items.uom_id', '=', 'u.id');
 
             // Scope to user's warehouse by default if set and no explicit filter
             if (auth()->user() && auth()->user()->warehouse_id && ($warehouseFilter === null || $warehouseFilter === '')) {
@@ -61,6 +62,7 @@ class InventoryController extends Controller
                         'items.sku',
                         'items.nama_barang as item_name',
                         'items.koli as per_koli',
+                        DB::raw('MAX(COALESCE(u.symbol, u.name)) as uom_symbol'),
                         DB::raw('SUM(inventories.quantity) as quantity'),
                         DB::raw('SUM(inventories.koli) as koli'),
                     ])
@@ -73,6 +75,7 @@ class InventoryController extends Controller
                         'items.sku',
                         'items.nama_barang as item_name',
                         'items.koli as per_koli',
+                        DB::raw('MAX(COALESCE(u.symbol, u.name)) as uom_symbol'),
                         DB::raw('SUM(inventories.quantity) as quantity'),
                         DB::raw('SUM(inventories.koli) as koli'),
                         DB::raw('MAX(w.name) as warehouse_name'),
@@ -97,6 +100,7 @@ class InventoryController extends Controller
                     'item_name' => $r->item_name,
                     'sku' => $r->sku,
                     'per_koli' => (int) ($r->per_koli ?? 0),
+                    'uom_symbol' => $r->uom_symbol ?? null,
                     'quantity' => (float) ($r->quantity ?? 0),
                     'koli' => (float) ($r->koli ?? 0),
                     'warehouse' => $aggregateAll ? 'Semua Gudang' : ($r->warehouse_name ?? '-'),
