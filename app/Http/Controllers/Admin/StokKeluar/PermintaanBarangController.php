@@ -278,7 +278,8 @@ class PermintaanBarangController extends Controller
             });
 
         if ($userWarehouseId) {
-            $query->where('tr.to_warehouse_id', $userWarehouseId);
+            // User pada Stok Keluar adalah gudang asal (from)
+            $query->where('tr.from_warehouse_id', $userWarehouseId);
         } else {
             $fromWh = $request->query('from_warehouse_id');
             $toWh = $request->query('to_warehouse_id');
@@ -329,8 +330,8 @@ class PermintaanBarangController extends Controller
             });
 
         if (auth()->user() && auth()->user()->warehouse_id) {
-            // When user tied to a warehouse, show requests incoming to user's warehouse
-            $query->where('tr.to_warehouse_id', auth()->user()->warehouse_id);
+            // Pada Stok Keluar, batasi ke gudang asal milik user
+            $query->where('tr.from_warehouse_id', auth()->user()->warehouse_id);
         } else {
             // Optional filters for origin and destination warehouses
             $fromWh = $request->input('from_warehouse_id');

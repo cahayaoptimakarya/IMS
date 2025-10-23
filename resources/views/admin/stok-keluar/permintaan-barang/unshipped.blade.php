@@ -59,7 +59,7 @@
                                         <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" name="from_warehouse_id" id="from_warehouse_filter" data-dropdown-parent="#kt-toolbar-filter" @if($userWarehouseId) disabled @endif>
                                             <option value="">Semua</option>
                                             @foreach(($warehouses ?? []) as $w)
-                                                <option value="{{ $w->id }}" @if(isset($selectedFrom) && (string)$selectedFrom===(string)$w->id) selected @endif>{{ $w->name }}</option>
+                                                <option value="{{ $w->id }}" @if((isset($selectedFrom) && (string)$selectedFrom===(string)$w->id) || (isset($userWarehouseId) && (string)$userWarehouseId===(string)$w->id)) selected @endif>{{ $w->name }}</option>
                                             @endforeach
                                         </select>
                                     </div>
@@ -68,7 +68,7 @@
                                         <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" name="to_warehouse_id" id="to_warehouse_filter" data-dropdown-parent="#kt-toolbar-filter">
                                             <option value="">Semua</option>
                                             @foreach(($warehouses ?? []) as $w)
-                                                <option value="{{ $w->id }}" @if((isset($selectedTo) && (string)$selectedTo===(string)$w->id) || (isset($userWarehouseId) && $userWarehouseId==$w->id)) selected @endif>{{ $w->name }}</option>
+                                                <option value="{{ $w->id }}" @if(isset($selectedTo) && (string)$selectedTo===(string)$w->id) selected @endif>{{ $w->name }}</option>
                                             @endforeach
                                         </select>
                                     </div>
