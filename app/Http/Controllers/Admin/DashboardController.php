@@ -62,17 +62,17 @@ class DashboardController extends Controller
             $invJoin = Inventory::query()
                 ->join('items','inventories.item_id','=','items.id')
                 ->where('inventories.warehouse_id', $warehouseId);
-            $zeroStockItems = (clone $invJoin)->where('inventories.quantity','<=',0)->count();
+            $zeroStockItems = (clone $invJoin)->where('inventories.koli','<=',0)->count();
             $lowStockItems = (clone $invJoin)
-                ->where('inventories.quantity','>',0)
-                ->whereColumn('inventories.quantity','<=','items.low_stock_threshold')
+                ->where('inventories.koli','>',0)
+                ->whereColumn('inventories.koli','<=','items.low_stock_threshold')
                 ->count();
             $optimalStockItems = (clone $invJoin)
-                ->whereColumn('inventories.quantity','>','items.low_stock_threshold')
-                ->whereRaw('inventories.quantity <= (items.low_stock_threshold * ?)', [$overMultiplier])
+                ->whereColumn('inventories.koli','>','items.low_stock_threshold')
+                ->whereRaw('inventories.koli <= (items.low_stock_threshold * ?)', [$overMultiplier])
                 ->count();
             $overStockItems = (clone $invJoin)
-                ->whereRaw('inventories.quantity > (items.low_stock_threshold * ?)', [$overMultiplier])
+                ->whereRaw('inventories.koli > (items.low_stock_threshold * ?)', [$overMultiplier])
                 ->count();
 
             $stockChartData = $this->getStockChartData($warehouseId);
@@ -94,7 +94,7 @@ class DashboardController extends Controller
                 ->get();
             $topLowStocks = Inventory::with('item')
                 ->where('warehouse_id', $warehouseId)
-                ->orderBy('quantity', 'asc')
+                ->orderBy('koli', 'asc')
                 ->take(5)
                 ->get();
 
@@ -138,13 +138,13 @@ class DashboardController extends Controller
 
             // Stock reminders (system-wide) using per-item low_stock_threshold
             $invAll = Inventory::query()->join('items','inventories.item_id','=','items.id');
-            $zeroStockItems = (clone $invAll)->where('inventories.quantity','<=',0)->count();
-            $lowStockItems = (clone $invAll)->where('inventories.quantity','>',0)->whereColumn('inventories.quantity','<=','items.low_stock_threshold')->count();
+            $zeroStockItems = (clone $invAll)->where('inventories.koli','<=',0)->count();
+            $lowStockItems = (clone $invAll)->where('inventories.koli','>',0)->whereColumn('inventories.koli','<=','items.low_stock_threshold')->count();
             $optimalStockItems = (clone $invAll)
-                ->whereColumn('inventories.quantity','>','items.low_stock_threshold')
-                ->whereRaw('inventories.quantity <= (items.low_stock_threshold * ?)', [$overMultiplier])
+                ->whereColumn('inventories.koli','>','items.low_stock_threshold')
+                ->whereRaw('inventories.koli <= (items.low_stock_threshold * ?)', [$overMultiplier])
                 ->count();
-            $overStockItems = (clone $invAll)->whereRaw('inventories.quantity > (items.low_stock_threshold * ?)', [$overMultiplier])->count();
+            $overStockItems = (clone $invAll)->whereRaw('inventories.koli > (items.low_stock_threshold * ?)', [$overMultiplier])->count();
             $stockChartData = $this->getStockChartData(null);
 
             // Stock summary (system-wide)
@@ -155,7 +155,7 @@ class DashboardController extends Controller
             $stockInCompleted = StockInOrder::where('status', 'completed')->count();
 
             $recentMovements = StockMovement::with('item')->latest('id')->take(5)->get();
-            $topLowStocks = Inventory::with('item')->orderBy('quantity', 'asc')->take(5)->get();
+            $topLowStocks = Inventory::with('item')->orderBy('koli', 'asc')->take(5)->get();
 
             return view('admin.dashboard.index', compact(
                 'user',
@@ -252,17 +252,17 @@ class DashboardController extends Controller
             ];
         };
 
-        $out = (clone $base)->where('inventories.quantity','<=',0)->get()->map($mapFn)->values();
+        $out = (clone $base)->where('inventories.koli','<=',0)->get()->map($mapFn)->values();
         $low = (clone $base)
-            ->where('inventories.quantity','>',0)
-            ->whereColumn('inventories.quantity','<=','items.low_stock_threshold')
+            ->where('inventories.koli','>',0)
+            ->whereColumn('inventories.koli','<=','items.low_stock_threshold')
             ->get()->map($mapFn)->values();
         $safe = (clone $base)
-            ->whereColumn('inventories.quantity','>','items.low_stock_threshold')
-            ->whereRaw('inventories.quantity <= (items.low_stock_threshold * ?)', [$overMultiplier])
+            ->whereColumn('inventories.koli','>','items.low_stock_threshold')
+            ->whereRaw('inventories.koli <= (items.low_stock_threshold * ?)', [$overMultiplier])
             ->get()->map($mapFn)->values();
         $over = (clone $base)
-            ->whereRaw('inventories.quantity > (items.low_stock_threshold * ?)', [$overMultiplier])
+            ->whereRaw('inventories.koli > (items.low_stock_threshold * ?)', [$overMultiplier])
             ->get()->map($mapFn)->values();
 
         return response()->json([
