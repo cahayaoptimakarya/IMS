@@ -200,6 +200,9 @@
                 <div class="text-center mb-5">
                     <h3 class="mb-0">Daftar Request Transfer</h3>
                     <small id="filter-info" class="text-muted"></small>
+                    <div class="mt-2">
+                        <a href="#" id="rt-info-link" title="Lihat ringkasan barang Request Transfer: Dalam Packing, Dalam Perjalanan, dan Belum Dikirim">Lihat ringkasan barang Request Transfer (Packing, Dalam Perjalanan, Belum Dikirim)</a>
+                    </div>
                 </div>
                 <div class="dataTables_wrapper dt-bootstrap4 no-footer">
                     <div class="table-responsive min-h-500px">
@@ -607,4 +610,141 @@
         };
     });
 </script>
+
+<!-- Modal: Informasi Request Transfer -->
+<div class="modal fade" id="rtInfoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Informasi Request Transfer</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="nav nav-tabs nav-line-tabs mb-5 fs-6">
+          <li class="nav-item">
+            <a class="nav-link active" data-bs-toggle="tab" href="#tab-rt-packing">Barang Dalam Packing</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-rt-in-transit">Barang Dalam Perjalanan</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" data-bs-toggle="tab" href="#tab-rt-not-shipped">Barang Belum Dikirim</a>
+          </li>
+        </ul>
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="tab-rt-packing" role="tabpanel">
+            <div class="table-responsive">
+              <table class="table align-middle table-row-dashed fs-6 gy-5" id="rt-packing-table">
+                <thead>
+                  <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                    <th>SKU</th>
+                    <th>Barang</th>
+                    <th class="text-end">Qty Packing</th>
+                    <th class="text-end">Koli Packing</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="tab-pane fade" id="tab-rt-in-transit" role="tabpanel">
+            <div class="table-responsive">
+              <table class="table align-middle table-row-dashed fs-6 gy-5" id="rt-in-transit-table">
+                <thead>
+                  <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                    <th>SKU</th>
+                    <th>Barang</th>
+                    <th class="text-end">Qty Dalam Perjalanan</th>
+                    <th class="text-end">Koli Dalam Perjalanan</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="tab-pane fade" id="tab-rt-not-shipped" role="tabpanel">
+            <div class="table-responsive">
+              <table class="table align-middle table-row-dashed fs-6 gy-5" id="rt-not-shipped-table">
+                <thead>
+                  <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                    <th>SKU</th>
+                    <th>Barang</th>
+                    <th class="text-end">Sisa Qty</th>
+                    <th class="text-end">Sisa Koli</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@push('scripts')
+<script>
+  $(function(){
+    const $modal = $('#rtInfoModal');
+    let packingTable = null, inTransitTable = null, notShippedTable = null;
+    $('#rt-info-link').on('click', function(e){ e.preventDefault(); $modal.modal('show'); });
+
+    $modal.on('shown.bs.modal', function(){
+      if (!packingTable) {
+        packingTable = $('#rt-packing-table').DataTable({
+          processing: true,
+          serverSide: true,
+          ajax: { url: "{{ route('admin.stok-masuk.request-transfer.modal.packing') }}" },
+          columns: [
+            { data: 'item.sku', name: 'item.sku' },
+            { data: 'item.nama_barang', name: 'item.nama_barang' },
+            { data: 'qty_packing', name: 'qty_packing', className:'text-end', render: d => Number(d||0).toFixed(2) },
+            { data: 'koli_packing', name: 'koli_packing', className:'text-end', render: d => Number(d||0).toFixed(2) },
+          ],
+          order: [[0,'asc']],
+        });
+      }
+      if (!inTransitTable) {
+        inTransitTable = $('#rt-in-transit-table').DataTable({
+          processing: true,
+          serverSide: true,
+          ajax: { url: "{{ route('admin.stok-masuk.request-transfer.modal.in-transit') }}" },
+          columns: [
+            { data: 'item.sku', name: 'item.sku' },
+            { data: 'item.nama_barang', name: 'item.nama_barang' },
+            { data: 'qty_in_transit', name: 'qty_in_transit', className:'text-end', render: d => Number(d||0).toFixed(2) },
+            { data: 'koli_in_transit', name: 'koli_in_transit', className:'text-end', render: d => Number(d||0).toFixed(2) },
+          ],
+          order: [[0,'asc']],
+        });
+      }
+      if (!notShippedTable) {
+        notShippedTable = $('#rt-not-shipped-table').DataTable({
+          processing: true,
+          serverSide: true,
+          ajax: { url: "{{ route('admin.stok-masuk.request-transfer.modal.not-shipped') }}" },
+          columns: [
+            { data: 'item.sku', name: 'item.sku' },
+            { data: 'item.nama_barang', name: 'item.nama_barang' },
+            { data: 'remaining_qty', name: 'remaining_qty', className:'text-end', render: d => Number(d||0).toFixed(2) },
+            { data: 'remaining_koli', name: 'remaining_koli', className:'text-end', render: d => Number(d||0).toFixed(2) },
+          ],
+          order: [[0,'asc']],
+        });
+      }
+    });
+
+    // Redraw on tab shown to fix column widths
+    $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+      if (packingTable) packingTable.columns.adjust().draw(false);
+      if (inTransitTable) inTransitTable.columns.adjust().draw(false);
+      if (notShippedTable) notShippedTable.columns.adjust().draw(false);
+    });
+  });
+</script>
+@endpush
 @endpush

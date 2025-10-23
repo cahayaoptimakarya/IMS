@@ -111,6 +111,195 @@ class RequestTransferController extends Controller
         return view('admin.stok_masuk.request_transfer.index', compact('warehouses'));
     }
 
+    public function modalInTransitItems(Request $request)
+    {
+        if ($request->ajax()) {
+            $searchValue = $request->input('search.value', '');
+            $start = (int) $request->input('start', 0);
+            $length = (int) $request->input('length', 10);
+            $draw = (int) $request->input('draw', 0);
+
+            $query = DB::table('shipment_item_details as sid')
+                ->join('shipments as s', 's.id', '=', 'sid.shipment_id')
+                ->leftJoin('goods_receipt_details as grd', 'grd.shipment_item_id', '=', 'sid.id')
+                ->leftJoin('goods_receipts as gr', 'gr.id', '=', 'grd.goods_receipt_id')
+                ->leftJoin('items as i', 'i.id', '=', 'sid.item_id')
+                ->join('transfer_request_items as tri', function($j){
+                    $j->on('tri.id', '=', 'sid.reference_id')
+                      ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM);
+                })
+                ->join('transfer_requests as tr', 'tr.id', '=', 'tri.transfer_request_id')
+                ->leftJoin('warehouses as fw', 'fw.id', '=', 's.from_warehouse_id')
+                ->leftJoin('warehouses as tw', 'tw.id', '=', 's.to_warehouse_id')
+                ->select(
+                    'sid.id as shipment_item_id',
+                    'i.sku as item_sku',
+                    'i.nama_barang as item_name',
+                    DB::raw('SUM(COALESCE(grd.received_quantity,0)) as total_received_qty'),
+                    DB::raw('SUM(COALESCE(grd.received_koli,0)) as total_received_koli'),
+                    DB::raw('MAX(sid.quantity_shipped) as quantity_shipped'),
+                    DB::raw('MAX(sid.koli_shipped) as koli_shipped')
+                )
+                ->groupBy('sid.id','i.sku','i.nama_barang');
+
+            // Only shipments that are in transit and from transfer request
+            $query->where('s.status', 'dalam perjalanan')
+                  ->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST);
+
+            // Scope to user's warehouse (destination)
+            if (!is_null(auth()->user()->warehouse_id)) {
+                $query->where('s.to_warehouse_id', auth()->user()->warehouse_id);
+            }
+
+            if (!empty($searchValue)) {
+                $query->having(function($q) use ($searchValue){
+                    $q->where('s.code', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('tr.code', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('i.sku', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('i.nama_barang', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('fw.name', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('tw.name', 'LIKE', "%{$searchValue}%");
+                });
+            }
+
+            // Only items still in transit: shipped > received
+            $rows = $query->get()->map(function($r){
+                $receivedQty = (float) $r->total_received_qty;
+                $shippedQty = (float) $r->quantity_shipped;
+                $qtyOutstanding = max(0, $shippedQty - $receivedQty);
+                $receivedKoli = (float) $r->total_received_koli;
+                $shippedKoli = (float) $r->koli_shipped;
+                $koliOutstanding = max(0, $shippedKoli - $receivedKoli);
+                return [
+                    'item' => ['sku' => $r->item_sku, 'nama_barang' => $r->item_name],
+                    'qty_in_transit' => $qtyOutstanding,
+                    'koli_in_transit' => $koliOutstanding,
+                ];
+            })->filter(function($row){ return ($row['qty_in_transit'] ?? 0) > 0 || ($row['koli_in_transit'] ?? 0) > 0; });
+
+            $total = $rows->count();
+            $paged = $rows->slice($start, $length)->values();
+
+            return response()->json([
+                'draw' => $draw,
+                'recordsTotal' => $total,
+                'recordsFiltered' => $total,
+                'data' => $paged,
+            ]);
+        }
+
+        return response()->json(['data' => []]);
+    }
+
+    public function modalPackingItems(Request $request)
+    {
+        if ($request->ajax()) {
+            $searchValue = $request->input('search.value', '');
+            $start = (int) $request->input('start', 0);
+            $length = (int) $request->input('length', 10);
+            $draw = (int) $request->input('draw', 0);
+
+            $query = DB::table('shipment_item_details as sid')
+                ->join('shipments as s', 's.id', '=', 'sid.shipment_id')
+                ->join('items as i', 'i.id', '=', 'sid.item_id')
+                ->select(
+                    'sid.id as shipment_item_id',
+                    'i.sku as item_sku',
+                    'i.nama_barang as item_name',
+                    DB::raw('MAX(sid.quantity_shipped) as quantity_shipped'),
+                    DB::raw('MAX(sid.koli_shipped) as koli_shipped')
+                )
+                ->where('s.status', 'packing')
+                ->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
+                ->groupBy('sid.id','i.sku','i.nama_barang');
+
+            if (!is_null(auth()->user()->warehouse_id)) {
+                $query->where('s.to_warehouse_id', auth()->user()->warehouse_id);
+            }
+
+            if (!empty($searchValue)) {
+                $query->where(function($q) use ($searchValue){
+                    $q->where('i.sku', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('i.nama_barang', 'LIKE', "%{$searchValue}%");
+                });
+            }
+
+            $rows = $query->offset($start)->limit($length)->get()->map(function($r){
+                return [
+                    'item' => [ 'sku' => $r->item_sku, 'nama_barang' => $r->item_name ],
+                    'qty_packing' => (float) $r->quantity_shipped,
+                    'koli_packing' => (float) $r->koli_shipped,
+                ];
+            });
+
+            $totalRecords = (clone $query)->count();
+
+            return response()->json([
+                'draw' => $draw,
+                'recordsTotal' => $totalRecords,
+                'recordsFiltered' => $totalRecords,
+                'data' => $rows,
+            ]);
+        }
+
+        return response()->json(['data' => []]);
+    }
+    public function modalNotShippedItems(Request $request)
+    {
+        if ($request->ajax()) {
+            $searchValue = $request->input('search.value', '');
+            $start = (int) $request->input('start', 0);
+            $length = (int) $request->input('length', 10);
+            $draw = (int) $request->input('draw', 0);
+
+            // Ambil dari transfer_request_items berdasarkan sisa yang belum dikirim
+            $query = DB::table('transfer_request_items as tri')
+                ->join('transfer_requests as tr', 'tr.id', '=', 'tri.transfer_request_id')
+                ->join('items as i', 'i.id', '=', 'tri.item_id')
+                ->select(
+                    'i.sku as item_sku',
+                    'i.nama_barang as item_name',
+                    DB::raw('COALESCE(tri.ship_remaining_quantity,0) as remaining_qty'),
+                    DB::raw('COALESCE(tri.ship_remaining_koli,0) as remaining_koli')
+                )
+                ->where(function($q){
+                    $q->where('tri.ship_remaining_quantity', '>', 0)
+                      ->orWhere('tri.ship_remaining_koli', '>', 0);
+                });
+
+            if (!is_null(auth()->user()->warehouse_id)) {
+                $query->where('tr.to_warehouse_id', auth()->user()->warehouse_id);
+            }
+
+            if (!empty($searchValue)) {
+                $query->where(function($q) use ($searchValue){
+                    $q->where('i.sku', 'LIKE', "%{$searchValue}%")
+                      ->orWhere('i.nama_barang', 'LIKE', "%{$searchValue}%");
+                });
+            }
+
+            $allRows = $query->get()->map(function($r){
+                return [
+                    'item' => [ 'sku' => $r->item_sku, 'nama_barang' => $r->item_name ],
+                    'remaining_qty' => (float) $r->remaining_qty,
+                    'remaining_koli' => (float) $r->remaining_koli,
+                ];
+            })->values();
+
+            $total = $allRows->count();
+            $paged = $allRows->slice($start, $length)->values();
+
+            return response()->json([
+                'draw' => $draw,
+                'recordsTotal' => $total,
+                'recordsFiltered' => $total,
+                'data' => $paged,
+            ]);
+        }
+
+        return response()->json(['data' => []]);
+    }
+
     public function create()
     {
         $warehouses = Warehouse::all();
