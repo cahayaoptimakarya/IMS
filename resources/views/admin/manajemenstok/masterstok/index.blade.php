@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @push('styles')
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -75,27 +75,13 @@
                         <div class="separator border-gray-200"></div>
                         <div class="px-7 py-5">
                             <div class="mb-10">
-                                <label class="form-label fs-5 fw-bold mb-3">Kategori Item:</label>
-                                <select class="form-select form-select-solid fw-bolder" data-kt-select2="true"
-                                    id="item_category_filter" data-dropdown-parent="#kt-toolbar-filter">
-                                    <option value="">Semua Kategori</option>
-                                    @foreach ($itemCategories as $category)
-                                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                <label class="form-label fs-5 fw-bold mb-3">Gudang:</label>
+                                <select class="form-select form-select-solid fw-bolder" data-kt-select2="true" id="warehouse_filter" data-dropdown-parent="#kt-toolbar-filter">
+                                    <option value="all">Semua Gudang</option>
+                                    @foreach(($warehouses ?? []) as $w)
+                                        <option value="{{ $w->id }}">{{ $w->name }}</option>
                                     @endforeach
                                 </select>
-                            </div>
-                            <div class="mb-10">
-                                <label class="form-label fs-5 fw-bold mb-3">Rentang Tanggal:</label>
-                                <div class="row g-3">
-                                    <div class="col">
-                                        <input type="text" class="form-control form-control-solid" id="date_from"
-                                            placeholder="Mulai" value="{{ $defaultDateFrom }}" autocomplete="off">
-                                    </div>
-                                    <div class="col">
-                                        <input type="text" class="form-control form-control-solid" id="date_to"
-                                            placeholder="Selesai" value="{{ $defaultDateTo }}" autocomplete="off">
-                                    </div>
-                                </div>
                             </div>
                             <div class="d-flex justify-content-end">
                                 <button type="reset" class="btn btn-light btn-active-light-primary me-2"
@@ -116,23 +102,12 @@
                     <div class="table-responsive min-h-500px">
                         <table class="table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer" id="table-on-page">
                             <thead>
-                                 <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                     <th class="min-w-220px" rowspan="2">Item</th>
-                                     <th class="min-w-140px text-center" colspan="2">Saldo Awal</th>
-                                     <th class="min-w-140px text-center" colspan="2">Stok Masuk</th>
-                                     <th class="min-w-140px text-center" colspan="2">Stok Keluar</th>
-                                     <th class="min-w-140px text-center" colspan="2">Stok Akhir</th>
-                                    
-                                </tr>
                                 <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                    <th class="min-w-140px text-center">Qty</th>
-                                    <th class="min-w-140px text-center">Koli</th>
-                                    <th class="min-w-140px text-center">Qty</th>
-                                    <th class="min-w-140px text-center">Koli</th>
-                                    <th class="min-w-140px text-center">Qty</th>
-                                    <th class="min-w-140px text-center">Koli</th>
-                                    <th class="min-w-140px text-center">Qty</th>
-                                    <th class="min-w-140px text-center">Koli</th>
+                                    <th class="min-w-220px">Item</th>
+                                    <th class="min-w-120px text-center">Per Koli</th>
+                                    <th class="min-w-120px text-center">Qty</th>
+                                    <th class="min-w-120px text-center">Koli</th>
+                                    <th class="min-w-180px">Gudang</th>
                                 </tr>
                             </thead>
                             <tbody class="fw-bold text-gray-600"></tbody>
@@ -148,26 +123,9 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const defaultDateFrom = @json($defaultDateFrom);
-            const defaultDateTo = @json($defaultDateTo);
-
             const $searchInput = $('#search_input');
-            const $categoryFilter = $('#item_category_filter');
-            const $dateFrom = $('#date_from');
-            const $dateTo = $('#date_to');
             const $filterInfo = $('#filter-info');
-
-            flatpickr('#date_from', {
-                dateFormat: 'Y-m-d',
-                allowInput: true,
-                defaultDate: $dateFrom.val() || defaultDateFrom,
-            });
-
-            flatpickr('#date_to', {
-                dateFormat: 'Y-m-d',
-                allowInput: true,
-                defaultDate: $dateTo.val() || defaultDateTo,
-            });
+            const $warehouseFilter = $('#warehouse_filter');
 
             let table = null;
 
@@ -193,47 +151,16 @@
                 `;
             };
 
-            const resolveCategoryText = (value) => {
-                if (!value) {
-                    return 'Semua Kategori';
-                }
-                const option = $categoryFilter.find('option:selected');
-                return option.length ? option.text() : 'Semua Kategori';
+            const resolveWarehouseText = () => {
+                const opt = $warehouseFilter.find('option:selected');
+                return opt.length ? opt.text() : 'Semua Gudang';
             };
 
-            const resolveDateText = (from, to) => {
-                if (from && to) {
-                    if (from === to) {
-                        return from;
-                    }
-                    return `${from} s/d ${to}`;
-                }
-                if (from || to) {
-                    return from || to;
-                }
-                return 'Semua Tanggal';
-            };
-
-            const metricKeys = [
-                'opening_qty',
-                'opening_koli',
-                'incoming_qty',
-                'incoming_koli',
-                'outgoing_qty',
-                'outgoing_koli',
-                'closing_qty',
-                'closing_koli',
-            ];
+            const metricKeys = ['quantity','koli'];
 
             const loadDataTable = () => {
-                const categoryValue = $categoryFilter.val();
-                const dateFromValue = $dateFrom.val();
-                const dateToValue = $dateTo.val();
-
-                const categoryText = resolveCategoryText(categoryValue);
-                const dateText = resolveDateText(dateFromValue, dateToValue);
-
-                $filterInfo.text(`Tanggal: ${dateText} | Kategori: ${categoryText}`);
+                const warehouseText = resolveWarehouseText();
+                $filterInfo.text(`Gudang: ${warehouseText}`);
 
                 if ($.fn.DataTable.isDataTable('#table-on-page')) {
                     $('#table-on-page').DataTable().destroy();
@@ -241,10 +168,11 @@
 
                 const columns = [
                     { data: 'item_name', name: 'items.nama_barang' },
+                    { data: 'per_koli', name: 'per_koli', className: 'text-center' },
+                    { data: 'quantity', name: 'quantity', className: 'text-center' },
+                    { data: 'koli', name: 'koli', className: 'text-center' },
+                    { data: 'warehouse', name: 'warehouse' },
                 ];
-                metricKeys.forEach((key) => {
-                    columns.push({ data: key, name: key, orderable: false, searchable: false, className: 'text-center' });
-                });
 
                 table = $('#table-on-page').DataTable({
                     processing: true,
@@ -256,9 +184,7 @@
                         data: function (d) {
                             d.search = d.search || {};
                             d.search.value = $searchInput.val();
-                            d.item_category_filter = categoryValue;
-                            d.date_from = dateFromValue;
-                            d.date_to = dateToValue;
+                            d.warehouse_id = $warehouseFilter.val();
                         },
                     },
                     order: [[0, 'asc']],
@@ -270,13 +196,8 @@
                                 return formatItemCell(data, row.sku);
                             },
                         },
-                        {
-                            targets: metricKeys.map((_, idx) => idx + 1),
-                            render: function (data) {
-                                return formatNumber(data);
-                            },
-                        },
-                    ],
+                        { targets: [1,2,3], render: function (data) { return formatNumber(data); } },
+                        ],
                 });
             };
 
@@ -295,9 +216,7 @@
             });
 
             $('#kt-toolbar-filter [type="reset"]').on('click', function () {
-                $categoryFilter.val('').trigger('change');
-                $dateFrom.val(defaultDateFrom);
-                $dateTo.val(defaultDateTo);
+                $warehouseFilter.val('all').trigger('change');
                 loadDataTable();
             });
 
@@ -309,3 +228,13 @@
         });
     </script>
 @endpush
+
+
+
+
+
+
+
+
+
+

@@ -14,156 +14,104 @@ class InventoryController extends Controller
 {
     public function index(Request $request)
     {
-        $today = Carbon::now();
-        $defaultStart = $today->copy()->startOfMonth();
-        $defaultEnd = $today->copy();
-
         if ($request->ajax()) {
             $searchValue = trim((string) $request->input('search.value', ''));
             $start = (int) $request->input('start', 0);
             $length = (int) $request->input('length', 10);
             $draw = (int) $request->input('draw', 0);
-            $itemCategoryFilter = $request->input('item_category_filter');
-            $dateFromInput = $request->input('date_from');
-            $dateToInput = $request->input('date_to');
+            $warehouseFilter = $request->input('warehouse_id'); // 'all' or specific id
 
-            try {
-                $dateFrom = $dateFromInput ? Carbon::parse($dateFromInput)->startOfDay() : $defaultStart->copy()->startOfDay();
-            } catch (\Throwable $th) {
-                $dateFrom = $defaultStart->copy()->startOfDay();
-            }
-
-            try {
-                $dateTo = $dateToInput ? Carbon::parse($dateToInput)->endOfDay() : $defaultEnd->copy()->endOfDay();
-            } catch (\Throwable $th) {
-                $dateTo = $defaultEnd->copy()->endOfDay();
-            }
-
-            if ($dateFrom->gt($dateTo)) {
-                [$dateFrom, $dateTo] = [$dateTo->copy()->startOfDay(), $dateFrom->copy()->endOfDay()];
-            }
-
-            $baseQuery = Inventory::query()
+            $query = Inventory::query()
                 ->join('items', 'inventories.item_id', '=', 'items.id')
-                ->when($itemCategoryFilter !== null && $itemCategoryFilter !== '', function ($query) use ($itemCategoryFilter) {
-                    $query->where('items.item_category_id', $itemCategoryFilter);
+                ->leftJoin('warehouses as w', 'inventories.warehouse_id', '=', 'w.id');
+
+            // Scope to user's warehouse by default if set and no explicit filter
+            if (auth()->user() && auth()->user()->warehouse_id && ($warehouseFilter === null || $warehouseFilter === '')) {
+                $query->where('inventories.warehouse_id', auth()->user()->warehouse_id);
+            }
+
+            if (!empty($warehouseFilter) && $warehouseFilter !== 'all') {
+                $query->where('inventories.warehouse_id', $warehouseFilter);
+            }
+
+            if (!empty($searchValue)) {
+                $query->where(function ($q) use ($searchValue) {
+                    $q->where('items.nama_barang', 'like', "%{$searchValue}%")
+                      ->orWhere('items.sku', 'like', "%{$searchValue}%");
                 });
+            }
 
-            $totalRecords = (clone $baseQuery)->distinct('inventories.item_id')->count('inventories.item_id');
+            // Aggregate: if all warehouses selected (or no filter and user has no warehouse), sum across all warehouses per item
+            $aggregateAll = (empty($warehouseFilter) || $warehouseFilter === 'all') && (auth()->user()->warehouse_id === null);
 
-            $filteredQuery = (clone $baseQuery)
-                ->when($searchValue !== '', function ($query) use ($searchValue) {
-                    $query->where(function ($inner) use ($searchValue) {
-                        $inner->where('items.nama_barang', 'like', "%{$searchValue}%")
-                            ->orWhere('items.sku', 'like', "%{$searchValue}%");
-                    });
+            // Build base (no search) and filtered (with search) for correct counts
+            $baseForCount = (clone $query);
+            $filteredForCount = (clone $query);
+            if (!empty($searchValue)) {
+                $filteredForCount->where(function ($q) use ($searchValue) {
+                    $q->where('items.nama_barang', 'like', "%{$searchValue}%")
+                      ->orWhere('items.sku', 'like', "%{$searchValue}%");
                 });
+            }
 
-            $recordsFiltered = (clone $filteredQuery)->distinct('inventories.item_id')->count('inventories.item_id');
+            if ($aggregateAll) {
+                $dataQuery = (clone $query)
+                    ->select([
+                        'items.id as item_id',
+                        'items.sku',
+                        'items.nama_barang as item_name',
+                        'items.koli as per_koli',
+                        DB::raw('SUM(inventories.quantity) as quantity'),
+                        DB::raw('SUM(inventories.koli) as koli'),
+                    ])
+                    ->groupBy('items.id', 'items.sku', 'items.nama_barang', 'items.koli');
+            } else {
+                // Specific warehouse: sum per item within that warehouse
+                $dataQuery = (clone $query)
+                    ->select([
+                        'items.id as item_id',
+                        'items.sku',
+                        'items.nama_barang as item_name',
+                        'items.koli as per_koli',
+                        DB::raw('SUM(inventories.quantity) as quantity'),
+                        DB::raw('SUM(inventories.koli) as koli'),
+                        DB::raw('MAX(w.name) as warehouse_name'),
+                    ])
+                    ->groupBy('items.id', 'items.sku', 'items.nama_barang', 'items.koli');
+            }
 
-            $dataQuery = $filteredQuery
-                ->select([
-                    'items.id as item_id',
-                    'items.sku',
-                    'items.nama_barang as item_name',
-                    DB::raw('SUM(inventories.quantity) as quantity'),
-                    DB::raw('SUM(inventories.koli) as koli'),
-                ])
-                ->groupBy('items.id', 'items.sku', 'items.nama_barang')
-                ->addSelect([
-                    'within_qty' => StockMovement::query()
-                        ->selectRaw('COALESCE(SUM(quantity),0)')
-                        ->whereColumn('stock_movements.item_id', 'items.id')
-                        ->whereBetween('date', [$dateFrom->copy(), $dateTo->copy()]),
-                    'within_koli' => StockMovement::query()
-                        ->selectRaw('COALESCE(SUM(koli),0)')
-                        ->whereColumn('stock_movements.item_id', 'items.id')
-                        ->whereBetween('date', [$dateFrom->copy(), $dateTo->copy()]),
-                    'incoming_qty' => StockMovement::query()
-                        ->selectRaw('COALESCE(SUM(quantity),0)')
-                        ->whereColumn('stock_movements.item_id', 'items.id')
-                        ->whereBetween('date', [$dateFrom->copy(), $dateTo->copy()])
-                        ->where('quantity', '>', 0),
-                    'incoming_koli' => StockMovement::query()
-                        ->selectRaw('COALESCE(SUM(koli),0)')
-                        ->whereColumn('stock_movements.item_id', 'items.id')
-                        ->whereBetween('date', [$dateFrom->copy(), $dateTo->copy()])
-                        ->where('quantity', '>', 0),
-                    'outgoing_qty' => StockMovement::query()
-                        ->selectRaw('COALESCE(SUM(ABS(quantity)),0)')
-                        ->whereColumn('stock_movements.item_id', 'items.id')
-                        ->whereBetween('date', [$dateFrom->copy(), $dateTo->copy()])
-                        ->where('quantity', '<', 0),
-                    'outgoing_koli' => StockMovement::query()
-                        ->selectRaw('COALESCE(SUM(ABS(koli)),0)')
-                        ->whereColumn('stock_movements.item_id', 'items.id')
-                        ->whereBetween('date', [$dateFrom->copy(), $dateTo->copy()])
-                        ->where('quantity', '<', 0),
-                    'after_qty' => StockMovement::query()
-                        ->selectRaw('COALESCE(SUM(quantity),0)')
-                        ->whereColumn('stock_movements.item_id', 'items.id')
-                        ->where('date', '>', $dateTo->copy()),
-                    'after_koli' => StockMovement::query()
-                        ->selectRaw('COALESCE(SUM(koli),0)')
-                        ->whereColumn('stock_movements.item_id', 'items.id')
-                        ->where('date', '>', $dateTo->copy()),
-                ]);
-
+            // counts by distinct items to align with grouping
+            $totalRecords = (clone $baseForCount)->distinct('items.id')->count('items.id');
+            $filteredRecords = (clone $filteredForCount)->distinct('items.id')->count('items.id');
             $orderDirection = strtolower($request->input('order.0.dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
-            $data = $dataQuery
+            $rows = $dataQuery
                 ->orderBy('items.nama_barang', $orderDirection)
                 ->offset($start)
                 ->limit($length)
-                ->get()
-                ->map(function ($row) {
-                    $quantity = (float) $row->quantity;
-                    $koli = (float) $row->koli;
-                    $withinQty = (float) ($row->within_qty ?? 0);
-                    $withinKoli = (float) ($row->within_koli ?? 0);
-                    $afterQty = (float) ($row->after_qty ?? 0);
-                    $afterKoli = (float) ($row->after_koli ?? 0);
-                    $incomingQty = (float) ($row->incoming_qty ?? 0);
-                    $incomingKoli = (float) ($row->incoming_koli ?? 0);
-                    $outgoingQty = (float) ($row->outgoing_qty ?? 0);
-                    $outgoingKoli = (float) ($row->outgoing_koli ?? 0);
+                ->get();
 
-                    $closingQty = $quantity - $afterQty;
-                    $closingKoli = $koli - $afterKoli;
-
-                    $openingQty = $closingQty - $withinQty;
-                    $openingKoli = $closingKoli - $withinKoli;
-
-                    return [
-                        'item_id' => (int) $row->item_id,
-                        'item_name' => $row->item_name,
-                        'sku' => $row->sku,
-                        'opening_qty' => round($openingQty, 2),
-                        'opening_koli' => round($openingKoli, 2),
-                        'incoming_qty' => round($incomingQty, 2),
-                        'incoming_koli' => round($incomingKoli, 2),
-                        'outgoing_qty' => round($outgoingQty, 2),
-                        'outgoing_koli' => round($outgoingKoli, 2),
-                        'closing_qty' => round($closingQty, 2),
-                        'closing_koli' => round($closingKoli, 2),
-                    ];
-                })
-                ->values();
+            $data = $rows->map(function ($r) use ($aggregateAll) {
+                return [
+                    'item_id' => (int) $r->item_id,
+                    'item_name' => $r->item_name,
+                    'sku' => $r->sku,
+                    'per_koli' => (int) ($r->per_koli ?? 0),
+                    'quantity' => (float) ($r->quantity ?? 0),
+                    'koli' => (float) ($r->koli ?? 0),
+                    'warehouse' => $aggregateAll ? 'Semua Gudang' : ($r->warehouse_name ?? '-'),
+                ];
+            });
 
             return response()->json([
                 'draw' => $draw,
                 'recordsTotal' => $totalRecords,
-                'recordsFiltered' => $recordsFiltered,
+                'recordsFiltered' => $filteredRecords,
                 'data' => $data,
             ]);
         }
 
-        $itemCategories = ItemCategory::all();
-
-        return view('admin.manajemenstok.masterstok.index', [
-            'itemCategories' => $itemCategories,
-            'defaultDateFrom' => $defaultStart->toDateString(),
-            'defaultDateTo' => $defaultEnd->toDateString(),
-        ]);
+        $warehouses = \App\Models\Warehouse::orderBy('name')->get();
+        return view('admin.manajemenstok.masterstok.index', compact('warehouses'));
     }
 }
