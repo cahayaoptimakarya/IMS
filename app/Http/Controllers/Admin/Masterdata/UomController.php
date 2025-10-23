@@ -35,10 +35,11 @@ class UomController extends Controller
         try {
             $request->validate([
                 'name' => 'required|string|max:255|unique:uoms',
+                'symbol' => 'required|string|max:50|unique:uoms',
                 'description' => 'nullable|string',
             ]);
 
-            $uom = Uom::create($request->all());
+            $uom = Uom::create($request->only(['name','symbol','description']));
 
             UserActivity::create([
                 'user_id' => Auth::id(),
@@ -80,10 +81,11 @@ class UomController extends Controller
         try {
             $request->validate([
                 'name' => 'required|string|max:255|unique:uoms,name,' . $uom->id,
+                'symbol' => 'required|string|max:50|unique:uoms,symbol,' . $uom->id,
                 'description' => 'nullable|string',
             ]);
 
-            $uom->update($request->all());
+            $uom->update($request->only(['name','symbol','description']));
 
             UserActivity::create([
                 'user_id' => Auth::id(),

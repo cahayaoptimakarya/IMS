@@ -29,6 +29,16 @@
                         @enderror
                     </div>
                     <div class="fv-row mb-3">
+                        <label for="symbol" class="form-label required">Symbol</label>
+                        <input type="text" class="form-control form-control-solid @error('symbol') is-invalid @enderror" id="symbol" name="symbol" value="{{ old('symbol', $uom->symbol) }}"
+                            required>
+                        @error('symbol')
+                            <span class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </span>
+                        @enderror
+                    </div>
+                    <div class="fv-row mb-3">
                         <label for="description" class="form-label">Deskripsi</label>
                         <textarea class="form-control form-control-solid @error('description') is-invalid @enderror" id="description" name="description">{{ old('description', $uom->description) }}</textarea>
                         @error('description')
