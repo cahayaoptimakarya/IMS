@@ -72,9 +72,14 @@ class DefectController extends Controller
                 ->leftJoin('items as i', 'd.item_id', '=', 'i.id')
                 ->leftJoin('users as u', 'd.created_by', '=', 'u.id');
 
-            // Scope to user's warehouse if set
+            // Scope/filter by warehouse
             if (!is_null(auth()->user()->warehouse_id)) {
                 $query->where('d.warehouse_id', auth()->user()->warehouse_id);
+            } else {
+                $warehouseFilter = $request->input('warehouse_id');
+                if (!empty($warehouseFilter)) {
+                    $query->where('d.warehouse_id', $warehouseFilter);
+                }
             }
 
             $totalRecords = (clone $query)->count('d.id');
@@ -152,7 +157,128 @@ class DefectController extends Controller
             ]);
         }
 
-        return view('admin.manajemenstok.defects.index');
+        $warehouses = collect();
+        if (is_null(auth()->user()->warehouse_id)) {
+            $warehouses = Warehouse::select('id','name')->orderBy('name')->get();
+        }
+        return view('admin.manajemenstok.defects.index', compact('warehouses'));
+    }
+
+    public function stockSummary(Request $request)
+    {
+        if ($request->ajax()) {
+            $searchValue = $request->input('search.value', '');
+            if (is_array($searchValue)) {
+                $searchValue = $searchValue['value'] ?? '';
+            }
+            $manualSearch = $request->input('search');
+            if (is_string($manualSearch) && $manualSearch !== '') {
+                $searchValue = $manualSearch;
+            }
+
+            $start = (int) $request->input('start', 0);
+            $length = (int) $request->input('length', 10);
+            $draw = (int) $request->input('draw', 0);
+
+            $showWarehouse = is_null(auth()->user()->warehouse_id);
+            $warehouseFilter = $request->input('warehouse_id');
+
+            $columns = [
+                0 => 'i.sku',
+                1 => 'i.nama_barang',
+            ];
+            if ($showWarehouse) {
+                $columns[2] = 'w.name';
+                $columns[3] = 'total_defect_qty';
+                $columns[4] = 'disposed_qty';
+                $columns[5] = 'returned_qty';
+                $columns[6] = 'ending_defect_qty';
+            } else {
+                $columns[2] = 'total_defect_qty';
+                $columns[3] = 'disposed_qty';
+                $columns[4] = 'returned_qty';
+                $columns[5] = 'ending_defect_qty';
+            }
+
+            $orderByColumnIndex = (int) $request->input('order.0.column', 0);
+            $orderByColumnName = $columns[$orderByColumnIndex] ?? 'i.nama_barang';
+            $orderDirection = $request->input('order.0.dir', 'asc') === 'desc' ? 'desc' : 'asc';
+
+            $base = Defect::query()
+                ->from('defects as d')
+                ->leftJoin('items as i', 'd.item_id', '=', 'i.id')
+                ->leftJoin('warehouses as w', 'd.warehouse_id', '=', 'w.id')
+                ->where('d.status', 'approved');
+
+            if (!$showWarehouse) {
+                $base->where('d.warehouse_id', auth()->user()->warehouse_id);
+            } elseif (!empty($warehouseFilter)) {
+                $base->where('d.warehouse_id', $warehouseFilter);
+            }
+
+            $selects = [
+                'i.id as item_id',
+                'i.nama_barang as item_name',
+                'i.sku as item_sku',
+                DB::raw("SUM(CASE WHEN d.status = 'approved' THEN d.quantity ELSE 0 END) as total_defect_qty"),
+                DB::raw("SUM(CASE WHEN d.status = 'approved' AND d.action = 'disposal' AND d.action_status = 'completed' THEN d.quantity ELSE 0 END) as disposed_qty"),
+                DB::raw("SUM(CASE WHEN d.status = 'approved' AND d.action = 'return_to_stock' AND d.action_status = 'completed' THEN d.quantity ELSE 0 END) as returned_qty"),
+            ];
+
+            if ($showWarehouse) {
+                $selects[] = 'w.id as warehouse_id';
+                $selects[] = 'w.name as warehouse_name';
+            }
+
+            $query = (clone $base)->select($selects);
+
+            if ($showWarehouse) {
+                $query->groupBy('i.id', 'i.nama_barang', 'i.sku', 'w.id', 'w.name');
+            } else {
+                $query->groupBy('i.id', 'i.nama_barang', 'i.sku');
+            }
+
+            if (!empty($searchValue)) {
+                $query->where(function ($q) use ($searchValue) {
+                    $q->where('i.nama_barang', 'LIKE', "%{$searchValue}%")
+                        ->orWhere('i.sku', 'LIKE', "%{$searchValue}%");
+                });
+            }
+
+            $totalRecordsQuery = (clone $query);
+            $totalRecords = $totalRecordsQuery->get()->count();
+
+            $query->orderBy($orderByColumnName, $orderDirection);
+
+            $rows = $query->offset($start)->limit($length)->get();
+
+            $data = $rows->map(function ($r) use ($showWarehouse) {
+                $total = (float) ($r->total_defect_qty ?? 0);
+                $disposed = (float) ($r->disposed_qty ?? 0);
+                $returned = (float) ($r->returned_qty ?? 0);
+                $ending = $total - $disposed - $returned;
+                return [
+                    'item' => [
+                        'nama_barang' => $r->item_name,
+                        'sku' => $r->item_sku,
+                    ],
+                    'warehouse' => $showWarehouse ? ['name' => ($r->warehouse_name ?? '-') ] : null,
+                    'total_defect_qty' => $total,
+                    'disposed_qty' => $disposed,
+                    'returned_qty' => $returned,
+                    'ending_defect_qty' => $ending,
+                ];
+            });
+
+            return response()->json([
+                'draw' => $draw,
+                'recordsTotal' => (int) $totalRecords,
+                'recordsFiltered' => (int) $totalRecords,
+                'data' => $data,
+            ]);
+        }
+
+        return response()->json(['data' => []]);
     }
 
     public function create()

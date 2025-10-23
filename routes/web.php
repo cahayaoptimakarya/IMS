@@ -141,6 +141,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::post('adjustment/{adjustment}/update-status', [AdjustmentController::class, 'updateStatus'])->name('adjustment.updateStatus');
         Route::resource('defects', DefectController::class)->except(['show','destroy']);
         Route::get('defects/status-counts', [DefectController::class, 'getStatusCounts'])->name('defects.status-counts');
+        Route::get('defects/stock-summary', [DefectController::class, 'stockSummary'])->name('defects.stock-summary');
         Route::post('defects/{defect}/approve', [DefectController::class, 'approve'])->name('defects.approve');
         Route::post('defects/{defect}/action', [DefectController::class, 'updateAction'])->name('defects.action');
         Route::post('defects/{defect}/action/complete', [DefectController::class, 'completeAction'])->name('defects.action.complete');

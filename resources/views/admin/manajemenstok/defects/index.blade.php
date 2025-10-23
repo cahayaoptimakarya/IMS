@@ -137,40 +137,99 @@
                 </div>
             </div>
             <div class="card-body pt-4">
-                <div class="d-flex align-items-center justify-content-between mb-5">
-                    <div class="d-flex align-items-center gap-3">
-                        <select id="status_filter" class="form-select form-select-solid" style="width:220px">
-                            <option value="semua">Semua Status</option>
-                            <option value="pending">Pending</option>
-                            <option value="approved">Approved</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
-                        <input class="form-control form-control-solid" placeholder="Pilih Tanggal" id="date_filter"
-                            style="width:220px" />
-                    </div>
-                </div>
-                <div class="table-responsive min-h-500px">
-                    <table class="table align-middle table-row-dashed fs-6 gy-5" id="defects-table">
-                        <thead>
-                            <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                <th>Kode</th>
-                                <th>Tanggal</th>
+                <ul class="nav nav-tabs nav-line-tabs mb-5 fs-6">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#tab-documents">Dokumen</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#tab-stock">Stok Defect</a>
+                    </li>
+                </ul>
+                <div class="tab-content" id="defectTabs">
+                    <div class="tab-pane fade show active" id="tab-documents" role="tabpanel">
+                        <div class="d-flex align-items-center justify-content-between mb-5">
+                            <div class="d-flex align-items-center gap-3">
+                                <select id="status_filter" class="form-select form-select-solid" style="width:220px">
+                                    <option value="semua">Semua Status</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                                <input class="form-control form-control-solid" placeholder="Pilih Tanggal" id="date_filter" style="width:220px" />
                                 @if (is_null(auth()->user()->warehouse_id))
-                                    <th>Gudang</th>
+                                <select id="warehouse_filter" class="form-select form-select-solid" style="width:260px">
+                                    <option value="">Semua Gudang</option>
+                                    @foreach(($warehouses ?? collect()) as $wh)
+                                        <option value="{{ $wh->id }}">{{ $wh->name }}</option>
+                                    @endforeach
+                                </select>
                                 @endif
-                                <th>Barang</th>
-                                <th>Jumlah</th>
-                                <th>Koli</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                                <th>Action Status</th>
-                                <th>Dicatat Oleh</th>
-                                <th class="text-end">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="fw-bold text-gray-600">
-                        </tbody>
-                    </table>
+                            </div>
+                        </div>
+                        <div class="table-responsive min-h-500px">
+                            <table class="table align-middle table-row-dashed fs-6 gy-5" id="defects-table">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>Kode</th>
+                                        <th>Tanggal</th>
+                                        @if (is_null(auth()->user()->warehouse_id))
+                                            <th>Gudang</th>
+                                        @endif
+                                        <th>Barang</th>
+                                        <th>Jumlah</th>
+                                        <th>Koli</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                        <th>Action Status</th>
+                                        <th>Dicatat Oleh</th>
+                                        <th class="text-end">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="fw-bold text-gray-600"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="tab-stock" role="tabpanel">
+                        <div class="d-flex align-items-center justify-content-between mb-5">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="d-flex align-items-center position-relative my-1">
+                                    <span class="svg-icon svg-icon-1 position-absolute ms-6">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                            <rect opacity="0.5" x="17.0365" y="15.1223" width="8.15546" height="2" rx="1" transform="rotate(45 17.0365 15.1223)" fill="black"></rect>
+                                            <path d="M11 19C6.55556 19 3 15.4444 3 11C3 6.55556 6.55556 3 11 3C15.4444 3 19 6.55556 19 11C19 15.4444 15.4444 19 11 19ZM11 5C7.53333 5 5 7.53333 5 11C5 14.4667 7.53333 17 11 17C14.4667 17 17 14.4667 17 11C17 7.53333 14.4667 5 11 5Z" fill="black"></path>
+                                        </svg>
+                                    </span>
+                                    <input type="text" id="stock_search_input" class="form-control form-control-solid w-250px ps-15" placeholder="Cari Barang (SKU/Nama)">
+                                </div>
+                                @if (is_null(auth()->user()->warehouse_id))
+                                <select id="stock_warehouse_filter" class="form-select form-select-solid" style="width:260px">
+                                    <option value="">Semua Gudang</option>
+                                    @foreach(($warehouses ?? collect()) as $wh)
+                                        <option value="{{ $wh->id }}">{{ $wh->name }}</option>
+                                    @endforeach
+                                </select>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="table-responsive min-h-500px">
+                            <table class="table align-middle table-row-dashed fs-6 gy-5" id="defects-stock-table">
+                                <thead>
+                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                        <th>SKU</th>
+                                        <th>Barang</th>
+                                        @if (is_null(auth()->user()->warehouse_id))
+                                            <th>Gudang</th>
+                                        @endif
+                                        <th>Total Defect</th>
+                                        <th>Disposal</th>
+                                        <th>Return Stock</th>
+                                        <th>Stok Defect Akhir</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="fw-bold text-gray-600"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -317,6 +376,7 @@
                         d['search.value'] = $('#search_input').val();
                         d['status'] = $('#status_filter').val();
                         d['date'] = $('#date_filter').val();
+                        d['warehouse_id'] = $('#warehouse_filter').val();
                     }
                 },
                 columns: columns,
@@ -350,7 +410,63 @@
             $('#date_filter').on('change', function() {
                 table.draw();
             });
+            $('#warehouse_filter').on('change', function() {
+                table.draw();
+            });
 
+            // Stock summary table (init on first show)
+            let stockTable = null;
+            const initStockTable = function(){
+                if (stockTable) return;
+                const stockShowWarehouse = {{ auth()->user()->warehouse_id === null ? 'true' : 'false' }};
+                let stockColumns = [
+                    { data: 'item.sku', name: 'i.sku' },
+                    { data: 'item.nama_barang', name: 'i.nama_barang' },
+                ];
+                if (stockShowWarehouse) {
+                    stockColumns.push({ data: 'warehouse.name', name: 'w.name' });
+                }
+                stockColumns = stockColumns.concat([
+                    { data: 'total_defect_qty', name: 'total_defect_qty', className: 'text-end', render: d => Number(d||0).toFixed(2) },
+                    { data: 'disposed_qty', name: 'disposed_qty', className: 'text-end', render: d => Number(d||0).toFixed(2) },
+                    { data: 'returned_qty', name: 'returned_qty', className: 'text-end', render: d => Number(d||0).toFixed(2) },
+                    { data: 'ending_defect_qty', name: 'ending_defect_qty', className: 'text-end', render: d => Number(d||0).toFixed(2) },
+                ]);
+
+                stockTable = $('#defects-stock-table').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    ajax: {
+                        url: "{{ route('admin.manajemenstok.defects.stock-summary') }}",
+                        data: function(d){
+                            d['search.value'] = $('#stock_search_input').val();
+                            d['warehouse_id'] = $('#stock_warehouse_filter').val();
+                        }
+                    },
+                    columns: stockColumns,
+                    order: [ [0, 'asc'] ],
+                });
+
+                const debounce2 = (callback, wait) => {
+                    let timeoutId = null;
+                    return (...args) => {
+                        window.clearTimeout(timeoutId);
+                        timeoutId = window.setTimeout(() => { callback.apply(null, args); }, wait);
+                    };
+                }
+                $('#stock_search_input').on('keyup', debounce2(function(){
+                    stockTable.draw();
+                }, 400));
+                $('#stock_warehouse_filter').on('change', function(){
+                    stockTable.draw();
+                });
+            };
+
+            // Hook to tab change
+            $('a[data-bs-toggle="tab"][href="#tab-stock"]').on('shown.bs.tab', function(){
+                initStockTable();
+            });
+        
             @if (Session::has('success'))
                 toastr.success("{{ session('success') }}");
             @endif
