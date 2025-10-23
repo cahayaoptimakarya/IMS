@@ -1,5 +1,37 @@
 @extends('layouts.app')
 
+@push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        /* Ensure flatpickr calendar overlays inside modal and menus */
+        .flatpickr-calendar { z-index: 200000 !important; }
+        /* Polish pack modal spacing */
+        #packModal .modal-body { padding-top: .75rem; }
+        #pm_new_shipment_fields .section-title { font-weight: 600; font-size: .95rem; }
+
+        /* Improve contrast for inputs inside modal */
+        #packModal .form-control.form-control-solid,
+        #packModal .form-select.form-select-solid {
+            background-color: #ffffff !important;
+            border: 1px solid #DDE2E8 !important;
+            color: #1F2937 !important;
+        }
+        #packModal .form-control.form-control-solid::placeholder {
+            color: #94A3B8 !important;
+        }
+        #packModal .input-group-text {
+            background-color: #F4F6F8 !important;
+            border: 1px solid #DDE2E8 !important;
+            color: #64748B !important;
+        }
+        #packModal .form-control:focus, #packModal .form-select:focus {
+            background-color: #ffffff !important;
+            border-color: #3B82F6 !important;
+            box-shadow: 0 0 0 .2rem rgba(59,130,246,.15) !important;
+        }
+    </style>
+@endpush
+
 @push('toolbar')
     @include('layouts.partials._toolbar', [
         'title' => 'Permintaan Barang - Belum Dikirim',
@@ -189,6 +221,10 @@
 @endpush
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+@endpush
+
+@push('scripts')
 <div class="modal fade" id="packModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
@@ -209,43 +245,64 @@
           </div>
         </div>
         <hr/>
-        <div class="row g-4">
-          <div class="col-md-4">
+        <div class="row g-4 align-items-end">
+          <div class="col-md-4 col-sm-6">
             <label class="form-label">Qty</label>
             <input type="number" min="0" step="1" id="pm_qty" class="form-control form-control-solid" value="0">
           </div>
-          <div class="col-md-4">
+          <div class="col-md-4 col-sm-6">
             <label class="form-label">Koli</label>
             <input type="number" min="0" step="0.01" id="pm_koli" class="form-control form-control-solid" value="0">
           </div>
-          <div class="col-md-4">
+          <div class="col-md-4 col-12">
             <label class="form-label">Shipment (Packing)</label>
             <select id="pm_shipment" class="form-select form-select-solid">
               <option value="">Memuat...</option>
             </select>
-            <div id="pm_new_shipment_fields" class="mt-3" style="display:none;">
-              <div class="text-muted mb-2">Buat Shipment Baru</div>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">Tanggal Kirim</label>
-                  <input type="date" id="pm_ship_date" class="form-control form-control-solid" />
+          </div>
+        </div>
+        <div id="pm_new_shipment_fields" class="mt-4" style="display:none;">
+          <div class="rounded border p-3 bg-light">
+            <div class="section-title text-muted mb-3">Buat Shipment Baru</div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">Tanggal Kirim</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                  <input type="text" id="pm_ship_date" class="form-control form-control-solid" placeholder="Pilih tanggal" autocomplete="off" />
                 </div>
-                <div class="col-md-6">
-                  <label class="form-label">Tipe Kendaraan</label>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Tipe Kendaraan</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="fas fa-truck"></i></span>
                   <input type="text" id="pm_vehicle_type" class="form-control form-control-solid" placeholder="Jenis kendaraan" />
                 </div>
-                <div class="col-md-6">
-                  <label class="form-label">No. Polisi</label>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">No. Polisi</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="fas fa-id-card"></i></span>
                   <input type="text" id="pm_license" class="form-control form-control-solid" placeholder="B 1234 XX" />
                 </div>
-                <div class="col-md-6">
-                  <label class="form-label">Driver</label>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Driver</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="fas fa-user"></i></span>
                   <input type="text" id="pm_driver" class="form-control form-control-solid" placeholder="Nama driver" />
                 </div>
-                <div class="col-md-12">
-                  <label class="form-label">Keterangan</label>
-                  <input type="text" id="pm_desc" class="form-control form-control-solid" placeholder="Catatan (opsional)" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Kontak Driver (opsional)</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                  <input type="text" id="pm_driver_contact" class="form-control form-control-solid" placeholder="No. HP / kontak" />
                 </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Keterangan</label>
+                <input type="text" id="pm_desc" class="form-control form-control-solid" placeholder="Catatan (opsional)" />
               </div>
             </div>
           </div>
@@ -317,8 +374,40 @@
 
     // Toggle new shipment fields
     $(document).on('change', '#pm_shipment', function(){
-      if ($(this).val()==='new') { $('#pm_new_shipment_fields').slideDown(120); }
-      else { $('#pm_new_shipment_fields').slideUp(120); }
+      if ($(this).val()==='new') {
+        $('#pm_new_shipment_fields').slideDown(120, function(){
+          const input = modalEl.querySelector('#pm_ship_date');
+          if (input) {
+            input.focus();
+            if (window.flatpickr && input._flatpickr) {
+              const fp = input._flatpickr;
+              if (fp.altInput || fp._input) { fp.set('positionElement', fp.altInput || fp._input); }
+              fp.open();
+            }
+          }
+        });
+      } else {
+        $('#pm_new_shipment_fields').slideUp(120);
+      }
+    });
+
+    // Init flatpickr when modal is shown to avoid hidden container issues
+    modalEl.addEventListener('shown.bs.modal', function(){
+      if (!window.flatpickr) return;
+      const input = modalEl.querySelector('#pm_ship_date');
+      if (!input) return;
+      if (input._flatpickr) { input._flatpickr.destroy(); }
+      const fp = flatpickr(input, {
+        dateFormat: 'Y-m-d',
+        altInput: true,
+        altFormat: 'd M Y',
+        allowInput: true,
+        disableMobile: true,
+        appendTo: document.body
+      });
+      if (fp && (fp.altInput || fp._input)) {
+        fp.set('positionElement', fp.altInput || fp._input);
+      }
     });
 
     // Auto conversion between qty and koli
@@ -375,7 +464,7 @@
               payload.vehicle_type = $('#pm_vehicle_type').val();
               payload.license_plate = $('#pm_license').val();
               payload.driver_name = $('#pm_driver').val();
-              payload.driver_contact = $('#pm_driver').val();
+              payload.driver_contact = $('#pm_driver_contact').val() || '';
               payload.description = $('#pm_desc').val();
             } else {
               // Read from selected option data-*
