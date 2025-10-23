@@ -206,7 +206,8 @@
                     { data: 'code', name: 's.code' },
                     { data: 'shipping_date', name: 's.shipping_date' },
                     { data: null, orderable: false, searchable: false, render: function(data){
-                        return `<span class="badge badge-light">${data.reference_type}</span> ${data.reference_code || '-'};`;
+                        const type = data.reference_type || '-';
+                        return `<span class="badge badge-light">${type}</span>`;
                     }},
                     { data: null, orderable: false, searchable: true, render: function(data){
                         // render From -> To

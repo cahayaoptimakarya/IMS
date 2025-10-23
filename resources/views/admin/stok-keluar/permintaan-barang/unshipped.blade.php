@@ -88,10 +88,18 @@
                 </div>
 
                 <!-- Title (screen) -->
-                <div class="text-center mb-4 screen-header">
+                <div class="text-center mb-2 screen-header">
                     <div class="fw-bolder" style="font-size:1.1rem;">Daftar barang belum dikirim</div>
                     <div class="text-muted" id="filters_summary" style="font-size:.9rem;">
                         Gudang Asal: <span id="sum_from">Semua</span> | Gudang Tujuan: <span id="sum_to">Semua</span>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" id="bulk_pack_btn" class="btn btn-primary d-none">
+                            <i class="fas fa-box-open me-1"></i> Packing (<span id="bulk_selected_count">0</span>)
+                        </button>
+                        <small id="bulk_pack_hint" class="text-muted d-none">Pilih item dari Transfer Request yang sama.</small>
                     </div>
                 </div>
 
@@ -109,6 +117,7 @@
                     <table id="unshipped_table" class="table align-middle table-row-dashed fs-6 gy-5">
                         <thead>
                             <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                                <th class="no-print-col" style="width:36px;"><input type="checkbox" id="select_all_rows"></th>
                                 <th>Tanggal</th>
                                 <th>Kode TR</th>
                                 <th>SKU</th>
@@ -122,7 +131,8 @@
                         </thead>
                         <tbody class="fw-bold text-gray-600">
                             @forelse(($pendingItems ?? []) as $row)
-                                <tr>
+                                <tr data-tr-id="{{ $row->tr_id }}" data-tr-code="{{ $row->code }}" data-from-id="{{ $row->from_warehouse_id }}" data-to-id="{{ $row->to_warehouse_id }}" data-tri-id="{{ $row->tri_id }}" data-item-id="{{ $row->item_id }}" data-sku="{{ $row->sku }}" data-name="{{ $row->nama_barang }}" data-ratio="{{ (float)($row->item_koli_ratio ?? 1) }}" data-rem-qty="{{ (int)($row->ship_remaining_quantity ?? 0) }}" data-rem-koli="{{ (float)($row->ship_remaining_koli ?? 0) }}">
+                                    <td class="no-print-col"><input type="checkbox" class="row-select"></td>
                                     <td>{{ \Carbon\Carbon::parse($row->date)->format('Y-m-d') }}</td>
                                     <td><a href="{{ route('admin.stok-keluar.permintaan-barang.show', $row->tr_id) }}" class="text-primary fw-bold">{{ $row->code }}</a></td>
                                     <td>{{ $row->sku }}</td>
@@ -192,6 +202,41 @@
 
         // Simple print
         $('#print_btn').on('click', function(){ window.print(); });
+
+        // Bulk selection handling
+        function refreshBulkUI(){
+            const $rows = $('#unshipped_table tbody tr');
+            const selected = $rows.find('input.row-select:checked').closest('tr');
+            const count = selected.length;
+            if (count === 0){
+                $('#bulk_pack_btn').addClass('d-none');
+                $('#bulk_pack_hint').addClass('d-none');
+                $('#bulk_selected_count').text('0');
+                return;
+            }
+            $('#bulk_selected_count').text(count);
+            // Multi TR didukung: cukup tampilkan tombol aktif jika ada pilihan
+            $('#bulk_pack_btn').removeClass('d-none').prop('disabled', false);
+            $('#bulk_pack_hint').addClass('d-none');
+        }
+        $('#select_all_rows').on('change', function(){
+            const checked = $(this).is(':checked');
+            $('#unshipped_table tbody input.row-select').prop('checked', checked);
+            refreshBulkUI();
+        });
+        $(document).on('change', '#unshipped_table tbody input.row-select', function(){
+            if (!$(this).is(':checked')) $('#select_all_rows').prop('checked', false);
+            refreshBulkUI();
+        });
+
+        // Bulk packing modal open
+        $('#bulk_pack_btn').on('click', function(){
+            const selected = $('#unshipped_table tbody tr').has('input.row-select:checked');
+            if (selected.length === 0) return;
+            const trId = selected.first().data('tr-id');
+            const trCode = selected.first().data('tr-code');
+            BulkPack.open(trId, trCode, selected);
+        });
     });
 </script>
 <style>
@@ -222,6 +267,231 @@
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+@endpush
+
+@push('scripts')
+<!-- Bulk Pack Modal (single shipment) -->
+<div class="modal fade" id="bulkPackModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Packing Massal</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3 align-items-end mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Pilih Shipment (Packing)</label>
+            <select id="bp_shipment" class="form-select form-select-solid"><option value="">Memuat...</option></select>
+          </div>
+        </div>
+        <div id="bp_new_shipment_fields" class="mt-2" style="display:none;">
+          <div class="rounded border p-3 bg-light">
+            <div class="section-title text-muted mb-3">Buat Shipment Baru</div>
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label">Tanggal Kirim</label><div class="input-group"><span class="input-group-text"><i class="fas fa-calendar-alt"></i></span><input type="text" id="bp_ship_date" class="form-control form-control-solid" placeholder="Pilih tanggal" autocomplete="off"></div></div>
+              <div class="col-md-4"><label class="form-label">Tipe Kendaraan</label><div class="input-group"><span class="input-group-text"><i class="fas fa-truck"></i></span><input type="text" id="bp_vehicle_type" class="form-control form-control-solid" placeholder="Jenis kendaraan"></div></div>
+              <div class="col-md-4"><label class="form-label">No. Polisi</label><div class="input-group"><span class="input-group-text"><i class="fas fa-id-card"></i></span><input type="text" id="bp_license" class="form-control form-control-solid" placeholder="B 1234 XX"></div></div>
+              <div class="col-md-6"><label class="form-label">Driver</label><div class="input-group"><span class="input-group-text"><i class="fas fa-user"></i></span><input type="text" id="bp_driver" class="form-control form-control-solid" placeholder="Nama driver"></div></div>
+              <div class="col-md-6"><label class="form-label">Kontak Driver (opsional)</label><div class="input-group"><span class="input-group-text"><i class="fas fa-phone"></i></span><input type="text" id="bp_driver_contact" class="form-control form-control-solid" placeholder="No. HP / kontak"></div></div>
+              <div class="col-12"><label class="form-label">Keterangan</label><input type="text" id="bp_desc" class="form-control form-control-solid" placeholder="Catatan (opsional)"></div>
+            </div>
+          </div>
+        </div>
+        <div class="table-responsive mt-4">
+          <table class="table align-middle table-row-dashed fs-6" id="bp_items_table">
+            <thead>
+              <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
+                <th>Kode TR</th>
+                <th>SKU</th>
+                <th>Nama Item</th>
+                <th class="text-end">Sisa Qty</th>
+                <th class="text-end">Sisa Koli</th>
+                <th class="text-end">Qty Kirim</th>
+                <th class="text-end">Koli Kirim</th>
+                <th class="text-center">Max</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Tutup</button>
+        <button type="button" class="btn btn-primary" id="bp_save">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const BulkPack = (function(){
+    let modalEl = document.getElementById('bulkPackModal');
+    let bsModal = null;
+    let rows = [];
+    let firstTrId = null; let fromToKey = null;
+    function show(){ if (!bsModal) bsModal = new bootstrap.Modal(modalEl); bsModal.show(); }
+    function warn(msg){ if (window.toastr) toastr.error(msg); else alert(msg); }
+    function open(_trId, _trCode, $selectedRows){
+      // Build flat rows and validate same from/to
+      rows = [];
+      const fromToSet = new Set();
+      $selectedRows.each(function(){
+        const $r = $(this);
+        const trId = $r.data('tr-id');
+        const trCode = $r.data('tr-code');
+        const fromId = $r.data('from-id');
+        const toId = $r.data('to-id');
+        fromToSet.add(`${fromId}:${toId}`);
+        rows.push({ trId, trCode, triId: $r.data('tri-id'), itemId: $r.data('item-id'), sku: $r.data('sku'), name: $r.data('name'), ratio: parseFloat($r.data('ratio')||1), remQty: parseInt($r.data('rem-qty')||0), remKoli: parseFloat($r.data('rem-koli')||0) });
+      });
+      if (fromToSet.size > 1){ return warn('Pilih item dengan gudang asal/tujuan yang sama untuk digabung ke satu shipment.'); }
+      fromToKey = Array.from(fromToSet)[0] || null;
+      firstTrId = rows[0]?.trId || null;
+      // Render items table
+      const tb = rows.map(r => `
+        <tr data-tr-id="${r.trId}" data-tri-id="${r.triId}" data-item-id="${r.itemId}" data-ratio="${r.ratio}" data-rem-qty="${r.remQty}" data-rem-koli="${r.remKoli}">
+          <td>${r.trCode}</td>
+          <td>${r.sku}</td>
+          <td>${r.name}</td>
+          <td class="text-end">${r.remQty.toLocaleString('id-ID')}</td>
+          <td class="text-end">${r.remKoli.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+          <td class="text-end"><input type="number" min="0" step="1" class="form-control form-control-sm bp-qty" style="max-width:120px; margin-left:auto;"></td>
+          <td class="text-end"><input type="number" min="0" step="0.01" class="form-control form-control-sm bp-koli" style="max-width:120px; margin-left:auto;"></td>
+          <td class="text-center"><button type="button" class="btn btn-sm btn-light bp-max">Max</button></td>
+        </tr>`).join('');
+      $('#bp_items_table tbody').html(tb);
+      // Load packing shipments based on first TR
+      $('#bp_shipment').html('<option value="">Memuat...</option>');
+      $.get(`{{ url('admin/stok-keluar/permintaan-barang') }}/${firstTrId}/packing-shipments`, function(list){
+        let html = '<option value="">Pilih Shipment</option>';
+        html += '<option value="new">+ Buat Shipment Baru</option>';
+        if (Array.isArray(list)){
+          list.forEach(function(s){
+            const label = (s.code||'-') + ' - ' + (s.shipping_date||'');
+            html += `<option value="${s.id}" data-date="${s.shipping_date||''}" data-vehicle="${s.vehicle_type||''}" data-license="${s.license_plate||''}" data-driver-name="${s.driver_name||''}" data-driver-contact="${s.driver_contact||''}" data-desc="${s.description||''}">${label}</option>`;
+          });
+        }
+        $('#bp_shipment').html(html);
+      });
+      show();
+    }
+    $(document).on('change', '#bp_shipment', function(){
+      const val=$(this).val();
+      if (val==='new') {
+        $('#bp_new_shipment_fields').slideDown(120);
+        // Init flatpickr for bulk pack date field
+        const input = document.getElementById('bp_ship_date');
+        if (input) {
+          try { if (input._flatpickr) { input._flatpickr.destroy(); } } catch(e){}
+          const fp = flatpickr(input, {
+            dateFormat: 'Y-m-d',
+            altInput: true,
+            altFormat: 'd M Y',
+            allowInput: true,
+            disableMobile: true,
+            appendTo: document.body
+          });
+          if (fp && (fp.altInput || fp._input)) {
+            fp.set('positionElement', fp.altInput || fp._input);
+          }
+        }
+      } else {
+        $('#bp_new_shipment_fields').slideUp(120);
+      }
+    });
+    function clamp(val, min, max){ val = isNaN(val)?0:val; if (typeof max==='number') val = Math.min(val, max); if (typeof min==='number') val = Math.max(val, min); return val; }
+    $(document).on('input','.bp-qty', function(){ const $tr=$(this).closest('tr'); const ratio=parseFloat($tr.data('ratio')||1); const remQty=parseInt($tr.data('rem-qty')||0); let qty=parseInt($(this).val()||0); qty=clamp(qty,0,remQty); $(this).val(qty); if(ratio>0){ let koli=qty/ratio; const remKoli=parseFloat($tr.data('rem-koli')||0); koli=clamp(koli,0,remKoli); $tr.find('.bp-koli').val(koli.toFixed(2)); } });
+    $(document).on('input','.bp-koli', function(){ const $tr=$(this).closest('tr'); const ratio=parseFloat($tr.data('ratio')||1); const remKoli=parseFloat($tr.data('rem-koli')||0); let koli=parseFloat($(this).val()||0); koli=clamp(koli,0,remKoli); $(this).val(koli); if(ratio>0){ let qty=koli*ratio; const remQty=parseInt($tr.data('rem-qty')||0); qty=clamp(qty,0,remQty); $tr.find('.bp-qty').val(Math.round(qty)); } });
+    // Max button per baris: isi qty/koli ke maksimum yang konsisten dengan ratio dan batas sisa
+    $(document).on('click', '.bp-max', function(){
+      const $tr = $(this).closest('tr');
+      const ratio = parseFloat($tr.data('ratio')||1);
+      const remQty = parseInt($tr.data('rem-qty')||0);
+      const remKoli = parseFloat($tr.data('rem-koli')||0);
+      // Target qty maksimum yang masih konsisten dengan batas koli
+      let maxQtyByKoli = ratio > 0 ? Math.floor(remKoli * ratio) : remQty;
+      let qtyFinal = Math.min(remQty, maxQtyByKoli);
+      qtyFinal = isFinite(qtyFinal) ? qtyFinal : 0;
+      let koliFinal = ratio > 0 ? (qtyFinal / ratio) : remKoli;
+      // Clamp ke batas akhir
+      koliFinal = Math.min(koliFinal, remKoli);
+      $tr.find('.bp-qty').val(qtyFinal);
+      $tr.find('.bp-koli').val((koliFinal||0).toFixed(2));
+    });
+
+    $(document).on('click','#bp_save', function(){
+      const shipSel = $('#bp_shipment').val();
+      if (!shipSel) return warn('Pilih shipment (packing) atau buat baru.');
+      const csrf = $('meta[name=csrf-token]').attr('content');
+      // Build items per TR
+      const itemsByTr = {};
+      let any=false;
+      $('#bp_items_table tbody tr').each(function(){
+        const trId = $(this).data('tr-id'); const triId=$(this).data('tri-id'); const itemId=$(this).data('item-id'); const qty=parseInt($(this).find('.bp-qty').val()||0); const koli=parseFloat($(this).find('.bp-koli').val()||0);
+        if (qty>0 || koli>0){ if(!itemsByTr[trId]) itemsByTr[trId]={}; itemsByTr[trId][triId] = { item_id:itemId, quantity:qty, koli:koli }; any=true; }
+      });
+      if (!any) return warn('Isi qty/koli untuk minimal satu item.');
+
+      function submitWithShipmentId(shipmentId, headerData){
+        const reqs=[]; Object.entries(itemsByTr).forEach(([trId, items])=>{
+          const payload = Object.assign({ shipment_id: shipmentId, items }, headerData||{});
+          reqs.push($.ajax({ url: `{{ url('admin/stok-keluar/permintaan-barang') }}/${trId}/create-shipment`, type:'POST', headers:{'X-CSRF-TOKEN': csrf }, data: payload }));
+        });
+        $.when.apply($, reqs).done(function(){ Swal.fire('Berhasil','Packing massal tersimpan.','success').then(()=>{ location.reload(); }); }).fail(function(xhr){ let msg='Gagal menyimpan.'; if (xhr?.responseJSON?.message) msg=xhr.responseJSON.message; Swal.fire('Error', msg, 'error'); });
+      }
+
+      const runSave = function(){
+        if (shipSel === 'new'){
+          // Create once on first TR, then reuse latest shipment for same route
+          if (!$('#bp_ship_date').val() || !$('#bp_vehicle_type').val() || !$('#bp_license').val()) return warn('Isi Tanggal, Tipe Kendaraan, dan No. Polisi.');
+          const header = { shipping_date: $('#bp_ship_date').val(), vehicle_type: $('#bp_vehicle_type').val(), license_plate: $('#bp_license').val(), driver_name: $('#bp_driver').val()||'', driver_contact: $('#bp_driver_contact').val()||'', description: $('#bp_desc').val()||'' };
+          // Create with first TR, with its subset items
+          const firstItems = itemsByTr[firstTrId] || {};
+          if (Object.keys(firstItems).length===0) return warn('Isi qty/koli pada salah satu item dari TR pertama.');
+          const payloadFirst = Object.assign({ shipment_id: null, items: firstItems }, header);
+          $.ajax({ url: `{{ url('admin/stok-keluar/permintaan-barang') }}/${firstTrId}/create-shipment`, type: 'POST', headers:{'X-CSRF-TOKEN': csrf}, data: payloadFirst })
+            .done(function(){
+              // Fetch latest packing shipment for first TR and reuse
+              $.get(`{{ url('admin/stok-keluar/permintaan-barang') }}/${firstTrId}/packing-shipments`, function(list){
+                if (!Array.isArray(list) || list.length===0) { return Swal.fire('Error','Tidak dapat menemukan shipment baru.','error'); }
+                // Find by shipping_date match
+                const match = list.find(s => (s.shipping_date||'') === header.shipping_date);
+                const chosen = match || list[0];
+                const reuseId = chosen.id;
+                // Remove firstTr from itemsByTr for remaining
+                delete itemsByTr[firstTrId];
+                if (Object.keys(itemsByTr).length===0){ Swal.fire('Berhasil','Packing tersimpan.','success').then(()=>{ location.reload(); }); return; }
+                // Reuse same header data so validation terpenuhi
+                submitWithShipmentId(reuseId, header);
+              }).fail(function(){ Swal.fire('Error','Gagal mengambil data shipment.','error'); });
+            })
+            .fail(function(xhr){ let msg='Gagal membuat shipment baru.'; if (xhr?.responseJSON?.message) msg=xhr.responseJSON.message; Swal.fire('Error', msg, 'error'); });
+        } else {
+          // Existing shipment id
+          const opt = $('#bp_shipment option:selected');
+          const header = {
+            shipping_date: opt.data('date')||'',
+            vehicle_type: opt.data('vehicle')||'',
+            license_plate: opt.data('license')||'',
+            driver_name: opt.data('driver-name')||'',
+            driver_contact: opt.data('driver-contact')||'',
+            description: opt.data('desc')||''
+          };
+          submitWithShipmentId($('#bp_shipment').val(), header);
+        }
+      };
+
+      // Konfirmasi SweetAlert sebelum submit
+      if (window.Swal){
+        Swal.fire({ text:'Apakah Anda yakin ingin menyimpan packing massal?', icon:'question', showCancelButton:true, confirmButtonText:'Ya, Simpan', cancelButtonText:'Batal', buttonsStyling:false, customClass:{confirmButton:'btn btn-primary', cancelButton:'btn btn-light'} }).then(function(res){ if(res.isConfirmed){ runSave(); } });
+      } else {
+        if (confirm('Apakah Anda yakin ingin menyimpan packing massal?')) runSave();
+      }
+    });
+    return { open };
+  })();
+</script>
 @endpush
 
 @push('scripts')

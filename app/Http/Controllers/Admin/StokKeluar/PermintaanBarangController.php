@@ -291,6 +291,8 @@ class PermintaanBarangController extends Controller
                 'tr.id as tr_id',
                 'tr.code',
                 'tr.date',
+                'tr.from_warehouse_id',
+                'tr.to_warehouse_id',
                 'tri.item_id',
                 DB::raw('COALESCE(i.koli, 1) as item_koli_ratio'),
                 DB::raw('tri.id as tri_id'),
