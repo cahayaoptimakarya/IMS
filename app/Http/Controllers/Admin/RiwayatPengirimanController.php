@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\SuratJalanExport;
 
 class RiwayatPengirimanController extends Controller
 {
@@ -231,6 +233,36 @@ class RiwayatPengirimanController extends Controller
             ->get();
 
         return view('admin.riwayat_pengiriman.show', compact('shipment', 'referenceCode', 'fromWarehouse', 'toWarehouse', 'receipts'));
+    }
+
+    public function exportExcel(Shipment $shipment)
+    {
+        $shipment->load(['itemDetails.item', 'fromWarehouse', 'toWarehouse']);
+
+        $referenceCode = null;
+        if ($shipment->reference_type === Shipment::REFERENCE_TYPE_TRANSFER_REQUEST) {
+            $codes = DB::table('shipment_item_details as sid')
+                ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
+                ->join('transfer_requests as tr', 'tr.id', '=', 'tri.transfer_request_id')
+                ->where('sid.shipment_id', $shipment->id)
+                ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                ->pluck('tr.code');
+            $referenceCode = $codes->unique()->implode(', ');
+        } else {
+            $codes = DB::table('shipment_item_details as sid')
+                ->join('stock_in_order_items as sioi', 'sioi.id', '=', 'sid.reference_id')
+                ->join('stock_in_orders as sio', 'sio.id', '=', 'sioi.stock_in_order_id')
+                ->where('sid.shipment_id', $shipment->id)
+                ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_STOCK_IN_ORDER_ITEM)
+                ->pluck('sio.code');
+            $referenceCode = $codes->unique()->implode(', ');
+        }
+
+        $fromWarehouse = optional($shipment->fromWarehouse)->name;
+        $toWarehouse = optional($shipment->toWarehouse)->name;
+
+        $filename = 'Surat-Jalan-' . ($shipment->code ?: ('shipment-' . $shipment->id)) . '.xlsx';
+        return Excel::download(new SuratJalanExport($shipment, $referenceCode, $fromWarehouse, $toWarehouse), $filename);
     }
 
     public function edit(Shipment $shipment)

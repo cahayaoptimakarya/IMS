@@ -179,6 +179,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
     Route::get('/admin/riwayat-pengiriman/{shipment}/edit', [RiwayatPengirimanController::class, 'edit'])->name('admin.riwayat-pengiriman.edit');
     Route::put('/admin/riwayat-pengiriman/{shipment}', [RiwayatPengirimanController::class, 'update'])->name('admin.riwayat-pengiriman.update');
     Route::get('/admin/riwayat-pengiriman/{shipment}', [RiwayatPengirimanController::class, 'show'])->name('admin.riwayat-pengiriman.show');
+    Route::get('/admin/riwayat-pengiriman/{shipment}/export-excel', [RiwayatPengirimanController::class, 'exportExcel'])->name('admin.riwayat-pengiriman.export-excel');
 
     Route::prefix('admin/laporan')->name('admin.laporan.')->group(function () {
         Route::get('laporan-stok', [LaporanStokController::class, 'index'])->name('laporanstok.index');
