@@ -7,8 +7,58 @@
     ])
 @endpush
 
+@push('styles')
+    <style>
+        .status-card-icon .symbol-label { background: #F3E8FF; }
+        .status-card-icon i { color: #7C3AED; }
+        .status-metrics { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+        .status-metrics .metric { text-align: center; min-width: 88px; }
+        .status-metrics .chip { display: inline-block; padding: 6px 12px; border-radius: 10px; font-weight: 700; font-size: 1rem; line-height: 1; }
+        .chip-success { background: #ECFDF5; color: #10B981; }
+        .chip-danger { background: #FEE2E2; color: #EF4444; }
+        @media (max-width: 576px) { .status-metrics { justify-content: flex-start; } .status-metrics .metric { min-width: 70px; } }
+    </style>
+@endpush
+
 @section('content')
     <div class="content flex-row-fluid" id="kt_content">
+        <!-- Status Card (separate from table card) -->
+        <div class="row g-5 g-xl-8">
+            <div class="col-12">
+                <div class="card card-xl-stretch mb-xl-8">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap">
+                            <div class="d-flex align-items-center mb-4 mb-md-0">
+                                <div class="symbol symbol-50px me-5 status-card-icon">
+                                    <div class="symbol-label">
+                                        <i class="fas fa-bell fs-2x"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-dark fw-bolder fs-5 mb-1">Status Reorder Point</div>
+                                    <div class="text-muted fw-bold">Ringkasan kondisi stok terhadap ROP</div>
+                                </div>
+                            </div>
+                            <div class="status-metrics">
+                                <div class="metric">
+                                    <div class="chip chip-danger" id="status_reorder">
+                                        <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
+                                    </div>
+                                    <div class="text-muted fs-8 mt-1">Perlu Reorder</div>
+                                </div>
+                                <div class="metric">
+                                    <div class="chip chip-success" id="status_ok">
+                                        <div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>
+                                    </div>
+                                    <div class="text-muted fs-8 mt-1">Aman</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header border-0 pt-6">
                 <div class="card-title">
@@ -65,6 +115,10 @@
                 </div>
             </div>
             <div class="card-body pt-0">
+                <div class="text-center mb-5">
+                    <h3 class="mb-0">Daftar Reorder Point</h3>
+                    <small id="filter-info" class="text-muted"></small>
+                </div>
                 <div class="alert alert-light-primary border p-5 mb-7">
                     <div class="d-flex align-items-start">
                         <span class="svg-icon svg-icon-2 me-3 text-primary"><i class="fas fa-info-circle"></i></span>
@@ -154,7 +208,30 @@ $(function(){
         const n = parseFloat(v||0); return isNaN(n) ? '0' : n.toLocaleString('id-ID', { maximumFractionDigits: 2 });
     };
 
+    const resolveText = (sel, def) => {
+        const $opt = sel.find('option:selected');
+        return $opt.length ? $opt.text() : def;
+    };
+
+    const loadStatusCounts = () => {
+        $.get(`{{ route('admin.manajemenstok.reorder-point.status-counts') }}`, {
+            warehouse_id: $wh.val(),
+            category_id: $cat.val()
+        }).done(function(res){
+            $('#status_reorder').text(res.reorder ?? 0);
+            $('#status_ok').text(res.ok ?? 0);
+        }).fail(function(){
+            $('#status_reorder').text('0');
+            $('#status_ok').text('0');
+        });
+    };
+
     const load = () => {
+        const whText = resolveText($wh, 'Semua Gudang');
+        const catText = resolveText($cat, 'Semua Kategori');
+        const stText = resolveText($status, 'Semua Status');
+        $('#filter-info').text(`Gudang: ${whText} • Kategori: ${catText} • Status: ${stText}`);
+        loadStatusCounts();
         if ($.fn.DataTable.isDataTable('#table-on-page')) { $table.DataTable().destroy(); }
         $table.DataTable({
             processing:true, serverSide:true, searching:false,

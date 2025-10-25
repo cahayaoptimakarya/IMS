@@ -123,4 +123,27 @@ class ReorderPointController extends Controller
             'data' => $data,
         ]);
     }
+
+    public function statusCounts(Request $request)
+    {
+        $warehouseId = $request->input('warehouse_id');
+        $categoryId = $request->input('category_id');
+
+        $q = ItemReorderMetric::query()
+            ->from('item_reorder_metrics as m')
+            ->join('items as i', 'm.item_id', '=', 'i.id')
+            ->leftJoin('inventories as inv', function($j){ $j->on('inv.item_id', '=', 'm.item_id')->on('inv.warehouse_id', '=', 'm.warehouse_id'); })
+            ->when(!empty($warehouseId) && $warehouseId !== 'all', fn($qq)=>$qq->where('m.warehouse_id', $warehouseId))
+            ->when(!empty($categoryId) && $categoryId !== 'all', fn($qq)=>$qq->where('i.item_category_id', $categoryId));
+
+        $total = (clone $q)->count();
+        $reorder = (clone $q)->whereRaw('COALESCE(inv.quantity,0) < m.rop_qty')->count();
+        $ok = $total - $reorder;
+
+        return response()->json([
+            'total' => $total,
+            'reorder' => $reorder,
+            'ok' => $ok,
+        ]);
+    }
 }
