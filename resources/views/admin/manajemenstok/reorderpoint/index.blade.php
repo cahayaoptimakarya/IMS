@@ -95,7 +95,7 @@
                     <table class="table align-middle table-row-dashed fs-6 gy-5" id="table-on-page">
                         <thead>
                             <tr class="text-start text-gray-500 fw-bolder fs-7 text-uppercase gs-0 border-1 border-gray-200">
-                                <th rowspan="2">SKU / Nama</th>
+                                <th rowspan="2" class="min-w-200px">SKU / Nama</th>
                                 <th class="text-center" rowspan="2">Gudang</th>
                                 <th class="text-center" colspan="3">Pergerakan</th>
                                 <th class="text-center" colspan="2">Lead Time</th>
@@ -104,18 +104,18 @@
                                 <th class="text-center" colspan="2">Ringkasan</th>
                             </tr>
                             <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0 border-1 border-gray-200">
-                                <th class="text-center">Avg OUT / hari</th>
-                                <th class="text-center">Total OUT (Qty)</th>
-                                <th class="text-center">Hari Perhitungan</th>
-                                <th class="text-center">PO (hari)</th>
-                                <th class="text-center">Safety (hari)</th>
-                                <th class="text-center">Safety Stock</th>
-                                <th class="text-center">ROP (Qty)</th>
-                                <th class="text-center">ROP (Koli)</th>
-                                <th class="text-center">On-hand (Qty)</th>
-                                <th class="text-center">On-hand (Koli)</th>
-                                <th class="text-center">Selisih (Qty)</th>
-                                <th class="text-center">Status</th>
+                                <th class="text-center min-w-50px">Avg OUT / hari</th>
+                                <th class="text-center min-w-50px">Total OUT (Qty)</th>
+                                <th class="text-center min-w-50px">Hari Perhitungan</th>
+                                <th class="text-center min-w-50px">PO (hari)</th>
+                                <th class="text-center min-w-50px">Safety (hari)</th>
+                                <th class="text-center min-w-50px">Safety Stock</th>
+                                <th class="text-center min-w-50px">ROP (Qty)</th>
+                                <th class="text-center min-w-50px">ROP (Koli)</th>
+                                <th class="text-center min-w-50px">On-hand (Qty)</th>
+                                <th class="text-center min-w-50px">On-hand (Koli)</th>
+                                <th class="text-center min-w-50px">Selisih (Qty)</th>
+                                <th class="text-center min-w-50px">Status</th>
                             </tr>
                         </thead>
                         <tbody class="fw-bold text-gray-600 border-1 border-gray-200"></tbody>
@@ -138,9 +138,16 @@ $(function(){
     const $status = $('#status_filter');
     
 
-    const formatName = (sku, name) => {
+    const formatName = (sku, name, perKoli, uom) => {
         sku = sku || '-'; name = name || '-';
-        return `<div class="d-flex flex-column"><span class="text-primary fw-bolder">${sku}</span><span class="text-muted fs-7">${name}</span></div>`;
+        const pk = (perKoli !== undefined && perKoli !== null) ? perKoli : '';
+        const unit = uom || '';
+        const perKoliLine = pk ? `<span class="text-gray-600 fs-7">Per Koli: ${fmt(pk)} ${unit}</span>` : '';
+        return `<div class="d-flex flex-column">`
+            + `<span class="text-primary fw-bolder">${sku}</span>`
+            + `<span class="text-muted fs-7">${name}</span>`
+            + perKoliLine
+            + `</div>`;
     };
 
     const fmt = (v) => {
@@ -157,7 +164,7 @@ $(function(){
             }},
             order:[[0,'asc']],
             columns:[
-                { data:null, render:(r)=>formatName(r.sku, r.nama_barang) },
+                { data:null, render:(r)=>formatName(r.sku, r.nama_barang, r.per_koli, r.uom) },
                 { data:'warehouse', className:'text-center' },
                 { data:'avg_daily_out', className:'text-center', render:(v)=>fmt(v) },
                 { data:'total_out_qty', className:'text-center', render:(v)=>fmt(v) },
@@ -166,8 +173,8 @@ $(function(){
                 { data:'lead_time_safety_stock', className:'text-center' },
                 { data:'safety_stock_qty', className:'text-center', render:(v)=>fmt(v) },
                 { data:'rop_qty', className:'text-center', render:(v)=>fmt(v) },
-                { data:'onhand_qty', className:'text-center', render:(v)=>fmt(v) },
                 { data:'rop_koli', className:'text-center', render:(v)=>fmt(v) },
+                { data:'onhand_qty', className:'text-center', render:(v)=>fmt(v) },
                 { data:'onhand_koli', className:'text-center', render:(v)=>fmt(v) },
                 { data:'gap_qty', className:'text-center', render:(v)=>fmt(v) },
                 { data:'status', className:'text-center', render:(s)=> s==='reorder' ? '<span class="badge badge-light-danger">Reorder</span>' : '<span class="badge badge-light-success">Aman</span>' },

@@ -20,8 +20,7 @@ class ReorderPointService
      */
     public function compute(int $itemId, int $warehouseId): void
     {
-        $windowEnd = Carbon::today();
-        $windowStart = (clone $windowEnd)->copy()->subDays($this->defaultWindowDays - 1);
+        $today = Carbon::today();
 
         // Resolve per-item settings (lead time), fallback to defaults
         $item = Item::find($itemId);
@@ -29,51 +28,17 @@ class ReorderPointService
         $leadTimePo = (int) ($item->lead_time_po_days ?? $this->defaultLeadTimeDays);
         $leadTimeSafety = (int) ($item->lead_time_safety_days ?? 1);
 
-        // Daily OUT by date within window
-        $daily = DB::table('stock_movements as sm')
-            ->selectRaw('DATE(sm.date) as d, SUM(ABS(sm.quantity)) as out_qty, SUM(CASE WHEN sm.koli < 0 THEN -sm.koli ELSE 0 END) as out_koli')
+        // Compute OUT since first movement date (inclusive), no per-day grouping
+        $agg = DB::table('stock_movements as sm')
+            ->selectRaw('MIN(DATE(sm.date)) as first_date, SUM(CASE WHEN (sm.type IN (\'stock_out\', \'transfer_out\')) OR ((sm.type IS NULL OR sm.type=\'\') AND sm.quantity < 0) THEN ABS(sm.quantity) ELSE 0 END) as total_out')
             ->where('sm.warehouse_id', $warehouseId)
             ->where('sm.item_id', $itemId)
-            ->whereBetween('sm.date', [$windowStart->toDateString(), $windowEnd->toDateString()])
-            ->where(function ($q) {
-                $q->whereIn('sm.type', ['stock_out', 'transfer_out'])
-                  ->orWhere(function ($qq) {
-                      $qq->whereNull('sm.type')->orWhere('sm.type', '=','');
-                  })
-                  ->where('sm.quantity', '<', 0);
-            })
-            ->groupBy('d')
-            ->get();
+            ->first();
 
-        // If not enough days, extend to first movement date
-        $movementDays = $daily->count();
-        if ($movementDays < $this->minDataDays) {
-            $first = DB::table('stock_movements')
-                ->where('warehouse_id', $warehouseId)
-                ->where('item_id', $itemId)
-                ->min('date');
-            if ($first) {
-                $windowStart = Carbon::parse($first)->startOfDay();
-                $daily = DB::table('stock_movements as sm')
-                    ->selectRaw('DATE(sm.date) as d, SUM(ABS(sm.quantity)) as out_qty, SUM(CASE WHEN sm.koli < 0 THEN -sm.koli ELSE 0 END) as out_koli')
-                    ->where('sm.warehouse_id', $warehouseId)
-                    ->where('sm.item_id', $itemId)
-                    ->whereBetween('sm.date', [$windowStart->toDateString(), $windowEnd->toDateString()])
-                    ->where(function ($q) {
-                        $q->whereIn('sm.type', ['stock_out', 'transfer_out'])
-                          ->orWhere(function ($qq) {
-                              $qq->whereNull('sm.type')->orWhere('sm.type', '=','');
-                          })
-                          ->where('sm.quantity', '<', 0);
-                    })
-                    ->groupBy('d')
-                    ->get();
-            }
-        }
-
-        $movementDays = $daily->count();
-        $totalOutQty = (float) $daily->sum('out_qty');
-        $avgDailyOut = $movementDays > 0 ? ($totalOutQty / $movementDays) : 0.0;
+        $firstDate = $agg && $agg->first_date ? Carbon::parse($agg->first_date) : null;
+        $days = $firstDate ? max(1, $firstDate->diffInDays($today) + 1) : 0;
+        $totalOutQty = (float) ($agg->total_out ?? 0);
+        $avgDailyOut = $days > 0 ? ($totalOutQty / $days) : 0.0;
         $safetyStock = max(0, $avgDailyOut * max(0, $leadTimeSafety));
         $ropQty = ($avgDailyOut * max(0, $leadTimePo)) + $safetyStock;
         $ropKoli = $ropQty / $perKoli;
