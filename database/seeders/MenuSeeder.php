@@ -138,6 +138,17 @@ class MenuSeeder extends Seeder
             ]
         );
 
+        // Import Kategori Item (CSV)
+        Menu::updateOrCreate(
+            ['name' => 'Import Kategori Item'],
+            [
+                'url' => '/admin/masterdata/import-kategori-item',
+                'icon' => 'fas fa-file-import',
+                'parent_id' => $masterdata->id,
+                'order' => 11,
+            ]
+        );
+
         // Perakitan (top-level under admin)
         Menu::updateOrCreate(
             ['name' => 'Perakitan'],

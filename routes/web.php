@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ManajemenStok\StockOpnameController;
 use App\Http\Controllers\Admin\ManajemenStok\AdjustmentController;
 use App\Http\Controllers\Admin\ManajemenStok\DefectController;
 use App\Http\Controllers\Admin\Masterdata\ItemCategoryController;
+use App\Http\Controllers\Admin\Masterdata\ItemCategoryImportController;
 use App\Http\Controllers\Admin\Masterdata\ItemController;
 use App\Http\Controllers\Admin\Masterdata\JabatanController;
 use App\Http\Controllers\Admin\Masterdata\MenuController;
@@ -53,6 +54,9 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::get('items/data', [ItemController::class, 'data'])->name('items.data');
         Route::resource('items', ItemController::class);
     Route::post('items/import', [ItemController::class, 'import'])->name('items.import');
+        // Import kategori item by CSV (SKU;Kategori)
+        Route::get('import-kategori-item', [ItemCategoryImportController::class, 'index'])->name('item-categories-import.index');
+        Route::post('import-kategori-item/import', [ItemCategoryImportController::class, 'import'])->name('item-categories-import.import');
         Route::resource('assemblyrecipes', AssemblyRecipeController::class)->parameters([
             'assemblyrecipes' => 'assemblyrecipe'
         ]);
