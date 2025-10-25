@@ -23,10 +23,8 @@
             height: 100%;
         }
 
-        .item-cell .sku {
-            font-size: 0.75rem;
-            color: #a1a5b7;
-        }
+        .item-cell .name { color:#7e8299; font-size: 0.82rem; line-height: 1.1; }
+        .item-cell .sku { color:#1b84ff; }
     </style>
 @endpush
 
@@ -83,7 +81,17 @@
                                     id="warehouse_filter" data-dropdown-parent="#kt-toolbar-filter">
                                     <option value="all">Semua Gudang</option>
                                     @foreach ($warehouses ?? [] as $w)
-                                        <option value="{{ $w->id }}">{{ $w->name }}</option>
+                                        <option value="{{ $w->id }}" {{ isset($defaultWarehouseId) && (int)$defaultWarehouseId === (int)$w->id ? 'selected' : '' }}>{{ $w->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="mb-10">
+                                <label class="form-label fs-5 fw-bold mb-3">Kategori Produk:</label>
+                                <select class="form-select form-select-solid fw-bolder" data-kt-select2="true"
+                                    id="category_filter" data-dropdown-parent="#kt-toolbar-filter">
+                                    <option value="all">Semua Kategori</option>
+                                    @foreach ($categories ?? [] as $c)
+                                        <option value="{{ $c->id }}">{{ $c->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -110,6 +118,7 @@
                                     <th class="min-w-220px" rowspan="2">Item</th>
                                     <th class="min-w-120px text-center" rowspan="2">Per Koli</th>
                                     <th colspan="2" class="text-center">Stok Akhir</th>
+                                    <th class="min-w-220px text-center" rowspan="2">TurnOver <br> (Nanggewer) <br> (pcs)</th>
                                     <th class="min-w-180px text-center" rowspan="2">Gudang</th>
                                 </tr>
                                 <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
@@ -134,6 +143,8 @@
             const $searchInput = $('#search_input');
             const $filterInfo = $('#filter-info');
             const $warehouseFilter = $('#warehouse_filter');
+            const $categoryFilter = $('#category_filter');
+            const DEFAULT_WAREHOUSE_ID = '{{ $defaultWarehouseId ?? '' }}';
 
             let table = null;
 
@@ -150,11 +161,11 @@
 
             const formatItemCell = (name, sku) => {
                 const displayName = name || '-';
-                const displaySku = sku ? sku : 'SKU: -';
+                const skuOnly = sku || '-';
                 return `
                     <div class="d-flex flex-column item-cell">
-                        <span class="text-primary fw-bold mb-1">${displaySku}</span>
-                        <span class="sku">${displayName}</span>
+                        <span class="sku text-primary fw-bold mb-1">SKU: ${skuOnly}</span>
+                        <span class="name">${displayName}</span>
                     </div>
                 `;
             };
@@ -164,11 +175,17 @@
                 return opt.length ? opt.text() : 'Semua Gudang';
             };
 
+            const resolveCategoryText = () => {
+                const opt = $categoryFilter.find('option:selected');
+                return opt.length ? opt.text() : 'Semua Kategori';
+            };
+
             const metricKeys = ['quantity', 'koli'];
 
             const loadDataTable = () => {
                 const warehouseText = resolveWarehouseText();
-                $filterInfo.text(`Gudang: ${warehouseText}`);
+                const categoryText = resolveCategoryText();
+                $filterInfo.text(`Gudang: ${warehouseText} • Kategori: ${categoryText}`);
 
                 if ($.fn.DataTable.isDataTable('#table-on-page')) {
                     $('#table-on-page').DataTable().destroy();
@@ -179,6 +196,7 @@
                     { data: 'per_koli', name: 'per_koli', className: 'text-center', render: function(data, type, row){ var val = formatNumber(data); var u = row.uom_symbol || ''; return u ? (val + ' ' + u) : val; } },
                     { data: 'quantity', name: 'quantity', className: 'text-center' },
                     { data: 'koli', name: 'koli', className: 'text-center' },
+                    { data: 'avg_daily_turnover', name: 'avg_daily_turnover', className: 'text-center' },
                     { data: 'warehouse', name: 'warehouse' },
                 ];
 
@@ -193,6 +211,7 @@
                             d.search = d.search || {};
                             d.search.value = $searchInput.val();
                             d.warehouse_id = $warehouseFilter.val();
+                            d.category_id = $categoryFilter.val();
                         },
                     },
                     order: [
@@ -205,12 +224,7 @@
                                 return formatItemCell(data, row.sku);
                             },
                         },
-                        {
-                            targets: [1, 3],
-                            render: function(data) {
-                                return formatNumber(data);
-                            }
-                        },
+                        { targets: [1, 3, 4], render: function(data) { return formatNumber(data); } },
                     ],
                 });
             };
@@ -230,7 +244,8 @@
             });
 
             $('#kt-toolbar-filter [type="reset"]').on('click', function() {
-                $warehouseFilter.val('all').trigger('change');
+                $warehouseFilter.val(DEFAULT_WAREHOUSE_ID || 'all').trigger('change');
+                $categoryFilter.val('all').trigger('change');
                 loadDataTable();
             });
 
