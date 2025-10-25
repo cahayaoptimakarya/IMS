@@ -15,6 +15,17 @@
 
     <div class="content flex-row-fluid" id="kt_content">
 
+        <!-- Title/Subtitle Hero -->
+        <div class="mb-7">
+            <div class="text-center py-6 px-4 rounded" style="background: linear-gradient(180deg, #F9FAFB 0%, #FFFFFF 100%);">
+                <div class="fs-2hx fw-bolder text-dark">Laporan Pergerakan Barang</div>
+                <div class="fs-6 text-gray-700 mt-2">
+                    Berdasarkan Gudang:
+                    <span class="fw-bold text-gray-900">{{ $activeWarehouse->name ?? 'Semua Gudang' }}</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Keterangan Filter Bar -->
         <div id="filter_info_bar" class="mb-5">
             <div class="alert alert-secondary d-flex align-items-center p-3">
@@ -86,9 +97,9 @@
             <div class="col-xl-3">
                 <div class="card card-xl-stretch mb-5 mb-xl-8">
                     <div class="card-body">
-                        <div class="text-muted fs-7">Avg Daily Movements</div>
+                        <div class="text-muted fs-7">Avg Daily Outflow per SKU</div>
                         <div class="text-dark fw-bolder fs-2 mt-3">{{ number_format($avgDailyMovement ?? 0, 2) }}</div>
-                        <div class="text-muted fs-8">Rata-rata transaksi per hari</div>
+                        <div class="text-muted fs-8">Rata-rata kuantitas keluar per SKU per hari (sejak pergerakan pertama)</div>
                     </div>
                 </div>
             </div>
@@ -160,15 +171,22 @@
                             <table class="table align-middle table-row-dashed fs-7 gy-3">
                                 <thead>
                                     <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                        <th>Barang</th>
-                                        <th class="text-end">Total In</th>
+                                        <th>SKU / Info</th>
+                                        <th class="text-end">Total In (Qty)</th>
+                                        <th class="text-end">Total In (Koli)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach (($topIncoming ?? collect()) as $inc)
                                         <tr>
-                                            <td>{{ $inc->nama_barang }}</td>
-                                            <td class="text-end">{{ number_format($inc->total_in, 2, ',', '.') }}</td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-bolder text-primary">{{ $inc->sku ?? '-' }}</span>
+                                                    <span class="text-muted">Per Koli: {{ number_format($inc->per_koli ?? 0) }} {{ $inc->uom_symbol ?? '' }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">{{ number_format($inc->total_in ?? 0, 2, ',', '.') }}</td>
+                                            <td class="text-end">{{ number_format($inc->total_in_koli ?? 0, 2, ',', '.') }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -190,15 +208,22 @@
                             <table class="table align-middle table-row-dashed fs-7 gy-3">
                                 <thead>
                                     <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                        <th>Barang</th>
-                                        <th class="text-end">Total Out</th>
+                                        <th>SKU / Info</th>
+                                        <th class="text-end">Total Out (Qty)</th>
+                                        <th class="text-end">Total Out (Koli)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach (($topOutgoing ?? collect()) as $out)
                                         <tr>
-                                            <td>{{ $out->nama_barang }}</td>
-                                            <td class="text-end">{{ number_format($out->total_out, 2, ',', '.') }}</td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-bolder text-primary">{{ $out->sku ?? '-' }}</span>
+                                                    <span class="text-muted">Per Koli: {{ number_format($out->per_koli ?? 0) }} {{ $out->uom_symbol ?? '' }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">{{ number_format($out->total_out ?? 0, 2, ',', '.') }}</td>
+                                            <td class="text-end">{{ number_format($out->total_out_koli ?? 0, 2, ',', '.') }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -252,7 +277,7 @@
                                     <select id="warehouse_filter" class="form-select form-select-solid fw-bolder" data-kt-select2="true" name="warehouse_filter" form="filter_form">
                                         <option value="">Semua Gudang</option>
                                         @foreach ($warehouses as $warehouse)
-                                            <option value="{{ $warehouse->id }}" {{ request('warehouse_filter') == $warehouse->id ? 'selected' : '' }}>{{ $warehouse->name }}</option>
+                                            <option value="{{ $warehouse->id }}" {{ (request('warehouse_filter') ? (request('warehouse_filter') == $warehouse->id) : ((($activeWarehouse->id ?? null) == $warehouse->id))) ? 'selected' : '' }}>{{ $warehouse->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -496,7 +521,12 @@
                         { data: null, name: 'i.nama_barang', render: function(data, type, row){
                             var name = row.item_name || 'N/A';
                             var sku = row.sku || 'N/A';
-                            return '<div class="d-flex align-items-center"><div class="d-flex justify-content-start flex-column"><a href="#" class="text-dark fw-bolder text-hover-primary fs-6">' + name + '</a><span class="text-muted fw-bold text-muted d-block fs-7">' + sku + '</span></div></div>';
+                            return '<div class="d-flex align-items-center">'
+                                + '<div class="d-flex justify-content-start flex-column">'
+                                +   '<span class="text-primary fw-bolder d-block fs-6">' + sku + '</span>'
+                                +   '<span class="text-muted fw-bold d-block fs-7">' + name + '</span>'
+                                + '</div>'
+                                + '</div>';
                         }},
                         { data: 'warehouse_name', name: 'w.name', defaultContent: '-' },
                         { data: 'type', name: 'sm.type', render: function(data){

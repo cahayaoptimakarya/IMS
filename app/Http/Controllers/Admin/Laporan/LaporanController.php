@@ -28,20 +28,21 @@ class LaporanController extends Controller
             }
         }
 
-        // --- Base Query for all data ---
-        $baseQuery = StockMovement::whereBetween('date', [$startDate, $endDate]);
+        // Resolve active warehouse: user's warehouse if set; otherwise request filter; fallback to Gudang Nanggewer
+        $userWarehouseId = auth()->user()?->warehouse_id;
+        $requestedWarehouseId = $request->input('warehouse_filter');
+        $fallbackWarehouseId = Warehouse::where('name', 'Gudang Nanggewer')->value('id');
+        $activeWarehouseId = $userWarehouseId ?: ($requestedWarehouseId ?: $fallbackWarehouseId);
+        $activeWarehouse = $activeWarehouseId ? Warehouse::find($activeWarehouseId) : null;
 
-        // If user tied to specific warehouse, enforce it
-        if (auth()->user() && auth()->user()->warehouse_id) {
-            $baseQuery->where('warehouse_id', auth()->user()->warehouse_id);
-        }
+        // --- Base Query for all data (range-bound) ---
+        $baseQuery = StockMovement::whereBetween('date', [$startDate, $endDate])
+            ->when($activeWarehouseId, fn($q) => $q->where('warehouse_id', $activeWarehouseId));
 
         if ($request->filled('type_filter') && $request->input('type_filter') !== 'semua') {
             $baseQuery->where('type', $request->type_filter);
         }
-        if ($request->filled('warehouse_filter')) {
-            $baseQuery->where('warehouse_id', $request->warehouse_filter);
-        }
+        // Note: warehouse filter is already captured via $activeWarehouseId
         if ($request->filled('item_filter')) {
             $baseQuery->where('item_id', $request->item_filter);
         }
@@ -91,9 +92,17 @@ class LaporanController extends Controller
         // Top outgoing items (by absolute quantity) within range
         $topOutgoing = (clone $baseQuery)
             ->leftJoin('items as i', 'stock_movements.item_id', '=', 'i.id')
-            ->select('i.id as item_id', 'i.nama_barang', DB::raw('COALESCE(SUM(ABS(stock_movements.quantity)),0) as total_out'))
+            ->leftJoin('uoms as u', 'i.uom_id', '=', 'u.id')
+            ->select(
+                'i.id as item_id',
+                'i.sku as sku',
+                'i.koli as per_koli',
+                DB::raw('MAX(COALESCE(u.symbol, u.name)) as uom_symbol'),
+                DB::raw('COALESCE(SUM(ABS(stock_movements.quantity)),0) as total_out'),
+                DB::raw('COALESCE(SUM(CASE WHEN stock_movements.koli < 0 THEN -stock_movements.koli ELSE 0 END),0) as total_out_koli')
+            )
             ->where('stock_movements.quantity', '<', 0)
-            ->groupBy('i.id', 'i.nama_barang')
+            ->groupBy('i.id', 'i.sku', 'i.koli')
             ->orderByDesc('total_out')
             ->limit(10)
             ->get();
@@ -101,9 +110,17 @@ class LaporanController extends Controller
         // Top incoming items (by quantity) within range
         $topIncoming = (clone $baseQuery)
             ->leftJoin('items as i', 'stock_movements.item_id', '=', 'i.id')
-            ->select('i.id as item_id', 'i.nama_barang', DB::raw('COALESCE(SUM(stock_movements.quantity),0) as total_in'))
+            ->leftJoin('uoms as u', 'i.uom_id', '=', 'u.id')
+            ->select(
+                'i.id as item_id',
+                'i.sku as sku',
+                'i.koli as per_koli',
+                DB::raw('MAX(COALESCE(u.symbol, u.name)) as uom_symbol'),
+                DB::raw('COALESCE(SUM(stock_movements.quantity),0) as total_in'),
+                DB::raw('COALESCE(SUM(CASE WHEN stock_movements.koli > 0 THEN stock_movements.koli ELSE 0 END),0) as total_in_koli')
+            )
             ->where('stock_movements.quantity', '>', 0)
-            ->groupBy('i.id', 'i.nama_barang')
+            ->groupBy('i.id', 'i.sku', 'i.koli')
             ->orderByDesc('total_in')
             ->limit(10)
             ->get();
@@ -113,9 +130,8 @@ class LaporanController extends Controller
             ->where('stock_after', '<', 0)
             ->count();
 
-        // Average daily movements in the range
-        $days = max(1, $startDate->diffInDays($endDate) + 1);
-        $avgDailyMovement = $days ? round(((clone $baseQuery)->count() / $days), 2) : 0;
+        // Average daily outflow per SKU (since first movement for that SKU, all-time) on active warehouse
+        $avgDailyMovement = $this->avgDailyOutflowPerSku($activeWarehouseId);
 
         // Movement by warehouse (sum of absolute quantity)
         $warehouseMovement = (clone $baseQuery)
@@ -141,7 +157,8 @@ class LaporanController extends Controller
             'topIncoming',
             'negativeEvents',
             'avgDailyMovement',
-            'warehouseMovement'
+            'warehouseMovement',
+            'activeWarehouse'
         ));
     }
 
@@ -175,9 +192,12 @@ class LaporanController extends Controller
         ->leftJoin('warehouses as w', 'sm.warehouse_id', '=', 'w.id')
         ->leftJoin('users as u', 'sm.user_id', '=', 'u.id');
 
-        // Enforce user warehouse if any
-        if (auth()->user() && auth()->user()->warehouse_id) {
-            $query->where('sm.warehouse_id', auth()->user()->warehouse_id);
+        // Resolve active warehouse similar to page view
+        $userWarehouseId = auth()->user()?->warehouse_id;
+        $fallbackWarehouseId = Warehouse::where('name', 'Gudang Nanggewer')->value('id');
+        $activeWarehouseId = $userWarehouseId ?: ($warehouseFilter ?: $fallbackWarehouseId);
+        if ($activeWarehouseId) {
+            $query->where('sm.warehouse_id', $activeWarehouseId);
         }
 
         // Date range
@@ -198,9 +218,7 @@ class LaporanController extends Controller
         if ($typeFilter && $typeFilter !== 'semua') {
             $query->where('sm.type', $typeFilter);
         }
-        if ($warehouseFilter) {
-            $query->where('sm.warehouse_id', $warehouseFilter);
-        }
+        // Warehouse already applied above
         if ($itemFilter) {
             $query->where('sm.item_id', $itemFilter);
         }
@@ -252,5 +270,39 @@ class LaporanController extends Controller
             'recordsFiltered' => intval($totalFiltered),
             'data' => $data,
         ]);
+    }
+
+    /**
+     * Rata-rata keluar harian per SKU pada warehouse tertentu.
+     * Definisi per SKU: SUM(OUT quantity) / jumlah hari sejak tanggal movement pertama SKU tsb (inklusif) hingga hari ini.
+     * Nilai akhirnya adalah rata-rata dari semua SKU yang memiliki pergerakan OUT (>0 total_out).
+     */
+    protected function avgDailyOutflowPerSku(?int $warehouseId): float
+    {
+        if (!$warehouseId) return 0.0;
+
+        $rows = DB::table('stock_movements')
+            ->select([
+                'item_id',
+                DB::raw('MIN(date) as first_date'),
+                DB::raw("SUM(CASE WHEN type = 'stock_out' THEN ABS(quantity) WHEN (type IS NULL OR type = '') AND quantity < 0 THEN -quantity ELSE 0 END) as total_out"),
+            ])
+            ->where('warehouse_id', $warehouseId)
+            ->groupBy('item_id')
+            ->get();
+
+        $today = Carbon::today();
+        $values = [];
+        foreach ($rows as $r) {
+            $totalOut = (float) ($r->total_out ?? 0);
+            if ($totalOut <= 0) continue;
+            $firstDate = $r->first_date ? Carbon::parse($r->first_date) : null;
+            $days = $firstDate ? max(1, $firstDate->diffInDays($today) + 1) : 0;
+            if ($days <= 0) continue;
+            $values[] = $totalOut / $days;
+        }
+
+        if (empty($values)) return 0.0;
+        return round(array_sum($values) / count($values), 2);
     }
 }
