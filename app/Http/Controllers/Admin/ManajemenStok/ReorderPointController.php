@@ -47,7 +47,8 @@ class ReorderPointController extends Controller
                 'w.name as warehouse_name',
                 DB::raw('CASE WHEN COALESCE(s.days,0) > 0 THEN s.total_out / s.days ELSE 0 END as avg_daily_out'),
                 DB::raw('COALESCE(s.total_out,0) as total_out_qty'),
-                DB::raw('COALESCE(s.days,0) as total_days')
+                DB::raw('COALESCE(s.days,0) as total_days'),
+                DB::raw('COALESCE(oo.on_order_qty,0) as on_order_qty')
             ]);
 
         // Join subquery for avg daily out per item+warehouse since first movement
@@ -62,6 +63,23 @@ class ReorderPointController extends Controller
 
         $query->leftJoinSub($sub, 's', function($j){
             $j->on('s.item_id', '=', 'm.item_id')->on('s.warehouse_id', '=', 'm.warehouse_id');
+        });
+
+        // On-order qty per item+warehouse from Stock In Orders (requested/on_shipping; item pending/on_progress)
+        // Using remaining_quantity so orders counted even if distributions belum dibuat
+        $onOrder = DB::table('stock_in_order_items as si')
+            ->join('stock_in_orders as sio', 'si.stock_in_order_id', '=', 'sio.id')
+            ->select([
+                'si.item_id',
+                'sio.warehouse_id as warehouse_id',
+                DB::raw('SUM(COALESCE(si.remaining_quantity, 0)) as on_order_qty'),
+            ])
+            ->whereIn('sio.status', ['requested', 'on_shipping'])
+            ->whereIn('si.status', ['pending', 'on_progress'])
+            ->groupBy('si.item_id', 'sio.warehouse_id');
+
+        $query->leftJoinSub($onOrder, 'oo', function($j){
+            $j->on('oo.item_id', '=', 'm.item_id')->on('oo.warehouse_id', '=', 'm.warehouse_id');
         });
 
         // default warehouse behavior
@@ -107,6 +125,7 @@ class ReorderPointController extends Controller
                 'avg_daily_out' => (float)$r->avg_daily_out,
                 'total_out_qty' => (float)$r->total_out_qty,
                 'total_days' => (int)$r->total_days,
+                'on_order_qty' => (float)($r->on_order_qty ?? 0),
                 'safety_stock_qty' => (float)$r->safety_stock_qty,
                 'rop_qty' => (float)$r->rop_qty,
                 'onhand_qty' => (float)($r->onhand_qty ?? 0),

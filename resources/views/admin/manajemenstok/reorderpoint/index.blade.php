@@ -158,7 +158,7 @@
                                 <th class="text-center" colspan="2">Lead Time</th>
                                 <th class="text-center" colspan="3">ROP</th>
                                 <th class="text-center" colspan="2">Stok</th>
-                                <th class="text-center" colspan="2">Ringkasan</th>
+                                <th class="text-center" colspan="3">Ringkasan</th>
                             </tr>
                             <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0 border-1 border-gray-200">
                                 <th class="text-center min-w-50px">Avg OUT / hari</th>
@@ -171,6 +171,7 @@
                                 <th class="text-center min-w-50px">ROP (Koli)</th>
                                 <th class="text-center min-w-50px">On-hand (Qty)</th>
                                 <th class="text-center min-w-50px">On-hand (Koli)</th>
+                                <th class="text-center min-w-50px">On-Order (Qty)</th>
                                 <th class="text-center min-w-50px">Selisih (Qty)</th>
                                 <th class="text-center min-w-50px">Status</th>
                             </tr>
@@ -256,6 +257,7 @@ $(function(){
                 { data:'rop_koli', className:'text-center', render:(v)=>fmt(v) },
                 { data:'onhand_qty', className:'text-center', render:(v)=>fmt(v) },
                 { data:'onhand_koli', className:'text-center', render:(v)=>fmt(v) },
+                { data:'on_order_qty', className:'text-center', render:(v)=>fmt(v) },
                 { data:'gap_qty', className:'text-center', render:(v)=>fmt(v) },
                 { data:'status', className:'text-center', render:(s)=> s==='reorder' ? '<span class="badge badge-light-danger">Reorder</span>' : '<span class="badge badge-light-success">Aman</span>' },
             ],
