@@ -168,6 +168,8 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::get('reorder-point', [\App\Http\Controllers\Admin\ManajemenStok\ReorderPointController::class, 'index'])->name('reorder-point.index');
         Route::get('reorder-point/data', [\App\Http\Controllers\Admin\ManajemenStok\ReorderPointController::class, 'data'])->name('reorder-point.data');
         Route::get('reorder-point/status-counts', [\App\Http\Controllers\Admin\ManajemenStok\ReorderPointController::class, 'statusCounts'])->name('reorder-point.status-counts');
+        Route::get('reorder-point/export-excel', [\App\Http\Controllers\Admin\ManajemenStok\ReorderPointController::class, 'exportExcel'])->name('reorder-point.export-excel');
+        Route::get('reorder-point/status-counts', [\App\Http\Controllers\Admin\ManajemenStok\ReorderPointController::class, 'statusCounts'])->name('reorder-point.status-counts');
     });
 
     Route::prefix('admin/transfer-gudang')->name('admin.transfergudang.')->group(function () {

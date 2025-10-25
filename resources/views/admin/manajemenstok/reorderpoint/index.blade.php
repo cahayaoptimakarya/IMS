@@ -70,7 +70,10 @@
                     </div>
                 </div>
                 <div class="card-toolbar">
-                    <button type="button" class="btn btn-light-primary me-3" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
+                    <a href="#" id="btn-export-excel" class="btn btn-primary me-3">
+                        <span class="svg-icon svg-icon-2 me-1"><i class="fas fa-file-excel"></i></span> Export Excel
+                    </a>
+                    <button type="button" class="btn btn-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
                         <span class="svg-icon svg-icon-2"><i class="fas fa-filter"></i></span> Filter
                     </button>
                     <div class="menu menu-sub menu-sub-dropdown w-350px" data-kt-menu="true" id="rp_filter_menu">
@@ -264,6 +267,28 @@ $(function(){
     $('#apply_filter').on('click', load);
     $('#reset_filter').on('click', function(){ $wh.val('{{ $defaultWarehouseId ?? '' }}').trigger('change'); $cat.val('all').trigger('change'); $status.val('all').trigger('change'); load();});
     $search.on('keyup', debounce(load, 400));
+    $('#btn-export-excel').on('click', function(e){
+        e.preventDefault();
+        const params = new URLSearchParams({
+            warehouse_id: $wh.val() || '',
+            category_id: $cat.val() || '',
+            status: $status.val() || 'all',
+            search: $search.val() || ''
+        }).toString();
+        Swal.fire({
+            text: 'Export dalam format Excel?',
+            icon: 'question',
+            showCancelButton: true,
+            buttonsStyling: false,
+            confirmButtonText: 'Ya, export',
+            cancelButtonText: 'Batal',
+            customClass: { confirmButton: 'btn fw-bold btn-primary', cancelButton: 'btn fw-bold btn-active-light-primary' }
+        }).then(function(result){
+            if (result.isConfirmed) {
+                window.location = `{{ route('admin.manajemenstok.reorder-point.export-excel') }}?` + params;
+            }
+        });
+    });
     load();
 });
 </script>

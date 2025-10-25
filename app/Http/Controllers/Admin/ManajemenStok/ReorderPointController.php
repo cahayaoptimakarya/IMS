@@ -8,6 +8,8 @@ use App\Models\Warehouse;
 use App\Models\ItemCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\ReorderPointExport;
 
 class ReorderPointController extends Controller
 {
@@ -145,5 +147,97 @@ class ReorderPointController extends Controller
             'reorder' => $reorder,
             'ok' => $ok,
         ]);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $warehouseId = $request->input('warehouse_id');
+        $categoryId = $request->input('category_id');
+        $status = $request->input('status');
+        $search = trim((string)$request->input('search', ''));
+
+        $query = ItemReorderMetric::query()
+            ->from('item_reorder_metrics as m')
+            ->join('items as i', 'm.item_id', '=', 'i.id')
+            ->leftJoin('inventories as inv', function($j){ $j->on('inv.item_id', '=', 'm.item_id')->on('inv.warehouse_id', '=', 'm.warehouse_id'); })
+            ->leftJoin('uoms as u', 'i.uom_id', '=', 'u.id')
+            ->leftJoin('warehouses as w', 'm.warehouse_id', '=', 'w.id')
+            ->select([
+                'm.item_id','m.warehouse_id','m.lead_time_po','m.lead_time_safety_stock','m.safety_stock_qty','m.rop_qty','m.rop_koli',
+                'i.sku','i.nama_barang','i.koli as per_koli',
+                DB::raw('COALESCE(inv.quantity,0) as onhand_qty'),
+                DB::raw('COALESCE(inv.koli,0) as onhand_koli'),
+                DB::raw('COALESCE(u.symbol, u.name) as uom_symbol'),
+                'w.name as warehouse_name',
+                DB::raw('COALESCE(s.total_out,0) as total_out'),
+                DB::raw('COALESCE(s.days,0) as days'),
+            ]);
+
+        // Join subquery for avg daily out and days
+        $sub = DB::table('stock_movements as sm')
+            ->select([
+                'sm.item_id',
+                'sm.warehouse_id',
+                DB::raw("SUM(CASE WHEN (sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0) THEN ABS(sm.quantity) ELSE 0 END) as total_out"),
+                DB::raw("DATEDIFF(CURDATE(), MIN(DATE(sm.date))) + 1 as days"),
+            ])
+            ->groupBy('sm.item_id', 'sm.warehouse_id');
+        $query->leftJoinSub($sub, 's', function($j){
+            $j->on('s.item_id', '=', 'm.item_id')->on('s.warehouse_id', '=', 'm.warehouse_id');
+        });
+
+        if (!empty($warehouseId) && $warehouseId !== 'all') {
+            $query->where('m.warehouse_id', $warehouseId);
+        }
+        if (!empty($categoryId) && $categoryId !== 'all') {
+            $query->where('i.item_category_id', $categoryId);
+        }
+        if ($status === 'reorder') {
+            $query->whereRaw('COALESCE(inv.quantity,0) < m.rop_qty');
+        } elseif ($status === 'ok') {
+            $query->whereRaw('COALESCE(inv.quantity,0) >= m.rop_qty');
+        }
+        if ($search !== '') {
+            $query->where(function($q) use ($search){
+                $q->where('i.sku', 'like', "%{$search}%")
+                  ->orWhere('i.nama_barang', 'like', "%{$search}%")
+                  ->orWhere('w.name', 'like', "%{$search}%");
+            });
+        }
+
+        $rows = $query->orderBy('i.nama_barang')->get();
+
+        $dataRows = [];
+        foreach ($rows as $r) {
+            $avgDaily = ($r->days ?? 0) > 0 ? ((float)$r->total_out / (int)$r->days) : 0;
+            $gapQty = ((float)$r->rop_qty) - ((float)($r->onhand_qty ?? 0));
+            $statusTxt = $gapQty > 0 ? 'Reorder' : 'Aman';
+            $dataRows[] = [
+                $r->sku,
+                $r->nama_barang,
+                $r->warehouse_name,
+                number_format($avgDaily, 2, ',', '.'),
+                number_format((float)($r->total_out ?? 0), 2, ',', '.'),
+                (int)($r->days ?? 0),
+                (int)$r->lead_time_po,
+                (int)$r->lead_time_safety_stock,
+                number_format((float)$r->safety_stock_qty, 2, ',', '.'),
+                number_format((float)$r->rop_qty, 2, ',', '.'),
+                number_format((float)($r->onhand_qty ?? 0), 2, ',', '.'),
+                number_format((float)$r->rop_koli, 2, ',', '.'),
+                number_format((float)($r->onhand_koli ?? 0), 2, ',', '.'),
+                number_format($gapQty, 2, ',', '.'),
+                $statusTxt,
+            ];
+        }
+
+        $headings = [
+            'SKU','Nama Barang','Gudang','Avg OUT / hari','Total OUT (Qty)','Hari Perhitungan',
+            'Lead Time PO (hari)','Lead Time Safety (hari)','Safety Stock','ROP (Qty)','On-hand (Qty)',
+            'ROP (Koli)','On-hand (Koli)','Selisih (Qty)','Status'
+        ];
+
+        $fileName = 'reorder_point_' . now()->format('Ymd_His') . '.xlsx';
+        return Excel::download(new ReorderPointExport($dataRows, $headings), $fileName);
     }
 }
