@@ -47,10 +47,15 @@
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="mb-7 form-check form-switch form-check-custom form-check-solid">
-                                <input class="form-check-input" type="checkbox" value="1" id="only_reorder">
-                                <label class="form-check-label" for="only_reorder">Hanya yang perlu reorder</label>
+                            <div class="mb-7">
+                                <label class="form-label fs-6 fw-bold mb-2">Status:</label>
+                                <select class="form-select form-select-solid fw-bolder" id="status_filter" data-kt-select2="true">
+                                    <option value="all">Semua</option>
+                                    <option value="reorder">Perlu Reorder</option>
+                                    <option value="ok">Aman</option>
+                                </select>
                             </div>
+                            
                             <div class="d-flex justify-content-end">
                                 <button type="button" class="btn btn-light btn-active-light-primary me-2" id="reset_filter">Reset</button>
                                 <button type="button" class="btn btn-primary" id="apply_filter">Terapkan</button>
@@ -60,24 +65,60 @@
                 </div>
             </div>
             <div class="card-body pt-0">
+                <div class="alert alert-light-primary border p-5 mb-7">
+                    <div class="d-flex align-items-start">
+                        <span class="svg-icon svg-icon-2 me-3 text-primary"><i class="fas fa-info-circle"></i></span>
+                        <div class="flex-grow-1">
+                            <div class="fw-bolder mb-2">Keterangan Metrik</div>
+                            <div class="row g-5 text-gray-700 small">
+                                <div class="col-md-6">
+                                    <ul class="mb-0 list-unstyled">
+                                        <li class="mb-2"><span class="fw-bold text-dark">Avg OUT / hari</span>: Rata-rata kuantitas keluar per hari untuk SKU di gudang terpilih, dihitung dari Stock Movement bertipe keluar (stock_out, transfer_out; fallback quantity < 0) sejak tanggal movement pertama.</li>
+                                        <li class="mb-2"><span class="fw-bold text-dark">Lead Time PO (hari)</span>: Diambil dari field item <code>lead_time_po_days</code> (dapat diubah di form Item).</li>
+                                        <li class="mb-2"><span class="fw-bold text-dark">Lead Time Safety (hari)</span>: Diambil dari field item <code>lead_time_safety_days</code> (buffer hari sebagai safety).</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <ul class="mb-0 list-unstyled">
+                                        <li class="mb-2"><span class="fw-bold text-dark">Safety Stock</span>: <code>Avg OUT / hari × Lead Time Safety</code>.</li>
+                                        <li class="mb-2"><span class="fw-bold text-dark">ROP (Qty)</span>: <code>(Avg OUT / hari × Lead Time PO) + Safety Stock</code>.</li>
+                                        <li class="mb-2"><span class="fw-bold text-dark">On‑hand (Qty/Koli)</span>: Diambil dari Inventory per gudang untuk SKU terkait.</li>
+                                        <li class="mb-2"><span class="fw-bold text-dark">ROP (Koli)</span>: <code>ROP (Qty) ÷ koli per item</code>.</li>
+                                        <li class="mb-0"><span class="fw-bold text-dark">Selisih (Qty)</span>: <code>ROP (Qty) − On‑hand (Qty)</code>. Positif berarti perlu reorder; negatif/0 berarti aman.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="table-responsive">
                     <table class="table align-middle table-row-dashed fs-6 gy-5" id="table-on-page">
                         <thead>
-                            <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                <th>SKU / Nama</th>
-                                <th class="text-center">Gudang</th>
-                                <th class="text-center">Lead Time PO (hari)</th>
-                                <th class="text-center">Lead Time Safety (hari)</th>
+                            <tr class="text-start text-gray-500 fw-bolder fs-7 text-uppercase gs-0 border-1 border-gray-200">
+                                <th rowspan="2">SKU / Nama</th>
+                                <th class="text-center" rowspan="2">Gudang</th>
+                                <th class="text-center" colspan="3">Pergerakan</th>
+                                <th class="text-center" colspan="2">Lead Time</th>
+                                <th class="text-center" colspan="3">ROP</th>
+                                <th class="text-center" colspan="2">Stok</th>
+                                <th class="text-center" colspan="2">Ringkasan</th>
+                            </tr>
+                            <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0 border-1 border-gray-200">
+                                <th class="text-center">Avg OUT / hari</th>
+                                <th class="text-center">Total OUT (Qty)</th>
+                                <th class="text-center">Hari Perhitungan</th>
+                                <th class="text-center">PO (hari)</th>
+                                <th class="text-center">Safety (hari)</th>
                                 <th class="text-center">Safety Stock</th>
                                 <th class="text-center">ROP (Qty)</th>
-                                <th class="text-center">On-hand (Qty)</th>
                                 <th class="text-center">ROP (Koli)</th>
+                                <th class="text-center">On-hand (Qty)</th>
                                 <th class="text-center">On-hand (Koli)</th>
                                 <th class="text-center">Selisih (Qty)</th>
                                 <th class="text-center">Status</th>
                             </tr>
                         </thead>
-                        <tbody class="fw-bold text-gray-600"></tbody>
+                        <tbody class="fw-bold text-gray-600 border-1 border-gray-200"></tbody>
                     </table>
                 </div>
             </div>
@@ -94,7 +135,8 @@ $(function(){
     const $search = $('#search_input');
     const $wh = $('#warehouse_filter');
     const $cat = $('#category_filter');
-    const $only = $('#only_reorder');
+    const $status = $('#status_filter');
+    
 
     const formatName = (sku, name) => {
         sku = sku || '-'; name = name || '-';
@@ -111,12 +153,15 @@ $(function(){
             processing:true, serverSide:true, searching:false,
             ajax:{ url: `{{ route('admin.manajemenstok.reorder-point.data') }}`, data: function(d){
                 d.search = d.search || {}; d.search.value = $search.val();
-                d.warehouse_id = $wh.val(); d.category_id = $cat.val(); d.only_reorder = $only.is(':checked');
+                d.warehouse_id = $wh.val(); d.category_id = $cat.val(); d.status = $status.val();
             }},
             order:[[0,'asc']],
             columns:[
                 { data:null, render:(r)=>formatName(r.sku, r.nama_barang) },
                 { data:'warehouse', className:'text-center' },
+                { data:'avg_daily_out', className:'text-center', render:(v)=>fmt(v) },
+                { data:'total_out_qty', className:'text-center', render:(v)=>fmt(v) },
+                { data:'total_days', className:'text-center' },
                 { data:'lead_time_po', className:'text-center' },
                 { data:'lead_time_safety_stock', className:'text-center' },
                 { data:'safety_stock_qty', className:'text-center', render:(v)=>fmt(v) },
@@ -130,9 +175,11 @@ $(function(){
         });
     };
 
+    // Simple debounce helper to avoid external libs
+    const debounce = (fn, wait=400) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,args), wait); }; };
     $('#apply_filter').on('click', load);
-    $('#reset_filter').on('click', function(){ $wh.val('{{ $defaultWarehouseId ?? '' }}').trigger('change'); $cat.val('all').trigger('change'); $only.prop('checked', false); load();});
-    $search.on('keyup', _.debounce(load, 400));
+    $('#reset_filter').on('click', function(){ $wh.val('{{ $defaultWarehouseId ?? '' }}').trigger('change'); $cat.val('all').trigger('change'); $status.val('all').trigger('change'); load();});
+    $search.on('keyup', debounce(load, 400));
     load();
 });
 </script>
