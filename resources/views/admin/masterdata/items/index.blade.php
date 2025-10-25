@@ -146,6 +146,7 @@
                                     <ul class="mb-0 list-unstyled">
                                         <li><span class="csv-col">G</span> Initial Quantity (opsional)</li>
                                         <li class="mt-1"><span class="csv-col">H</span> Warehouse ID (opsional)</li>
+                                        <li class="mt-1"><span class="csv-col">I</span> Tempat (opsional)</li>
                                     </ul>
                                     <div class="text-gray-700 mt-2">
                                         Jika G dan H diisi, sistem membuat saldo awal ke Inventory dan Stock Movement

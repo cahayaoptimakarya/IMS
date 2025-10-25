@@ -246,6 +246,12 @@ class ItemController extends Controller
                 $uom_id = isset($row[5]) && $row[5] !== '' ? (int)$row[5] : 1;
                 $init_qty = isset($row[6]) && $row[6] !== '' ? (float)$row[6] : null; // G
                 $init_warehouse_id = isset($row[7]) && $row[7] !== '' ? (int)$row[7] : null; // H
+                $tempat = isset($row[8]) && $row[8] !== '' ? trim((string)$row[8]) : null; // I (optional)
+                if ($tempat !== null && $tempat !== '') {
+                    $tempat = mb_substr($tempat, 0, 255);
+                } else {
+                    $tempat = null;
+                }
 
                 // Basic validation
                 if (!$sku || !$nama_barang) {
@@ -277,6 +283,7 @@ class ItemController extends Controller
                     'low_stock_threshold' => $low_stock,
                     'item_category_id' => $item_category_id,
                     'uom_id' => $uom_id,
+                    'tempat' => $tempat,
                 ]);
 
                 $created++;
