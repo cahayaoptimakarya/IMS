@@ -210,6 +210,17 @@ class MenuSeeder extends Seeder
             ]
         );
 
+        // Reorder Point
+        Menu::updateOrCreate(
+            ['name' => 'Reorder Point'],
+            [
+                'url' => '/admin/manajemen-stok/reorder-point',
+                'icon' => 'fas fa-bell',
+                'parent_id' => $manajemenStok->id,
+                'order' => 7,
+            ]
+        );
+
         Menu::updateOrCreate(
             ['name' => 'Adjustment'],
             [

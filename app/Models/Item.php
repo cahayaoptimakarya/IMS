@@ -18,6 +18,8 @@ class Item extends Model
         'deskripsi',
         'item_category_id',
         'low_stock_threshold',
+        'lead_time_po_days',
+        'lead_time_safety_days',
     ];
 
 

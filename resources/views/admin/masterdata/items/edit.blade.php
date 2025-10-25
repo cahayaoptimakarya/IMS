@@ -103,6 +103,29 @@
                         </div>
                     </div>
 
+                    <div class="row g-6">
+                        <div class="col-md-6">
+                            <div class="fv-row mb-7">
+                                <label for="lead_time_po_days" class="form-label">Lead Time PO (hari)</label>
+                                <input type="number" min="0" step="1" class="form-control form-control-solid" id="lead_time_po_days" name="lead_time_po_days"
+                                       value="{{ old('lead_time_po_days', $item->lead_time_po_days) }}" placeholder="Default 7">
+                                @error('lead_time_po_days')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="fv-row mb-7">
+                                <label for="lead_time_safety_days" class="form-label">Lead Time Safety (hari)</label>
+                                <input type="number" min="0" step="1" class="form-control form-control-solid" id="lead_time_safety_days" name="lead_time_safety_days"
+                                       value="{{ old('lead_time_safety_days', $item->lead_time_safety_days) }}" placeholder="Default 1">
+                                @error('lead_time_safety_days')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="fv-row mb-7">
                         <label for="deskripsi" class="form-label">Deskripsi</label>
                         <textarea class="form-control form-control-solid" id="deskripsi" name="deskripsi" rows="3">{{ old('deskripsi', $item->deskripsi) }}</textarea>

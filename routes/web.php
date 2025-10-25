@@ -164,6 +164,9 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::resource('perakitan', \App\Http\Controllers\Admin\ManajemenStok\PerakitanController::class)->parameters([
             'perakitan' => 'assembly'
         ]);
+        // Reorder Point
+        Route::get('reorder-point', [\App\Http\Controllers\Admin\ManajemenStok\ReorderPointController::class, 'index'])->name('reorder-point.index');
+        Route::get('reorder-point/data', [\App\Http\Controllers\Admin\ManajemenStok\ReorderPointController::class, 'data'])->name('reorder-point.data');
     });
 
     Route::prefix('admin/transfer-gudang')->name('admin.transfergudang.')->group(function () {

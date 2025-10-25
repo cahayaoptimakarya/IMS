@@ -57,6 +57,8 @@ class ItemController extends Controller
             'tempat' => 'nullable|string|max:255',
             'deskripsi' => 'nullable|string',
             'low_stock_threshold' => 'nullable|integer|min:0',
+            'lead_time_po_days' => 'nullable|integer|min:0',
+            'lead_time_safety_days' => 'nullable|integer|min:0',
         ]);
 
         DB::beginTransaction();
@@ -64,6 +66,9 @@ class ItemController extends Controller
             $data = $request->all();
             // Default low stock threshold to 100 if not provided
             $data['low_stock_threshold'] = $request->input('low_stock_threshold', 100);
+            // Default lead times if not provided
+            $data['lead_time_po_days'] = $request->input('lead_time_po_days', 7);
+            $data['lead_time_safety_days'] = $request->input('lead_time_safety_days', 1);
 
             $item = Item::create($data);
 
@@ -122,6 +127,8 @@ class ItemController extends Controller
             'tempat' => 'nullable|string|max:255',
             'deskripsi' => 'nullable|string',
             'low_stock_threshold' => 'nullable|integer|min:0',
+            'lead_time_po_days' => 'nullable|integer|min:0',
+            'lead_time_safety_days' => 'nullable|integer|min:0',
         ]);
 
         DB::beginTransaction();
@@ -130,6 +137,12 @@ class ItemController extends Controller
             if (!$request->has('low_stock_threshold')) {
                 // keep existing when field not present
                 $payload['low_stock_threshold'] = $item->low_stock_threshold;
+            }
+            if (!$request->has('lead_time_po_days')) {
+                $payload['lead_time_po_days'] = $item->lead_time_po_days;
+            }
+            if (!$request->has('lead_time_safety_days')) {
+                $payload['lead_time_safety_days'] = $item->lead_time_safety_days;
             }
             $item->update($payload);
 
