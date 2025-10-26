@@ -937,34 +937,34 @@ class PenerimaanBarangController extends Controller
                     // If this shipment belongs to a Transfer Request, update TRI received counters and status
                     if ($shipment->reference_type === Shipment::REFERENCE_TYPE_TRANSFER_REQUEST) {
                         // Update received counters for TRI based on this GR details
-                        foreach ($goodsReceipt->details as $d) {
-                            if (!empty($d->shipment_item_id)) {
-                                $sid = ShipmentItemDetail::find($d->shipment_item_id);
-                                if ($sid && $sid->reference_type === ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM) {
-                                    $tri = TransferRequestItem::find($sid->reference_id);
-                                    if ($tri) {
-                                        $accQty = (int) round($d->accepted_quantity ?? $d->received_quantity ?? 0, 0);
-                                        $accKoli = round((float) ($d->accepted_koli ?? $d->received_koli ?? 0), 2);
-                                        $tri->received_quantity = (float) ($tri->received_quantity ?? 0) + $accQty;
-                                        $tri->received_koli = (float) ($tri->received_koli ?? 0) + $accKoli;
-                                        if ($tri->quantity !== null && (float)$tri->received_quantity > (float)$tri->quantity) {
-                                            $tri->received_quantity = $tri->quantity;
-                                        }
-                                        if ($tri->koli !== null && (float)$tri->received_koli > (float)$tri->koli) {
-                                            $tri->received_koli = $tri->koli;
-                                        }
-                                        $itemComplete = (((float) ($tri->received_quantity ?? 0)) >= (float) ($tri->quantity ?? 0))
-                                            || (((float) ($tri->received_koli ?? 0)) >= (float) ($tri->koli ?? 0));
-                                        if ($itemComplete) {
-                                            $tri->status = 'completed';
-                                        } elseif (($accQty > 0) || ($accKoli > 0)) {
-                                            $tri->status = 'on_progress';
-                                        }
-                                        $tri->save();
-                                    }
-                                }
-                            }
-                        }
+                        // foreach ($goodsReceipt->details as $d) {
+                        //     if (!empty($d->shipment_item_id)) {
+                        //         $sid = ShipmentItemDetail::find($d->shipment_item_id);
+                        //         if ($sid && $sid->reference_type === ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM) {
+                        //             $tri = TransferRequestItem::find($sid->reference_id);
+                        //             if ($tri) {
+                        //                 $accQty = (int) round($d->accepted_quantity ?? $d->received_quantity ?? 0, 0);
+                        //                 $accKoli = round((float) ($d->accepted_koli ?? $d->received_koli ?? 0), 2);
+                        //                 $tri->received_quantity = (float) ($tri->received_quantity ?? 0) + $accQty;
+                        //                 $tri->received_koli = (float) ($tri->received_koli ?? 0) + $accKoli;
+                        //                 if ($tri->quantity !== null && (float)$tri->received_quantity > (float)$tri->quantity) {
+                        //                     $tri->received_quantity = $tri->quantity;
+                        //                 }
+                        //                 if ($tri->koli !== null && (float)$tri->received_koli > (float)$tri->koli) {
+                        //                     $tri->received_koli = $tri->koli;
+                        //                 }
+                        //                 $itemComplete = (((float) ($tri->received_quantity ?? 0)) >= (float) ($tri->quantity ?? 0))
+                        //                     || (((float) ($tri->received_koli ?? 0)) >= (float) ($tri->koli ?? 0));
+                        //                 if ($itemComplete) {
+                        //                     $tri->status = 'completed';
+                        //                 } elseif (($accQty > 0) || ($accKoli > 0)) {
+                        //                     $tri->status = 'on_progress';
+                        //                 }
+                        //                 $tri->save();
+                        //             }
+                        //         }
+                        //     }
+                        // }
                         // Evaluate completion per each TR linked via shipment details
                         $trIds2 = DB::table('shipment_item_details as sid')
                             ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
