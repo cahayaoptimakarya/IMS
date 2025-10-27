@@ -298,6 +298,7 @@ class PermintaanBarangController extends Controller
                 DB::raw('tri.id as tri_id'),
                 'i.sku',
                 'i.nama_barang',
+                'i.tempat',
                 'tri.ship_remaining_quantity',
                 'tri.ship_remaining_koli',
                 'fw.name as from_warehouse_name',

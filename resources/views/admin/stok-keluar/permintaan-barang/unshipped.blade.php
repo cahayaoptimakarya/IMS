@@ -131,12 +131,12 @@
                         </thead>
                         <tbody class="fw-bold text-gray-600">
                             @forelse(($pendingItems ?? []) as $row)
-                                <tr data-tr-id="{{ $row->tr_id }}" data-tr-code="{{ $row->code }}" data-from-id="{{ $row->from_warehouse_id }}" data-to-id="{{ $row->to_warehouse_id }}" data-tri-id="{{ $row->tri_id }}" data-item-id="{{ $row->item_id }}" data-sku="{{ $row->sku }}" data-name="{{ $row->nama_barang }}" data-ratio="{{ (float)($row->item_koli_ratio ?? 1) }}" data-rem-qty="{{ (int)($row->ship_remaining_quantity ?? 0) }}" data-rem-koli="{{ (float)($row->ship_remaining_koli ?? 0) }}">
+                                <tr data-tr-id="{{ $row->tr_id }}" data-tr-code="{{ $row->code }}" data-from-id="{{ $row->from_warehouse_id }}" data-to-id="{{ $row->to_warehouse_id }}" data-tri-id="{{ $row->tri_id }}" data-item-id="{{ $row->item_id }}" data-sku="{{ $row->sku }}" data-name="{{ $row->nama_barang }}" data-place="{{ $row->tempat ?? '-' }}" data-ratio="{{ (float)($row->item_koli_ratio ?? 1) }}" data-rem-qty="{{ (int)($row->ship_remaining_quantity ?? 0) }}" data-rem-koli="{{ (float)($row->ship_remaining_koli ?? 0) }}">
                                     <td class="no-print-col"><input type="checkbox" class="row-select"></td>
                                     <td>{{ \Carbon\Carbon::parse($row->date)->format('Y-m-d') }}</td>
                                     <td><a href="{{ route('admin.stok-keluar.permintaan-barang.show', $row->tr_id) }}" class="text-primary fw-bold">{{ $row->code }}</a></td>
                                     <td>{{ $row->sku }}</td>
-                                    <td>{{ $row->nama_barang }}</td>
+                                    <td>{{ $row->nama_barang }} <span class="text-muted">({{ $row->tempat ?? '-' }})</span></td>
                                     <td class="text-end">{{ number_format((int)($row->ship_remaining_quantity ?? 0), 0, ',', '.') }}</td>
                                     <td class="text-end">{{ number_format((float)($row->ship_remaining_koli ?? 0), 2, ',', '.') }}</td>
                                     <td class="no-print-col">{{ $row->from_warehouse_name }}</td>
@@ -150,6 +150,7 @@
                                            data-item-id="{{ $row->item_id }}"
                                            data-sku="{{ $row->sku }}"
                                            data-name="{{ $row->nama_barang }}"
+                                           data-place="{{ $row->tempat ?? '-' }}"
                                            data-ratio="{{ (float)($row->item_koli_ratio ?? 1) }}"
                                            data-rem-qty="{{ (int)($row->ship_remaining_quantity ?? 0) }}"
                                            data-rem-koli="{{ (float)($row->ship_remaining_koli ?? 0) }}">
@@ -344,7 +345,7 @@
         const toId = $r.data('to-id');
         fromToSet.add(`${fromId}:${toId}`);
         if (fromWarehouseId === null) fromWarehouseId = fromId;
-        rows.push({ trId, trCode, triId: $r.data('tri-id'), itemId: $r.data('item-id'), sku: $r.data('sku'), name: $r.data('name'), ratio: parseFloat($r.data('ratio')||1), remQty: parseInt($r.data('rem-qty')||0), remKoli: parseFloat($r.data('rem-koli')||0) });
+        rows.push({ trId, trCode, triId: $r.data('tri-id'), itemId: $r.data('item-id'), sku: $r.data('sku'), name: $r.data('name'), place: ($r.data('place')||'-'), ratio: parseFloat($r.data('ratio')||1), remQty: parseInt($r.data('rem-qty')||0), remKoli: parseFloat($r.data('rem-koli')||0) });
       });
       if (fromToSet.size > 1){ return warn('Pilih item dengan gudang asal/tujuan yang sama untuk digabung ke satu shipment.'); }
       fromToKey = Array.from(fromToSet)[0] || null;
@@ -355,7 +356,7 @@
           <td>${r.trCode}</td>
           <td>${r.sku}</td>
           <td>
-            <div class="fw-bold">${r.name}</div>
+            <div class="fw-bold">${r.name} <span class="text-muted">(${r.place||'-'})</span></div>
             <div class="small lh-sm mt-1">
               <div class="mb-1">
                 <span class="badge badge-light-primary text-primary">Sisa Diminta: Qty <span class="bp-rem-qty">${r.remQty.toLocaleString('id-ID')}</span> | Koli <span class="bp-rem-koli">${r.remKoli.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2})}</span></span>
