@@ -130,6 +130,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::get('retur-out/status-counts', [\App\Http\Controllers\Admin\StokKeluar\ReturnOutController::class, 'getStatusCounts'])->name('retur-out.status-counts');
         Route::resource('retur-out', \App\Http\Controllers\Admin\StokKeluar\ReturnOutController::class)->parameter('retur-out', 'retur_out');
         Route::post('retur-out/{retur_out}/complete', [\App\Http\Controllers\Admin\StokKeluar\ReturnOutController::class, 'complete'])->name('retur-out.complete');
+        Route::get('retur-out/{retur_out}/surat-jalan', [\App\Http\Controllers\Admin\StokKeluar\ReturnOutController::class, 'suratJalan'])->name('retur-out.surat-jalan');
     });
 
     Route::prefix('admin/manajemen-stok')->name('admin.manajemenstok.')->group(function () {

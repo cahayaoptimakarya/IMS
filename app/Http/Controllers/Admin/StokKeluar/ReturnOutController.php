@@ -525,4 +525,15 @@ class ReturnOutController extends Controller
             return response()->json(['success' => false, 'message' => 'Gagal menyelesaikan retur out: ' . $e->getMessage()], 500);
         }
     }
+
+    // Cetak Surat Jalan untuk Retur Out yang memiliki tujuan gudang
+    public function suratJalan(ReturnOut $retur_out)
+    {
+        $ri = $retur_out->load(['warehouse','destinationWarehouse','details.item']);
+        if (empty($ri->destination_warehouse_id)) {
+            return redirect()->route('admin.stok-keluar.retur-out.show', $ri->id)
+                ->with('error', 'Dokumen ini tidak memiliki gudang tujuan. Surat jalan tidak tersedia.');
+        }
+        return view('admin.stok_keluar.retur_out.surat-jalan', compact('ri'));
+    }
 }

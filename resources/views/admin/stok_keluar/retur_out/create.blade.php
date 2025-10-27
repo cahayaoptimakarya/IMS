@@ -36,6 +36,16 @@
               </select>
             @endif
           </div>
+          <div class="col-md-4 mb-5">
+            <label class="form-label">Gudang Tujuan (opsional)</label>
+            <select name="destination_warehouse_id" id="destination_warehouse_id" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih gudang tujuan (opsional)">
+              <option></option>
+              @foreach($warehouses as $w)
+                <option value="{{ $w->id }}">{{ $w->name }}</option>
+              @endforeach
+            </select>
+            <div class="form-text">Kosongkan jika retur tidak diteruskan ke gudang lain.</div>
+          </div>
         </div>
 
         <div class="mb-5">
@@ -89,6 +99,8 @@
       try { flatpickr('#return_date', { dateFormat: 'Y-m-d' }); } catch(e){ console.warn('flatpickr init failed (global)', e); }
     }
     const inventory = @json($inventory ?? []);
+    // Enhance selects
+    if ($.fn.select2) { $('#destination_warehouse_id').select2({ placeholder: 'Pilih gudang tujuan (opsional)', allowClear: true }); }
     let idx = 0;
 
     function rowHtml(i){

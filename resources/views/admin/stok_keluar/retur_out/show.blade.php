@@ -156,7 +156,10 @@
         <div class="row mt-12 no-print">
           <div class="col-12 d-flex justify-content-end gap-2">
             @if($ri->status === \App\Models\ReturnOut::STATUS_COMPLETED)
-              <button type="button" class="btn btn-primary" onclick="window.print()">Cetak Bukti</button>
+              <button type="button" class="btn btn-light" onclick="window.print()">Cetak Bukti</button>
+              @if(!empty($ri->destination_warehouse_id))
+                <a href="{{ route('admin.stok-keluar.retur-out.surat-jalan', $ri->id) }}" class="btn btn-primary" target="_blank">Cetak Surat Jalan</a>
+              @endif
             @endif
             <a href="{{ route('admin.stok-keluar.retur-out.index') }}" class="btn btn-light">Kembali</a>
           </div>
