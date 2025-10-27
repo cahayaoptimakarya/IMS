@@ -123,27 +123,34 @@
                     <small id="filter-info" class="text-muted"></small>
                 </div>
                 <div class="alert alert-light-primary border p-5 mb-7">
-                    <div class="d-flex align-items-start">
-                        <span class="svg-icon svg-icon-2 me-3 text-primary"><i class="fas fa-info-circle"></i></span>
-                        <div class="flex-grow-1">
-                            <div class="fw-bolder mb-2">Keterangan Metrik</div>
-                            <div class="row g-5 text-gray-700 small">
-                                <div class="col-md-6">
-                                    <ul class="mb-0 list-unstyled">
-                                        <li class="mb-2"><span class="fw-bold text-dark">Avg OUT / hari</span>: Rata-rata kuantitas keluar per hari untuk SKU di gudang terpilih, dihitung dari Stock Movement bertipe keluar (stock_out, transfer_out; fallback quantity < 0) sejak tanggal movement pertama.</li>
-                                        <li class="mb-2"><span class="fw-bold text-dark">Lead Time PO (hari)</span>: Diambil dari field item <code>lead_time_po_days</code> (dapat diubah di form Item).</li>
-                                        <li class="mb-2"><span class="fw-bold text-dark">Lead Time Safety (hari)</span>: Diambil dari field item <code>lead_time_safety_days</code> (buffer hari sebagai safety).</li>
-                                    </ul>
-                                </div>
-                                <div class="col-md-6">
-                                    <ul class="mb-0 list-unstyled">
-                                        <li class="mb-2"><span class="fw-bold text-dark">Safety Stock</span>: <code>Avg OUT / hari × Lead Time Safety</code>.</li>
-                                        <li class="mb-2"><span class="fw-bold text-dark">ROP (Qty)</span>: <code>(Avg OUT / hari × Lead Time PO) + Safety Stock</code>.</li>
-                                        <li class="mb-2"><span class="fw-bold text-dark">On‑hand (Qty/Koli)</span>: Diambil dari Inventory per gudang untuk SKU terkait.</li>
-                                        <li class="mb-2"><span class="fw-bold text-dark">ROP (Koli)</span>: <code>ROP (Qty) ÷ koli per item</code>.</li>
-                                        <li class="mb-0"><span class="fw-bold text-dark">Selisih (Qty)</span>: <code>ROP (Qty) − On‑hand (Qty)</code>. Positif berarti perlu reorder; negatif/0 berarti aman.</li>
-                                    </ul>
-                                </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <span class="svg-icon svg-icon-2 me-3 text-primary"><i class="fas fa-info-circle"></i></span>
+                            <div class="fw-bolder">Keterangan Metrik</div>
+                        </div>
+                        <button class="btn btn-sm btn-light-primary" id="rp_metric_toggle" type="button" data-bs-toggle="collapse" data-bs-target="#rp_metric_notes" aria-expanded="false" aria-controls="rp_metric_notes">Tampilkan</button>
+                    </div>
+                    <div class="collapse mt-4" id="rp_metric_notes">
+                        <div class="row g-5 text-gray-700 small">
+                            <div class="col-md-6">
+                                <ul class="mb-0 list-unstyled">
+                                    <li class="mb-2"><span class="fw-bold text-dark">Avg OUT / hari</span>: Rata-rata kuantitas keluar per hari untuk SKU di gudang terpilih. Dihitung dari maksimal 90 hari terakhir; jika umur data < 90 hari, dipakai sejak awal pergerakan. Sumber data dari Stock Movement bertipe keluar (stock_out, transfer_out; fallback quantity < 0).</li>
+                                    <li class="mb-2"><span class="fw-bold text-dark">Lead Time PO (hari)</span>: Diambil dari field item <code>lead_time_po_days</code> (dapat diubah di form Item).</li>
+                                    <li class="mb-2"><span class="fw-bold text-dark">Lead Time Safety (hari)</span>: Diambil dari field item <code>lead_time_safety_days</code> (buffer hari sebagai safety).</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="mb-0 list-unstyled">
+                                    <li class="mb-2"><span class="fw-bold text-dark">Safety Stock</span>: <code>Avg OUT / hari × Lead Time Safety</code> (mengacu ke kolom "Safety (hari)" pada item).</li>
+                                    <li class="mb-2"><span class="fw-bold text-dark">ROP (Qty)</span>: <code>(Rata-rata permintaan harian × Lead Time PO) + Safety Stock</code>.</li>
+                                    <li class="mb-2"><span class="fw-bold text-dark">On‑hand (Qty/Koli)</span>: Diambil dari Inventory per gudang untuk SKU terkait.</li>
+                                    <li class="mb-2"><span class="fw-bold text-dark">On‑Order (Qty)</span>: Jumlah yang masih outstanding dari pesanan masuk (PO) ke gudang yang sama. Diambil dari remaining_quantity pada Stock In Orders berstatus <code>requested</code>/<code>on_shipping</code> dan item berstatus <code>pending</code>/<code>on_progress</code>.</li>
+                                    <li class="mb-2"><span class="fw-bold text-dark">ROP (Koli)</span>: <code>ROP (Qty) ÷ koli per item</code>.</li>
+                                    <li class="mb-0"><span class="fw-bold text-dark">Selisih (Qty)</span>: <code>ROP (Qty) − On‑hand (Qty)</code>. Positif berarti perlu reorder; negatif/0 berarti aman.</li>
+                                </ul>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <div class="text-muted fst-italic">Catatan: Perhitungan rata-rata memakai periode maksimum 90 hari. Jika umur data SKU di gudang tersebut kurang dari 90 hari, sistem otomatis memakai periode sejak awal pergerakan. Indikator di tabel: <span class="badge badge-light-primary">90d</span> = periode penuh 90 hari; <span class="badge badge-light-secondary">All</span> = periode < 90 hari (sejak awal pergerakan).</div>
                             </div>
                         </div>
                     </div>
@@ -247,7 +254,10 @@ $(function(){
             columns:[
                 { data:null, render:(r)=>formatName(r.sku, r.nama_barang, r.per_koli, r.uom) },
                 { data:'warehouse', className:'text-center' },
-                { data:'avg_daily_out', className:'text-center', render:(v)=>fmt(v) },
+                { data:null, className:'text-center', render:(r)=>{
+                    const badge = r.avg_source === '90d' ? '<span class="badge badge-light-primary ms-1">90d</span>' : '<span class="badge badge-light-secondary ms-1">All</span>';
+                    return fmt(r.avg_daily_out) + ' ' + badge;
+                } },
                 { data:'total_out_qty', className:'text-center', render:(v)=>fmt(v) },
                 { data:'total_days', className:'text-center' },
                 { data:'lead_time_po', className:'text-center' },
@@ -291,6 +301,11 @@ $(function(){
             }
         });
     });
+    // Toggle button label for metric notes
+    const $metricBtn = $('#rp_metric_toggle');
+    const $metricNotes = $('#rp_metric_notes');
+    $metricNotes.on('shown.bs.collapse', function(){ $metricBtn.text('Sembunyikan'); });
+    $metricNotes.on('hidden.bs.collapse', function(){ $metricBtn.text('Tampilkan'); });
     load();
 });
 </script>

@@ -45,19 +45,25 @@ class ReorderPointController extends Controller
                 DB::raw('inv.koli as onhand_koli'),
                 DB::raw('COALESCE(u.symbol, u.name) as uom_symbol'),
                 'w.name as warehouse_name',
-                DB::raw('CASE WHEN COALESCE(s.days,0) > 0 THEN s.total_out / s.days ELSE 0 END as avg_daily_out'),
-                DB::raw('COALESCE(s.total_out,0) as total_out_qty'),
-                DB::raw('COALESCE(s.days,0) as total_days'),
+                // Avg over capped-90-day period
+                DB::raw("CASE WHEN COALESCE(s.effective_days,0) > 0 THEN COALESCE(s.total_out_90,0) / s.effective_days ELSE 0 END as avg_daily_out"),
+                DB::raw('COALESCE(s.total_out_90,0) as total_out_qty'),
+                DB::raw('COALESCE(s.effective_days,0) as total_days'),
+                DB::raw('COALESCE(s.effective_days,0) as effective_days'),
                 DB::raw('COALESCE(oo.on_order_qty,0) as on_order_qty')
             ]);
 
-        // Join subquery for avg daily out per item+warehouse since first movement
+        // Rolling window parameters (capped at 90 days)
+        $windowDays = 90; $windowStart = now()->startOfDay()->subDays($windowDays - 1)->toDateString();
+
+        // Join subquery for capped-90-day period
         $sub = DB::table('stock_movements as sm')
             ->select([
                 'sm.item_id',
                 'sm.warehouse_id',
-                DB::raw("SUM(CASE WHEN (sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0) THEN ABS(sm.quantity) ELSE 0 END) as total_out"),
-                DB::raw("DATEDIFF(CURDATE(), MIN(DATE(sm.date))) + 1 as days"),
+                DB::raw("MIN(DATE(sm.date)) as first_life_date"),
+                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$windowStart}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_90"),
+                DB::raw("CASE WHEN MIN(DATE(sm.date)) IS NULL THEN 0 ELSE DATEDIFF(CURDATE(), CASE WHEN MIN(DATE(sm.date)) >= '{$windowStart}' THEN MIN(DATE(sm.date)) ELSE DATE('{$windowStart}') END) + 1 END as effective_days"),
             ])
             ->groupBy('sm.item_id', 'sm.warehouse_id');
 
@@ -115,6 +121,7 @@ class ReorderPointController extends Controller
         $data = $rows->map(function($r){
             $gapQty = (float)$r->rop_qty - (float)$r->onhand_qty;
             $status = $gapQty > 0 ? 'reorder' : 'ok';
+            $avgSource = ((int)($r->effective_days ?? 0) >= 90) ? '90d' : 'All';
             return [
                 'sku' => $r->sku,
                 'nama_barang' => $r->nama_barang,
@@ -125,6 +132,7 @@ class ReorderPointController extends Controller
                 'avg_daily_out' => (float)$r->avg_daily_out,
                 'total_out_qty' => (float)$r->total_out_qty,
                 'total_days' => (int)$r->total_days,
+                'avg_source' => $avgSource,
                 'on_order_qty' => (float)($r->on_order_qty ?? 0),
                 'safety_stock_qty' => (float)$r->safety_stock_qty,
                 'rop_qty' => (float)$r->rop_qty,
@@ -188,17 +196,20 @@ class ReorderPointController extends Controller
                 DB::raw('COALESCE(inv.koli,0) as onhand_koli'),
                 DB::raw('COALESCE(u.symbol, u.name) as uom_symbol'),
                 'w.name as warehouse_name',
-                DB::raw('COALESCE(s.total_out,0) as total_out'),
-                DB::raw('COALESCE(s.days,0) as days'),
+                DB::raw('COALESCE(s.total_out_90,0) as total_out_90'),
+                DB::raw('COALESCE(s.effective_days,0) as effective_days'),
             ]);
 
-        // Join subquery for avg daily out and days
+        // Rolling window parameters
+        $windowDays = 90; $minDays = 30; $windowStart = now()->startOfDay()->subDays($windowDays - 1)->toDateString();
+        // Join subquery for avg daily out (windowed + lifetime)
         $sub = DB::table('stock_movements as sm')
             ->select([
                 'sm.item_id',
                 'sm.warehouse_id',
-                DB::raw("SUM(CASE WHEN (sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0) THEN ABS(sm.quantity) ELSE 0 END) as total_out"),
-                DB::raw("DATEDIFF(CURDATE(), MIN(DATE(sm.date))) + 1 as days"),
+                DB::raw("MIN(DATE(sm.date)) as first_life_date"),
+                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$windowStart}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_90"),
+                DB::raw("CASE WHEN MIN(DATE(sm.date)) IS NULL THEN 0 ELSE DATEDIFF(CURDATE(), CASE WHEN MIN(DATE(sm.date)) >= '{$windowStart}' THEN MIN(DATE(sm.date)) ELSE DATE('{$windowStart}') END) + 1 END as effective_days"),
             ])
             ->groupBy('sm.item_id', 'sm.warehouse_id');
         $query->leftJoinSub($sub, 's', function($j){
@@ -228,7 +239,9 @@ class ReorderPointController extends Controller
 
         $dataRows = [];
         foreach ($rows as $r) {
-            $avgDaily = ($r->days ?? 0) > 0 ? ((float)$r->total_out / (int)$r->days) : 0;
+            $usedDays = (int)($r->effective_days ?? 0);
+            $usedTotal = (float)($r->total_out_90 ?? 0);
+            $avgDaily = $usedDays > 0 ? ($usedTotal / $usedDays) : 0;
             $gapQty = ((float)$r->rop_qty) - ((float)($r->onhand_qty ?? 0));
             $statusTxt = $gapQty > 0 ? 'Reorder' : 'Aman';
             $dataRows[] = [
@@ -236,8 +249,8 @@ class ReorderPointController extends Controller
                 $r->nama_barang,
                 $r->warehouse_name,
                 number_format($avgDaily, 2, ',', '.'),
-                number_format((float)($r->total_out ?? 0), 2, ',', '.'),
-                (int)($r->days ?? 0),
+                number_format($usedTotal, 2, ',', '.'),
+                (int)$usedDays,
                 (int)$r->lead_time_po,
                 (int)$r->lead_time_safety_stock,
                 number_format((float)$r->safety_stock_qty, 2, ',', '.'),
