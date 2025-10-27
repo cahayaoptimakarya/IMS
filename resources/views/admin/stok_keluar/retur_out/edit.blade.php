@@ -61,6 +61,7 @@
                 <th class="min-w-150px">Stok Tersedia</th>
                 <th class="min-w-150px">Qty</th>
                 <th class="min-w-150px">Koli</th>
+                <th class="min-w-200px">Catatan</th>
                 <th class="text-end min-w-100px">Aksi</th>
               </tr>
             </thead>
@@ -95,6 +96,18 @@
     }
     const inventory = @json($inventory ?? []);
     if ($.fn.select2) { $('#destination_warehouse_id').select2({ placeholder: 'Pilih gudang tujuan (opsional)', allowClear: true }); }
+    function syncDestinationOptions(){
+      const whId = String($('#warehouse_id').val()||'');
+      const $dest = $('#destination_warehouse_id');
+      $dest.find('option').each(function(){
+        const val = String($(this).attr('value')||'');
+        if (!val) return;
+        $(this).prop('disabled', val===whId);
+      });
+      if (String($dest.val()||'') === whId) { $dest.val(null).trigger('change'); }
+    }
+    syncDestinationOptions();
+    $('#warehouse_id').on('change', syncDestinationOptions);
     let idx = 0;
 
     function rowHtml(i){
@@ -107,6 +120,7 @@
         <td><span class="available-stock text-muted">-</span></td>
         <td><input type="number" name="details[${i}][quantity]" class="form-control form-control-solid quantity-input" min="0" step="any" value="0"></td>
         <td><input type="number" name="details[${i}][koli]" class="form-control form-control-solid koli-input" min="0" step="any" value="0"></td>
+        <td><input type="text" name="details[${i}][notes]" class="form-control form-control-solid notes-input" maxlength="255" placeholder="Catatan (opsional)"></td>
         <td class="text-end"><button type="button" class="btn btn-icon btn-sm btn-danger remove-row"><i class="bi bi-trash"></i></button></td>
       </tr>`;
     }
@@ -145,6 +159,7 @@
         $sel.val(prefill.item_id).trigger('change');
         $row.find('.quantity-input').val(prefill.quantity || 0);
         $row.find('.koli-input').val(prefill.koli || 0);
+        $row.find('.notes-input').val(prefill.notes || '');
       }
       idx++;
     }
@@ -275,7 +290,17 @@
     });
 
     // Prefill existing details
-    const details = @json($ri->details->map(fn($d)=>['item_id'=>$d->item_id,'quantity'=>$d->quantity,'koli'=>$d->koli]));
+    @php
+      $detailsPrefill = $ri->details->map(function($d){
+        return [
+          'item_id' => $d->item_id,
+          'quantity' => $d->quantity,
+          'koli' => $d->koli,
+          'notes' => $d->notes,
+        ];
+      })->values();
+    @endphp
+    const details = @json($detailsPrefill);
     if ($('#warehouse_id').val()) {
       if (details.length) {
         details.forEach(function(d){ addRow(d); });

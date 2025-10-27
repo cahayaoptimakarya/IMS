@@ -150,7 +150,7 @@ class ReturnOutController extends Controller
         $validated = $request->validate([
             'code' => ['required','string','max:50','unique:return_outs,code'],
             'warehouse_id' => ['required','exists:warehouses,id'],
-            'destination_warehouse_id' => ['nullable','exists:warehouses,id'],
+            'destination_warehouse_id' => ['nullable','exists:warehouses,id','different:warehouse_id'],
             'return_date' => ['required','date'],
             'description' => ['nullable','string'],
             'details' => ['required','array','min:1'],
@@ -299,7 +299,7 @@ class ReturnOutController extends Controller
         $validated = $request->validate([
             'code' => ['required','string','max:50', Rule::unique('return_outs','code')->ignore($retur_out->id)],
             'warehouse_id' => ['required','exists:warehouses,id'],
-            'destination_warehouse_id' => ['nullable','exists:warehouses,id'],
+            'destination_warehouse_id' => ['nullable','exists:warehouses,id','different:warehouse_id'],
             'return_date' => ['required','date'],
             'description' => ['nullable','string'],
             'details' => ['required','array','min:1'],
@@ -471,32 +471,7 @@ class ReturnOutController extends Controller
                     'reference_type' => 'return_out_details',
                 ]);
 
-                // Jika ada tujuan gudang (retur ke gudang asal pada request transfer), tambahkan stok di sana
-                if (!empty($retur_out->destination_warehouse_id)) {
-                    $destInventory = Inventory::firstOrNew([
-                        'warehouse_id' => $retur_out->destination_warehouse_id,
-                        'item_id' => $detail->item_id,
-                    ]);
-                    $destBefore = (float) ($destInventory->quantity ?? 0);
-                    $destInventory->quantity = $destBefore + $qtyOut;
-                    $destInventory->koli = (float) ($destInventory->koli ?? 0) + $koliOut;
-                    $destInventory->save();
-
-                    StockMovement::create([
-                        'item_id' => $detail->item_id,
-                        'warehouse_id' => $retur_out->destination_warehouse_id,
-                        'date' => $retur_out->return_date ?? now()->toDateString(),
-                        'quantity' => $qtyOut,
-                        'koli' => $koliOut,
-                        'stock_before' => $destBefore,
-                        'stock_after' => $destInventory->quantity,
-                        'type' => 'stock_in',
-                        'description' => 'Retur Out (Tujuan) ' . $retur_out->code,
-                        'user_id' => Auth::id(),
-                        'reference_id' => $detail->id,
-                        'reference_type' => 'return_out_details',
-                    ]);
-                }
+               
             }
 
             $retur_out->update([
