@@ -439,7 +439,14 @@
       let qty=parseInt($(this).val()||0);
       if (qty > maxQty) {
         qty = maxQty;
-        if (window.Swal) Swal.fire('Peringatan', `Qty melebihi stok gudang (${stockQty}).`, 'warning');
+        if (window.Swal) {
+          const stokQtyTxt = (stockQty||0).toLocaleString('id-ID');
+          Swal.fire(
+            'Periksa Data',
+            `Input Qty tidak dapat diproses. Tolong cek kembali inputan.\n\nData referensi saat ini:\n- Stok (Qty): ${stokQtyTxt}`,
+            'warning'
+          );
+        }
       }
       qty=clamp(qty,0,maxQty);
       $(this).val(qty);
@@ -450,7 +457,14 @@
         const maxKoli = Math.min(remKoli, stockKoli);
         if (koli > maxKoli) {
           koli = maxKoli;
-          if (window.Swal) Swal.fire('Peringatan', `Koli melebihi stok gudang (${maxKoli}).`, 'warning');
+          if (window.Swal) {
+            const stokKoliTxt = (stockKoli||0).toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2});
+            Swal.fire(
+              'Periksa Data',
+              `Input Koli tidak dapat diproses. Tolong cek kembali inputan.\n\nData referensi saat ini:\n- Stok (Koli): ${stokKoliTxt}`,
+              'warning'
+            );
+          }
         }
         koli=clamp(koli,0,maxKoli);
         $tr.find('.bp-koli').val(koli.toFixed(2));
@@ -465,7 +479,14 @@
       let koli=parseFloat($(this).val()||0);
       if (koli > maxKoli) {
         koli = maxKoli;
-        if (window.Swal) Swal.fire('Peringatan', `Koli melebihi stok gudang (${maxKoli}).`, 'warning');
+        if (window.Swal) {
+          const stokKoliTxt = (stockKoli||0).toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2});
+          Swal.fire(
+            'Periksa Data',
+            `Input Koli tidak dapat diproses. Tolong cek kembali inputan.\n\nData referensi saat ini:\n- Stok (Koli): ${stokKoliTxt}`,
+            'warning'
+          );
+        }
       }
       koli=clamp(koli,0,maxKoli);
       $(this).val(koli);
