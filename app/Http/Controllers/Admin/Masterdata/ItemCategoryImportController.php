@@ -117,4 +117,73 @@ class ItemCategoryImportController extends Controller
             return redirect()->back()->with('error', 'Gagal mengimpor CSV: ' . $e->getMessage());
         }
     }
+
+    public function importTempat(Request $request)
+    {
+        $request->validate([
+            'csv_file_tempat' => 'required|file|mimes:csv,txt',
+        ]);
+
+        $file = $request->file('csv_file_tempat');
+        $path = $file->getRealPath();
+
+        $handle = fopen($path, 'r');
+        if ($handle === false) {
+            return redirect()->back()->with('error', 'Gagal membuka file CSV.');
+        }
+
+        $updated = 0; $skipped = 0; $errors = [];
+
+        DB::beginTransaction();
+        try {
+            $rowNumber = 0;
+            while (($row = fgetcsv($handle, 0, ';')) !== false) {
+                $rowNumber++;
+                if (count($row) === 0 || (count($row) === 1 && trim((string)($row[0] ?? '')) === '')) {
+                    continue;
+                }
+                $sku = isset($row[0]) ? trim((string)$row[0]) : '';
+                $tempat = isset($row[1]) ? trim((string)$row[1]) : '';
+
+                if ($sku === '' || $tempat === '') {
+                    $errors[] = "Baris {$rowNumber}: SKU dan Tempat wajib.";
+                    $skipped++;
+                    continue;
+                }
+
+                $affected = Item::where('sku', $sku)->update(['tempat' => $tempat]);
+                if ($affected > 0) { $updated += $affected; }
+                else { $errors[] = "Baris {$rowNumber}: SKU '{$sku}' tidak ditemukan; dilewati."; $skipped++; }
+            }
+
+            fclose($handle);
+
+            if ($updated > 0) {
+                UserActivity::create([
+                    'user_id' => Auth::id(),
+                    'activity' => 'imported',
+                    'menu' => 'items-tempat-import',
+                    'description' => "Import tempat dari CSV: {$updated} item diperbarui.",
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ]);
+            }
+
+            DB::commit();
+
+            session()->flash('import_tempat_summary', [
+                'updated' => $updated,
+                'skipped' => $skipped,
+                'notes' => array_slice($errors, 0, 50),
+            ]);
+
+            $msg = "Import tempat selesai. {$updated} item diperbarui, {$skipped} baris dilewati.";
+            if (count($errors) > 0) { $msg .= ' Catatan: ' . implode(' | ', array_slice($errors, 0, 5)); }
+            return redirect()->route('admin.masterdata.item-categories-import.index')->with('success', $msg);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            if (is_resource($handle)) { fclose($handle); }
+            return redirect()->back()->with('error', 'Gagal mengimpor CSV tempat: ' . $e->getMessage());
+        }
+    }
 }
