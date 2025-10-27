@@ -305,10 +305,9 @@
                 <th>Kode TR</th>
                 <th>SKU</th>
                 <th>Nama Item</th>
-                <th class="text-end">Sisa Qty</th>
-                <th class="text-end">Sisa Koli</th>
                 <th class="text-end">Qty Kirim</th>
                 <th class="text-end">Koli Kirim</th>
+                <th>Catatan</th>
                 <th class="text-center">Max</th>
               </tr>
             </thead>
@@ -336,6 +335,7 @@
       // Build flat rows and validate same from/to
       rows = [];
       const fromToSet = new Set();
+      let fromWarehouseId = null;
       $selectedRows.each(function(){
         const $r = $(this);
         const trId = $r.data('tr-id');
@@ -343,6 +343,7 @@
         const fromId = $r.data('from-id');
         const toId = $r.data('to-id');
         fromToSet.add(`${fromId}:${toId}`);
+        if (fromWarehouseId === null) fromWarehouseId = fromId;
         rows.push({ trId, trCode, triId: $r.data('tri-id'), itemId: $r.data('item-id'), sku: $r.data('sku'), name: $r.data('name'), ratio: parseFloat($r.data('ratio')||1), remQty: parseInt($r.data('rem-qty')||0), remKoli: parseFloat($r.data('rem-koli')||0) });
       });
       if (fromToSet.size > 1){ return warn('Pilih item dengan gudang asal/tujuan yang sama untuk digabung ke satu shipment.'); }
@@ -350,17 +351,45 @@
       firstTrId = rows[0]?.trId || null;
       // Render items table
       const tb = rows.map(r => `
-        <tr data-tr-id="${r.trId}" data-tri-id="${r.triId}" data-item-id="${r.itemId}" data-ratio="${r.ratio}" data-rem-qty="${r.remQty}" data-rem-koli="${r.remKoli}">
+        <tr data-tr-id="${r.trId}" data-tri-id="${r.triId}" data-item-id="${r.itemId}" data-ratio="${r.ratio}" data-rem-qty="${r.remQty}" data-rem-koli="${r.remKoli}" data-stock-qty="0" data-stock-koli="0">
           <td>${r.trCode}</td>
           <td>${r.sku}</td>
-          <td>${r.name}</td>
-          <td class="text-end">${r.remQty.toLocaleString('id-ID')}</td>
-          <td class="text-end">${r.remKoli.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+          <td>
+            <div class="fw-bold">${r.name}</div>
+            <div class="small lh-sm mt-1">
+              <div class="mb-1">
+                <span class="badge badge-light-primary text-primary">Sisa Diminta: Qty <span class="bp-rem-qty">${r.remQty.toLocaleString('id-ID')}</span> | Koli <span class="bp-rem-koli">${r.remKoli.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2})}</span></span>
+              </div>
+              <div class="text-muted">Stok Gudang: Qty <span class="bp-stock-qty">-</span> | Koli <span class="bp-stock-koli">-</span></div>
+            </div>
+          </td>
           <td class="text-end"><input type="number" min="0" step="1" class="form-control form-control-sm bp-qty" style="max-width:120px; margin-left:auto;"></td>
           <td class="text-end"><input type="number" min="0" step="0.01" class="form-control form-control-sm bp-koli" style="max-width:120px; margin-left:auto;"></td>
+          <td><input type="text" class="form-control form-control-sm bp-note" maxlength="255" placeholder="Catatan"></td>
           <td class="text-center"><button type="button" class="btn btn-sm btn-light bp-max">Max</button></td>
         </tr>`).join('');
       $('#bp_items_table tbody').html(tb);
+
+      // Load inventory stock for origin warehouse and selected items
+      try {
+        const itemIds = rows.map(r => r.itemId);
+        $.get(`{{ route('admin.stok-keluar.permintaan-barang.inventory-stock') }}`,
+          { warehouse_id: fromWarehouseId, item_ids: itemIds },
+          function(map){
+            $('#bp_items_table tbody tr').each(function(){
+              const $tr = $(this);
+              const itemId = $tr.data('item-id');
+              const info = map && map[itemId] ? map[itemId] : { quantity: 0, koli: 0 };
+              const q = parseInt(info.quantity||0);
+              const k = parseFloat(info.koli||0);
+              $tr.attr('data-stock-qty', q);
+              $tr.attr('data-stock-koli', k);
+              $tr.find('.bp-stock-qty').text(q.toLocaleString('id-ID'));
+              $tr.find('.bp-stock-koli').text(k.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2}));
+            });
+          }
+        );
+      } catch(e) { /* ignore */ }
       // Load packing shipments based on first TR
       $('#bp_shipment').html('<option value="">Memuat...</option>');
       $.get(`{{ url('admin/stok-keluar/permintaan-barang') }}/${firstTrId}/packing-shipments`, function(list){
@@ -401,21 +430,70 @@
       }
     });
     function clamp(val, min, max){ val = isNaN(val)?0:val; if (typeof max==='number') val = Math.min(val, max); if (typeof min==='number') val = Math.max(val, min); return val; }
-    $(document).on('input','.bp-qty', function(){ const $tr=$(this).closest('tr'); const ratio=parseFloat($tr.data('ratio')||1); const remQty=parseInt($tr.data('rem-qty')||0); let qty=parseInt($(this).val()||0); qty=clamp(qty,0,remQty); $(this).val(qty); if(ratio>0){ let koli=qty/ratio; const remKoli=parseFloat($tr.data('rem-koli')||0); koli=clamp(koli,0,remKoli); $tr.find('.bp-koli').val(koli.toFixed(2)); } });
-    $(document).on('input','.bp-koli', function(){ const $tr=$(this).closest('tr'); const ratio=parseFloat($tr.data('ratio')||1); const remKoli=parseFloat($tr.data('rem-koli')||0); let koli=parseFloat($(this).val()||0); koli=clamp(koli,0,remKoli); $(this).val(koli); if(ratio>0){ let qty=koli*ratio; const remQty=parseInt($tr.data('rem-qty')||0); qty=clamp(qty,0,remQty); $tr.find('.bp-qty').val(Math.round(qty)); } });
+    $(document).on('input','.bp-qty', function(){
+      const $tr=$(this).closest('tr');
+      const ratio=parseFloat($tr.data('ratio')||1);
+      const remQty=parseInt($tr.data('rem-qty')||0);
+      const stockQty=parseInt($tr.data('stock-qty')||0);
+      const maxQty = Math.min(remQty, stockQty);
+      let qty=parseInt($(this).val()||0);
+      if (qty > maxQty) {
+        qty = maxQty;
+        if (window.Swal) Swal.fire('Peringatan', `Qty melebihi stok gudang (${stockQty}).`, 'warning');
+      }
+      qty=clamp(qty,0,maxQty);
+      $(this).val(qty);
+      if(ratio>0){
+        let koli=qty/ratio;
+        const remKoli=parseFloat($tr.data('rem-koli')||0);
+        const stockKoli=parseFloat($tr.data('stock-koli')||0);
+        const maxKoli = Math.min(remKoli, stockKoli);
+        if (koli > maxKoli) {
+          koli = maxKoli;
+          if (window.Swal) Swal.fire('Peringatan', `Koli melebihi stok gudang (${maxKoli}).`, 'warning');
+        }
+        koli=clamp(koli,0,maxKoli);
+        $tr.find('.bp-koli').val(koli.toFixed(2));
+      }
+    });
+    $(document).on('input','.bp-koli', function(){
+      const $tr=$(this).closest('tr');
+      const ratio=parseFloat($tr.data('ratio')||1);
+      const remKoli=parseFloat($tr.data('rem-koli')||0);
+      const stockKoli=parseFloat($tr.data('stock-koli')||0);
+      const maxKoli = Math.min(remKoli, stockKoli);
+      let koli=parseFloat($(this).val()||0);
+      if (koli > maxKoli) {
+        koli = maxKoli;
+        if (window.Swal) Swal.fire('Peringatan', `Koli melebihi stok gudang (${maxKoli}).`, 'warning');
+      }
+      koli=clamp(koli,0,maxKoli);
+      $(this).val(koli);
+      if(ratio>0){
+        let qty=koli*ratio;
+        const remQty=parseInt($tr.data('rem-qty')||0);
+        const stockQty=parseInt($tr.data('stock-qty')||0);
+        const maxQty = Math.min(remQty, stockQty);
+        if (qty > maxQty) qty = maxQty;
+        qty=clamp(qty,0,maxQty);
+        $tr.find('.bp-qty').val(Math.round(qty));
+      }
+    });
     // Max button per baris: isi qty/koli ke maksimum yang konsisten dengan ratio dan batas sisa
     $(document).on('click', '.bp-max', function(){
       const $tr = $(this).closest('tr');
       const ratio = parseFloat($tr.data('ratio')||1);
       const remQty = parseInt($tr.data('rem-qty')||0);
       const remKoli = parseFloat($tr.data('rem-koli')||0);
-      // Target qty maksimum yang masih konsisten dengan batas koli
-      let maxQtyByKoli = ratio > 0 ? Math.floor(remKoli * ratio) : remQty;
-      let qtyFinal = Math.min(remQty, maxQtyByKoli);
+      // Target qty maksimum yang masih konsisten dengan batas koli dan stok
+      const stockQty = parseInt($tr.data('stock-qty')||0);
+      const stockKoli = parseFloat($tr.data('stock-koli')||0);
+      let maxQtyByKoli = ratio > 0 ? Math.floor(Math.min(remKoli, stockKoli) * ratio) : Math.min(remQty, stockQty);
+      let qtyFinal = Math.min(remQty, stockQty, maxQtyByKoli);
       qtyFinal = isFinite(qtyFinal) ? qtyFinal : 0;
-      let koliFinal = ratio > 0 ? (qtyFinal / ratio) : remKoli;
+      let koliFinal = ratio > 0 ? (qtyFinal / ratio) : Math.min(remKoli, stockKoli);
       // Clamp ke batas akhir
-      koliFinal = Math.min(koliFinal, remKoli);
+      koliFinal = Math.min(koliFinal, remKoli, stockKoli);
       $tr.find('.bp-qty').val(qtyFinal);
       $tr.find('.bp-koli').val((koliFinal||0).toFixed(2));
     });
@@ -428,8 +506,17 @@
       const itemsByTr = {};
       let any=false;
       $('#bp_items_table tbody tr').each(function(){
-        const trId = $(this).data('tr-id'); const triId=$(this).data('tri-id'); const itemId=$(this).data('item-id'); const qty=parseInt($(this).find('.bp-qty').val()||0); const koli=parseFloat($(this).find('.bp-koli').val()||0);
-        if (qty>0 || koli>0){ if(!itemsByTr[trId]) itemsByTr[trId]={}; itemsByTr[trId][triId] = { item_id:itemId, quantity:qty, koli:koli }; any=true; }
+        const trId = $(this).data('tr-id');
+        const triId=$(this).data('tri-id');
+        const itemId=$(this).data('item-id');
+        const qty=parseInt($(this).find('.bp-qty').val()||0);
+        const koli=parseFloat($(this).find('.bp-koli').val()||0);
+        const note=($(this).find('.bp-note').val()||'').toString();
+        if (qty>0 || koli>0){
+          if(!itemsByTr[trId]) itemsByTr[trId]={};
+          itemsByTr[trId][triId] = { item_id:itemId, quantity:qty, koli:koli, description: note };
+          any=true;
+        }
       });
       if (!any) return warn('Isi qty/koli untuk minimal satu item.');
 
@@ -451,19 +538,22 @@
           if (Object.keys(firstItems).length===0) return warn('Isi qty/koli pada salah satu item dari TR pertama.');
           const payloadFirst = Object.assign({ shipment_id: null, items: firstItems }, header);
           $.ajax({ url: `{{ url('admin/stok-keluar/permintaan-barang') }}/${firstTrId}/create-shipment`, type: 'POST', headers:{'X-CSRF-TOKEN': csrf}, data: payloadFirst })
-            .done(function(){
-              // Fetch latest packing shipment for first TR and reuse
-              $.get(`{{ url('admin/stok-keluar/permintaan-barang') }}/${firstTrId}/packing-shipments`, function(list){
-                if (!Array.isArray(list) || list.length===0) { return Swal.fire('Error','Tidak dapat menemukan shipment baru.','error'); }
-                // Find by shipping_date match
-                const match = list.find(s => (s.shipping_date||'') === header.shipping_date);
-                const chosen = match || list[0];
-                const reuseId = chosen.id;
+            .done(function(resp){
+              // Prefer shipment_id returned by backend to avoid ambiguity by date
+              let reuseId = resp && resp.shipment_id ? resp.shipment_id : null;
+              const proceedWithId = function(id){
                 // Remove firstTr from itemsByTr for remaining
                 delete itemsByTr[firstTrId];
                 if (Object.keys(itemsByTr).length===0){ Swal.fire('Berhasil','Packing tersimpan.','success').then(()=>{ location.reload(); }); return; }
                 // Reuse same header data so validation terpenuhi
-                submitWithShipmentId(reuseId, header);
+                submitWithShipmentId(id, header);
+              };
+              if (reuseId){ return proceedWithId(reuseId); }
+              // Fallback: Fetch packing shipments and pick the newest by created order if available
+              $.get(`{{ url('admin/stok-keluar/permintaan-barang') }}/${firstTrId}/packing-shipments`, function(list){
+                if (!Array.isArray(list) || list.length===0) { return Swal.fire('Error','Tidak dapat menemukan shipment baru.','error'); }
+                const chosen = list[0];
+                proceedWithId(chosen.id);
               }).fail(function(){ Swal.fire('Error','Gagal mengambil data shipment.','error'); });
             })
             .fail(function(xhr){ let msg='Gagal membuat shipment baru.'; if (xhr?.responseJSON?.message) msg=xhr.responseJSON.message; Swal.fire('Error', msg, 'error'); });

@@ -119,6 +119,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         // Place specific routes BEFORE resource to avoid {transferRequest} capturing 'unshipped'
         Route::get('permintaan-barang/unshipped', [PermintaanBarangController::class, 'unshippedIndex'])->name('permintaan-barang.unshipped');
         Route::get('permintaan-barang/unshipped/data', [PermintaanBarangController::class, 'unshippedData'])->name('permintaan-barang.unshipped.data');
+        Route::get('permintaan-barang/inventory-stock', [PermintaanBarangController::class, 'inventoryStock'])->name('permintaan-barang.inventory-stock');
         Route::resource('permintaan-barang', PermintaanBarangController::class)->only(['index', 'show'])->parameter('permintaan-barang', 'transferRequest');
         Route::post('permintaan-barang/{transferRequest}/update-status', [PermintaanBarangController::class, 'updateStatus'])->name('permintaan-barang.updateStatus');
         Route::post('permintaan-barang/{transferRequest}/create-shipment', [PermintaanBarangController::class, 'createShipment'])->name('permintaan-barang.createShipment');

@@ -425,6 +425,41 @@ class PermintaanBarangController extends Controller
         return response()->json($shipments);
     }
 
+    // Return inventory stock for given warehouse and list of item IDs
+    public function inventoryStock(Request $request)
+    {
+        $request->validate([
+            'warehouse_id' => 'required|integer|exists:warehouses,id',
+            'item_ids' => 'required|array|min:1',
+            'item_ids.*' => 'integer|exists:items,id',
+        ]);
+
+        $warehouseId = (int) $request->input('warehouse_id');
+        $itemIds = $request->input('item_ids', []);
+
+        $rows = Inventory::query()
+            ->where('warehouse_id', $warehouseId)
+            ->whereIn('item_id', $itemIds)
+            ->get(['item_id', 'quantity', 'koli']);
+
+        $map = [];
+        foreach ($rows as $r) {
+            $map[$r->item_id] = [
+                'quantity' => (int) $r->quantity,
+                'koli' => (float) ($r->koli ?? 0),
+            ];
+        }
+
+        // Ensure all requested items exist in the map
+        foreach ($itemIds as $id) {
+            if (!array_key_exists($id, $map)) {
+                $map[$id] = ['quantity' => 0, 'koli' => 0.0];
+            }
+        }
+
+        return response()->json($map);
+    }
+
     public function createShipment(Request $request, TransferRequest $transferRequest)
     {
         $validated = $request->validate([
@@ -455,7 +490,9 @@ class PermintaanBarangController extends Controller
         }
 
         try {
-            DB::transaction(function () use ($validated, $transferRequest, $itemsToShip, $request) {
+            $shipmentId = null;
+            $shipmentCode = null;
+            DB::transaction(function () use (&$shipmentId, &$shipmentCode, $validated, $transferRequest, $itemsToShip, $request) {
                 // 1. Validasi Stok dan Kuantitas
                 foreach ($itemsToShip as $id => $itemData) {
                     $transferRequestItem = TransferRequestItem::findOrFail($id);
@@ -508,6 +545,9 @@ class PermintaanBarangController extends Controller
                         'shipped_by' => auth()->id(),
                     ]);
                 }
+                // expose shipment id/code for response
+                $shipmentId = $shipment->id;
+                $shipmentCode = $shipment->code;
 
                 // 3. Proses setiap item
                 foreach ($itemsToShip as $id => $itemData) {
@@ -575,7 +615,12 @@ class PermintaanBarangController extends Controller
                 ]);
             });
 
-            return response()->json(['success' => true, 'message' => 'Data pengiriman berhasil disimpan.']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Data pengiriman berhasil disimpan.',
+                'shipment_id' => $shipmentId,
+                'shipment_code' => $shipmentCode,
+            ]);
 
         } catch (ValidationException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage(), 'errors' => $e->errors()], 422);
