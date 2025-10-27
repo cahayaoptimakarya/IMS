@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ReorderPointExport;
+use App\Services\ReorderPointService;
 
 class ReorderPointController extends Controller
 {
@@ -45,25 +46,28 @@ class ReorderPointController extends Controller
                 DB::raw('inv.koli as onhand_koli'),
                 DB::raw('COALESCE(u.symbol, u.name) as uom_symbol'),
                 'w.name as warehouse_name',
-                // Avg over capped-90-day period
-                DB::raw("CASE WHEN COALESCE(s.effective_days,0) > 0 THEN COALESCE(s.total_out_90,0) / s.effective_days ELSE 0 END as avg_daily_out"),
-                DB::raw('COALESCE(s.total_out_90,0) as total_out_qty'),
-                DB::raw('COALESCE(s.effective_days,0) as total_days'),
-                DB::raw('COALESCE(s.effective_days,0) as effective_days'),
+                // Expose raw totals for 30/60/90 days and age; compute avg in PHP
+                DB::raw('COALESCE(s.total_out_30,0) as total_out_30'),
+                DB::raw('COALESCE(s.total_out_60,0) as total_out_60'),
+                DB::raw('COALESCE(s.total_out_90,0) as total_out_90'),
+                DB::raw('COALESCE(s.days_since_first,0) as days_since_first'),
                 DB::raw('COALESCE(oo.on_order_qty,0) as on_order_qty')
             ]);
 
-        // Rolling window parameters (capped at 90 days)
-        $windowDays = 90; $windowStart = now()->startOfDay()->subDays($windowDays - 1)->toDateString();
-
-        // Join subquery for capped-90-day period
+        // Build subquery totals for 30/60/90 and age
+        $today = now()->startOfDay();
+        $start30 = $today->copy()->subDays(30 - 1)->toDateString();
+        $start60 = $today->copy()->subDays(60 - 1)->toDateString();
+        $start90 = $today->copy()->subDays(90 - 1)->toDateString();
         $sub = DB::table('stock_movements as sm')
             ->select([
                 'sm.item_id',
                 'sm.warehouse_id',
                 DB::raw("MIN(DATE(sm.date)) as first_life_date"),
-                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$windowStart}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_90"),
-                DB::raw("CASE WHEN MIN(DATE(sm.date)) IS NULL THEN 0 ELSE DATEDIFF(CURDATE(), CASE WHEN MIN(DATE(sm.date)) >= '{$windowStart}' THEN MIN(DATE(sm.date)) ELSE DATE('{$windowStart}') END) + 1 END as effective_days"),
+                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$start30}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_30"),
+                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$start60}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_60"),
+                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$start90}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_90"),
+                DB::raw("CASE WHEN MIN(DATE(sm.date)) IS NULL THEN 0 ELSE DATEDIFF(CURDATE(), MIN(DATE(sm.date))) + 1 END as days_since_first"),
             ])
             ->groupBy('sm.item_id', 'sm.warehouse_id');
 
@@ -121,7 +125,11 @@ class ReorderPointController extends Controller
         $data = $rows->map(function($r){
             $gapQty = (float)$r->rop_qty - (float)$r->onhand_qty;
             $status = $gapQty > 0 ? 'reorder' : 'ok';
-            $avgSource = ((int)($r->effective_days ?? 0) >= 90) ? '90d' : 'All';
+            $age = (int)($r->days_since_first ?? 0);
+            $bucket = $age < 30 ? 30 : ($age < 60 ? 60 : 90);
+            $total = $bucket === 30 ? (float)($r->total_out_30 ?? 0) : ($bucket === 60 ? (float)($r->total_out_60 ?? 0) : (float)($r->total_out_90 ?? 0));
+            $avgDaily = $bucket > 0 ? ($total / $bucket) : 0.0;
+            $avgSource = $bucket.'d';
             return [
                 'sku' => $r->sku,
                 'nama_barang' => $r->nama_barang,
@@ -129,9 +137,9 @@ class ReorderPointController extends Controller
                 'warehouse' => $r->warehouse_name,
                 'lead_time_po' => (int)$r->lead_time_po,
                 'lead_time_safety_stock' => (int)$r->lead_time_safety_stock,
-                'avg_daily_out' => (float)$r->avg_daily_out,
-                'total_out_qty' => (float)$r->total_out_qty,
-                'total_days' => (int)$r->total_days,
+                'avg_daily_out' => $avgDaily,
+                'total_out_qty' => $total,
+                'total_days' => $bucket,
                 'avg_source' => $avgSource,
                 'on_order_qty' => (float)($r->on_order_qty ?? 0),
                 'safety_stock_qty' => (float)$r->safety_stock_qty,
@@ -196,20 +204,26 @@ class ReorderPointController extends Controller
                 DB::raw('COALESCE(inv.koli,0) as onhand_koli'),
                 DB::raw('COALESCE(u.symbol, u.name) as uom_symbol'),
                 'w.name as warehouse_name',
+                DB::raw('COALESCE(s.total_out_30,0) as total_out_30'),
+                DB::raw('COALESCE(s.total_out_60,0) as total_out_60'),
                 DB::raw('COALESCE(s.total_out_90,0) as total_out_90'),
-                DB::raw('COALESCE(s.effective_days,0) as effective_days'),
+                DB::raw('COALESCE(s.days_since_first,0) as days_since_first'),
             ]);
 
-        // Rolling window parameters
-        $windowDays = 90; $minDays = 30; $windowStart = now()->startOfDay()->subDays($windowDays - 1)->toDateString();
-        // Join subquery for avg daily out (windowed + lifetime)
+        // Build 30/60/90 totals for export
+        $today = now()->startOfDay();
+        $start30 = $today->copy()->subDays(30 - 1)->toDateString();
+        $start60 = $today->copy()->subDays(60 - 1)->toDateString();
+        $start90 = $today->copy()->subDays(90 - 1)->toDateString();
         $sub = DB::table('stock_movements as sm')
             ->select([
                 'sm.item_id',
                 'sm.warehouse_id',
                 DB::raw("MIN(DATE(sm.date)) as first_life_date"),
-                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$windowStart}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_90"),
-                DB::raw("CASE WHEN MIN(DATE(sm.date)) IS NULL THEN 0 ELSE DATEDIFF(CURDATE(), CASE WHEN MIN(DATE(sm.date)) >= '{$windowStart}' THEN MIN(DATE(sm.date)) ELSE DATE('{$windowStart}') END) + 1 END as effective_days"),
+                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$start30}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_30"),
+                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$start60}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_60"),
+                DB::raw("SUM(CASE WHEN DATE(sm.date) >= '{$start90}' AND ((sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0)) THEN ABS(sm.quantity) ELSE 0 END) as total_out_90"),
+                DB::raw("CASE WHEN MIN(DATE(sm.date)) IS NULL THEN 0 ELSE DATEDIFF(CURDATE(), MIN(DATE(sm.date))) + 1 END as days_since_first"),
             ])
             ->groupBy('sm.item_id', 'sm.warehouse_id');
         $query->leftJoinSub($sub, 's', function($j){
@@ -239,9 +253,10 @@ class ReorderPointController extends Controller
 
         $dataRows = [];
         foreach ($rows as $r) {
-            $usedDays = (int)($r->effective_days ?? 0);
-            $usedTotal = (float)($r->total_out_90 ?? 0);
-            $avgDaily = $usedDays > 0 ? ($usedTotal / $usedDays) : 0;
+            $age = (int)($r->days_since_first ?? 0);
+            $bucket = $age < 30 ? 30 : ($age < 60 ? 60 : 90);
+            $usedTotal = $bucket === 30 ? (float)($r->total_out_30 ?? 0) : ($bucket === 60 ? (float)($r->total_out_60 ?? 0) : (float)($r->total_out_90 ?? 0));
+            $avgDaily = $bucket > 0 ? ($usedTotal / $bucket) : 0;
             $gapQty = ((float)$r->rop_qty) - ((float)($r->onhand_qty ?? 0));
             $statusTxt = $gapQty > 0 ? 'Reorder' : 'Aman';
             $dataRows[] = [
@@ -250,7 +265,7 @@ class ReorderPointController extends Controller
                 $r->warehouse_name,
                 number_format($avgDaily, 2, ',', '.'),
                 number_format($usedTotal, 2, ',', '.'),
-                (int)$usedDays,
+                (int)$bucket,
                 (int)$r->lead_time_po,
                 (int)$r->lead_time_safety_stock,
                 number_format((float)$r->safety_stock_qty, 2, ',', '.'),
@@ -271,5 +286,30 @@ class ReorderPointController extends Controller
 
         $fileName = 'reorder_point_' . now()->format('Ymd_His') . '.xlsx';
         return Excel::download(new ReorderPointExport($dataRows, $headings), $fileName);
+    }
+
+    // Recalculate ROP metrics for all known item-warehouse pairs
+    public function recalc(Request $request, ReorderPointService $service)
+    {
+        try {
+            // Build union of pairs from movements, inventories, and existing metrics
+            $pairs = \Illuminate\Support\Facades\DB::query()
+                ->fromSub(function($q){
+                    $q->from('stock_movements as sm')->select('sm.item_id','sm.warehouse_id')->distinct();
+                }, 't1')
+                ->union(\Illuminate\Support\Facades\DB::table('inventories as inv')->select('inv.item_id','inv.warehouse_id')->distinct())
+                ->union(\Illuminate\Support\Facades\DB::table('item_reorder_metrics as m')->select('m.item_id','m.warehouse_id')->distinct())
+                ->get();
+
+            $count = 0;
+            foreach ($pairs as $p) {
+                if (empty($p->item_id) || empty($p->warehouse_id)) continue;
+                try { $service->compute((int)$p->item_id, (int)$p->warehouse_id); $count++; } catch (\Throwable $e) { /* skip individual errors */ }
+            }
+
+            return response()->json(['success' => true, 'processed' => $count, 'message' => 'Recalc ROP selesai.']);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'Gagal recalculation: '.$e->getMessage()], 500);
+        }
     }
 }

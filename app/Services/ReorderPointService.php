@@ -36,24 +36,20 @@ class ReorderPointService
             ->first();
 
         $firstLife = $firstRow && $firstRow->first_date ? Carbon::parse($firstRow->first_date) : null;
-        // Period start: max(first movement, windowStart). If no movement at all, keep null
-        $periodStart = $firstLife ? max($firstLife, $windowStart) : null;
+        $ageDays = $firstLife ? max(1, $firstLife->diffInDays($today) + 1) : 0;
+        // Bucket denominator: <30 -> 30, <60 -> 60, else -> 90
+        $bucketDays = $ageDays === 0 ? 30 : ($ageDays < 30 ? 30 : ($ageDays < 60 ? 60 : 90));
+        $bucketStart = $today->copy()->subDays($bucketDays - 1)->toDateString();
 
-        // Aggregate total OUT within period and count days in period (calendar days)
-        $totalOutPeriod = 0.0;
-        $daysPeriod = 0;
-        if ($periodStart) {
-            $periodStartStr = $periodStart->toDateString();
-            $totalOutPeriod = (float) DB::table('stock_movements as sm')
-                ->where('sm.warehouse_id', $warehouseId)
-                ->where('sm.item_id', $itemId)
-                ->whereDate('sm.date', '>=', $periodStartStr)
-                ->sum(DB::raw("CASE WHEN (sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0) THEN ABS(sm.quantity) ELSE 0 END"));
-            $daysPeriod = max(1, $periodStart->diffInDays($today) + 1); // min 1 day to avoid div by zero
-            // Cap to 90 days implicitly by periodStart definition (max(first, windowStart))
-        }
+        // Sum total OUT within chosen bucket window
+        $totalOutPeriod = (float) DB::table('stock_movements as sm')
+            ->where('sm.warehouse_id', $warehouseId)
+            ->where('sm.item_id', $itemId)
+            ->whereDate('sm.date', '>=', $bucketStart)
+            ->sum(DB::raw("CASE WHEN (sm.type IN ('stock_out','transfer_out')) OR ((sm.type IS NULL OR sm.type='') AND sm.quantity < 0) THEN ABS(sm.quantity) ELSE 0 END"));
 
-        $avgDailyOut = ($daysPeriod > 0) ? ($totalOutPeriod / $daysPeriod) : 0.0;
+        // Average normalized by bucket
+        $avgDailyOut = $bucketDays > 0 ? ($totalOutPeriod / $bucketDays) : 0.0;
 
         // Safety stock with simple formula using lead time safety days
         $safetyStock = max(0, $avgDailyOut * max(0, $leadTimeSafety));

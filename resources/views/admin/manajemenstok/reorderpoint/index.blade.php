@@ -73,6 +73,9 @@
                     <a href="#" id="btn-export-excel" class="btn btn-primary me-3">
                         <span class="svg-icon svg-icon-2 me-1"><i class="fas fa-file-excel"></i></span> Export Excel
                     </a>
+                    <button type="button" class="btn btn-light-danger me-3" id="btn-recalc-rop">
+                        <span class="svg-icon svg-icon-2 me-1"><i class="fas fa-sync-alt"></i></span> Recalc ROP
+                    </button>
                     <button type="button" class="btn btn-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
                         <span class="svg-icon svg-icon-2"><i class="fas fa-filter"></i></span> Filter
                     </button>
@@ -134,7 +137,7 @@
                         <div class="row g-5 text-gray-700 small">
                             <div class="col-md-6">
                                 <ul class="mb-0 list-unstyled">
-                                    <li class="mb-2"><span class="fw-bold text-dark">Avg OUT / hari</span>: Rata-rata kuantitas keluar per hari untuk SKU di gudang terpilih. Dihitung dari maksimal 90 hari terakhir; jika umur data < 90 hari, dipakai sejak awal pergerakan. Sumber data dari Stock Movement bertipe keluar (stock_out, transfer_out; fallback quantity < 0).</li>
+                                    <li class="mb-2"><span class="fw-bold text-dark">Avg OUT / hari</span>: Rata-rata kuantitas keluar per hari untuk SKU di gudang terpilih. Pembagi hari dibakukan: <code>30 hari</code> bila umur data <30 hari, <code>60 hari</code> bila umur 30–<60 hari, dan <code>90 hari</code> bila umur ≥60 hari. Total OUT dijumlah dari jendela 30/60/90 hari terakhir sesuai bucket. Sumber data dari Stock Movement bertipe keluar (stock_out, transfer_out; fallback quantity < 0).</li>
                                     <li class="mb-2"><span class="fw-bold text-dark">Lead Time PO (hari)</span>: Diambil dari field item <code>lead_time_po_days</code> (dapat diubah di form Item).</li>
                                     <li class="mb-2"><span class="fw-bold text-dark">Lead Time Safety (hari)</span>: Diambil dari field item <code>lead_time_safety_days</code> (buffer hari sebagai safety).</li>
                                 </ul>
@@ -150,7 +153,7 @@
                                 </ul>
                             </div>
                             <div class="col-12 mt-3">
-                                <div class="text-muted fst-italic">Catatan: Perhitungan rata-rata memakai periode maksimum 90 hari. Jika umur data SKU di gudang tersebut kurang dari 90 hari, sistem otomatis memakai periode sejak awal pergerakan. Indikator di tabel: <span class="badge badge-light-primary">90d</span> = periode penuh 90 hari; <span class="badge badge-light-secondary">All</span> = periode < 90 hari (sejak awal pergerakan).</div>
+                                <div class="text-muted fst-italic">Catatan: Perhitungan rata-rata memakai bucket 30/60/90 hari. Indikator di tabel: <span class="badge badge-light-secondary">30d</span> = pembagi 30 hari, <span class="badge badge-light-info">60d</span> = 60 hari, <span class="badge badge-light-primary">90d</span> = 90 hari.</div>
                             </div>
                         </div>
                     </div>
@@ -251,12 +254,28 @@ $(function(){
                 d.warehouse_id = $wh.val(); d.category_id = $cat.val(); d.status = $status.val();
             }},
             order:[[0,'asc']],
+            drawCallback: function(){
+                if (window.bootstrap) {
+                    var list = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    list.forEach(function(el){ try { new bootstrap.Tooltip(el); } catch(e){} });
+                }
+            },
             columns:[
                 { data:null, render:(r)=>formatName(r.sku, r.nama_barang, r.per_koli, r.uom) },
                 { data:'warehouse', className:'text-center' },
                 { data:null, className:'text-center', render:(r)=>{
-                    const badge = r.avg_source === '90d' ? '<span class="badge badge-light-primary ms-1">90d</span>' : '<span class="badge badge-light-secondary ms-1">All</span>';
-                    return fmt(r.avg_daily_out) + ' ' + badge;
+                    let cls = 'badge-light-secondary', label = (r.avg_source||'').toString();
+                    if (label === '90d') cls = 'badge-light-primary';
+                    else if (label === '60d') cls = 'badge-light-info';
+                    else if (label === '30d') cls = 'badge-light-secondary';
+                    const days = parseInt(r.total_days||0) || 0;
+                    const total = parseFloat(r.total_out_qty||0) || 0;
+                    const avg = parseFloat(r.avg_daily_out||0) || 0;
+                    const d = new Date(); if (days > 0) d.setDate(d.getDate() - (days - 1));
+                    const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,'0'); const dd = String(d.getDate()).padStart(2,'0');
+                    const startStr = `${y}-${m}-${dd}`;
+                    const tip = `Periode mulai: ${startStr}<br/>Total OUT: ${fmt(total)}<br/>Avg dipakai: ${fmt(avg)}`;
+                    return fmt(r.avg_daily_out) + ' ' + `<span class="badge ${cls} ms-1" data-bs-toggle="tooltip" data-bs-html="true" title="${tip}">${label||''}</span>`;
                 } },
                 { data:'total_out_qty', className:'text-center', render:(v)=>fmt(v) },
                 { data:'total_days', className:'text-center' },
@@ -299,6 +318,36 @@ $(function(){
             if (result.isConfirmed) {
                 window.location = `{{ route('admin.manajemenstok.reorder-point.export-excel') }}?` + params;
             }
+        });
+    });
+    // Recalc ROP handler
+    $('#btn-recalc-rop').on('click', function(){
+        const $btn = $(this);
+        Swal.fire({
+            text: 'Hitung ulang metrik ROP untuk seluruh SKU? Proses ini bisa memakan waktu.',
+            icon: 'question', showCancelButton: true,
+            buttonsStyling: false,
+            confirmButtonText: 'Ya, proses', cancelButtonText: 'Batal',
+            customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-light' }
+        }).then(function(res){
+            if (!res.isConfirmed) return;
+            $btn.prop('disabled', true).addClass('disabled');
+            $.ajax({
+                url: `{{ route('admin.manajemenstok.reorder-point.recalc') }}`,
+                type: 'POST',
+                headers: { 'X-CSRF-TOKEN': $('meta[name=csrf-token]').attr('content') },
+                success: function(resp){
+                    const c = resp && resp.processed ? resp.processed : 0;
+                    Swal.fire('Selesai', `Recalc selesai. Diproses: ${c} pasangan item-gudang.`, 'success');
+                    load();
+                },
+                error: function(xhr){
+                    let msg = 'Gagal melakukan recalc.';
+                    if (xhr && xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
+                    Swal.fire('Error', msg, 'error');
+                },
+                complete: function(){ $btn.prop('disabled', false).removeClass('disabled'); }
+            });
         });
     });
     // Toggle button label for metric notes
