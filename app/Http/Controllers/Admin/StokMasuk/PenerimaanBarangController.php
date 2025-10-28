@@ -200,13 +200,26 @@ class PenerimaanBarangController extends Controller
 
     private function generateShipmentCode(): string
     {
-        $prefix = 'SHP';
+        $prefix = 'SJP';
         $date = now()->format('Ymd');
-        $latestShipment = Shipment::where('code', 'LIKE', "$prefix-$date-%")->latest('id')->first();
+        $latest = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_STOCK_IN_ORDER)
+            ->orderByDesc('id')
+            ->first();
 
-        $sequence = $latestShipment ? ((int) substr($latestShipment->code, -4)) + 1 : 1;
+        $lastSeq = 0;
+        if ($latest && preg_match('/(\d{4})$/', $latest->code, $m)) {
+            $lastSeq = (int) $m[1];
+        }
 
-        return sprintf('%s-%s-%04d', $prefix, $date, $sequence);
+        $sequence = $lastSeq + 1;
+        $code = sprintf('%s-%s-%04d', $prefix, $date, $sequence);
+
+        while (Shipment::where('code', $code)->exists()) {
+            $sequence++;
+            $code = sprintf('%s-%s-%04d', $prefix, $date, $sequence);
+        }
+
+        return $code;
     }
 
     public function create()

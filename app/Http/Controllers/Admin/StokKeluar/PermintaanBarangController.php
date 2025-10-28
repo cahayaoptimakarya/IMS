@@ -531,8 +531,24 @@ class PermintaanBarangController extends Controller
                     $shipment->shipped_by = auth()->id();
                     $shipment->save();
                 } else {
+                    $prefix = 'SHIP';
+                    $date = date('Ymd');
+                    $latest = Shipment::where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
+                        ->orderByDesc('id')
+                        ->first();
+                    $lastSeq = 0;
+                    if ($latest && preg_match('/(\d{4})$/', $latest->code, $m)) {
+                        $lastSeq = (int) $m[1];
+                    }
+                    $seq = $lastSeq + 1;
+                    do {
+                        $code = $prefix . '-' . $date . '-' . str_pad($seq, 4, '0', STR_PAD_LEFT);
+                        $exists = Shipment::where('code', $code)->exists();
+                        if ($exists) { $seq++; }
+                    } while ($exists);
+
                     $shipment = Shipment::create([
-                        'code' => 'SHIP-' . date('Ymd') . '-' . str_pad(Shipment::count() + 1, 4, '0', STR_PAD_LEFT),
+                        'code' => $code,
                         'reference_type' => Shipment::REFERENCE_TYPE_TRANSFER_REQUEST,
                         'from_warehouse_id' => $transferRequest->from_warehouse_id,
                         'to_warehouse_id' => $transferRequest->to_warehouse_id,
