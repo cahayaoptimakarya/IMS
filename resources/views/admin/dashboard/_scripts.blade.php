@@ -10,7 +10,7 @@
         gradientOut.addColorStop(0, 'rgba(255, 99, 132, 0.5)');
         gradientOut.addColorStop(1, 'rgba(255, 99, 132, 0)');
 
-        var stockChart = new Chart(ctx, {
+        window.stockChart = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: {!! json_encode($stockChartData['labels'] ?? []) !!},
@@ -73,7 +73,8 @@
         // ====== Modal Stock Buckets ======
         var stockBucketsData = null;
         var stockBucketsLoading = false;
-        var stockBucketsUrl = "{{ route('admin.dashboard.stock-buckets') }}";
+        var currentWarehouseId = @json($currentWarehouseId ?? null);
+        var stockBucketsUrl = "{{ route('admin.dashboard.stock-buckets') }}" + (currentWarehouseId ? ('?warehouse_id=' + currentWarehouseId) : '');
         var stockBucketsTimeout = null;
 
         function setBadgeCounts(data){
@@ -206,5 +207,141 @@
                 });
             });
         }
+
+        // ====== AJAX Warehouse Filter ======
+        function setElText(id, text){
+            var el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+        function fmt(n){ try { return Number(n).toLocaleString('id-ID'); } catch(e){ return n; } }
+        function toggleMode(mode){
+            var showSys = (mode === 'system');
+            $('.sys-only').toggleClass('d-none', !showSys);
+            $('.wh-only').toggleClass('d-none', showSys);
+        }
+
+        function formatDateHuman(dateStr){
+            try {
+                var d = new Date(dateStr);
+                var now = new Date();
+                var sameDay = d.toDateString() === now.toDateString();
+                if (sameDay) return 'Hari ini';
+                return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+            } catch(e){ return dateStr; }
+        }
+
+        function renderRecentMovements(items){
+            var wrap = $('#dash-recent-movements');
+            wrap.empty();
+            if (!items || items.length === 0){ wrap.append('<div class="text-muted">Tidak ada pergerakan terakhir.</div>'); return; }
+            items.forEach(function(m){
+                var isIn = (m.quantity >= 0);
+                var arrow = isIn ? 'arrow-down' : 'arrow-up';
+                var color = isIn ? 'success' : 'danger';
+                var qty = fmt(m.quantity || 0);
+                var dateText = formatDateHuman(m.date);
+                wrap.append(
+                    '<div class="d-flex align-items-center mb-5">\
+                        <div class="symbol symbol-35px me-4">\
+                            <div class="symbol-label bg-light-' + color + '">\
+                                <i class="fas fa-' + arrow + ' text-' + color + '"></i>\
+                            </div>\
+                        </div>\
+                        <div class="flex-grow-1">\
+                            <p class="text-gray-800 fw-bolder fs-6 mb-0">' + (m.item || 'Item') + ' (' + (m.type || '') + ')</p>\
+                            <span class="text-muted fw-bold">' + qty + ' • ' + dateText + '</span>\
+                        </div>\
+                    </div>'
+                );
+            });
+        }
+        function renderTopLowStocks(items){
+            var tbody = $('#dash-toplow-tbody');
+            tbody.empty();
+            if (!items || items.length === 0){ tbody.append('<tr><td colspan="3" class="text-center text-muted">Tidak ada data</td></tr>'); return; }
+            items.forEach(function(inv){
+                tbody.append('<tr>\
+                    <td class="fw-bolder text-gray-800">' + (inv.item || '-') + '</td>\
+                    <td class="text-muted">' + (inv.sku || '-') + '</td>\
+                    <td class="text-end fw-bolder">' + fmt(inv.quantity || 0) + '</td>\
+                </tr>');
+            });
+        }
+        function updateChart(data){
+            if (!window.stockChart) return;
+            window.stockChart.data.labels = data.labels || [];
+            if (window.stockChart.data.datasets && window.stockChart.data.datasets.length >= 2){
+                window.stockChart.data.datasets[0].data = data.stock_in || [];
+                window.stockChart.data.datasets[1].data = data.stock_out || [];
+            }
+            window.stockChart.update();
+        }
+
+        function applyDashboardData(resp){
+            // Toggle system vs warehouse summary blocks
+            toggleMode(resp.mode);
+            if (resp.mode === 'system') {
+                setElText('dash-total-users', fmt(resp.totalUsers || 0));
+                setElText('dash-total-warehouses', fmt(resp.totalWarehouses || 0));
+            } else {
+                setElText('dash-pending-transfers', fmt(resp.pendingTransfers || 0));
+                setElText('dash-low-stock-items-card', fmt(resp.lowStockItems || 0));
+            }
+            // Common summaries
+            setElText('dash-today-stock-in', fmt(resp.todayStockIn || 0));
+            setElText('dash-today-stock-in-koli', 'Koli: ' + fmt(resp.todayStockInKoli || 0));
+            setElText('dash-today-stock-out', fmt(resp.todayStockOut || 0));
+            setElText('dash-today-stock-out-koli', 'Koli: ' + fmt(resp.todayStockOutKoli || 0));
+
+            // Buckets on cards
+            setElText('dash-zero-stock', fmt(resp.zeroStockItems || 0));
+            setElText('dash-low-stock', fmt(resp.lowStockItems || 0));
+            setElText('dash-optimal-stock', fmt(resp.optimalStockItems || 0));
+            setElText('dash-over-stock', fmt(resp.overStockItems || 0));
+
+            // Stock in statuses
+            setElText('dash-stockin-requested', fmt(resp.stockInRequested || 0));
+            setElText('dash-stockin-shipped', fmt(resp.stockInShipped || 0));
+            setElText('dash-stockin-completed', fmt(resp.stockInCompleted || 0));
+
+            // Total SKUs
+            setElText('dash-total-skus', fmt(resp.totalSkus || 0));
+
+            // Chart
+            updateChart(resp.stockChartData || {labels:[],stock_in:[],stock_out:[]});
+
+            // Lists
+            renderTopLowStocks(resp.topLowStocks || []);
+            renderRecentMovements(resp.recentMovements || []);
+        }
+
+        function setFilterLoading(loading){
+            $('#warehouseFilterLoading').toggleClass('d-none', !loading);
+            $('#warehouseFilterSelect').prop('disabled', !!loading);
+        }
+
+        $('#warehouseFilterReset').on('click', function(){
+            $('#warehouseFilterSelect').val('');
+            $('#warehouseFilterSelect').trigger('change');
+        });
+
+        $('#warehouseFilterSelect').on('change', function(){
+            var wid = $(this).val();
+            setFilterLoading(true);
+            // Update modal URL context
+            currentWarehouseId = wid || null;
+            stockBucketsUrl = "{{ route('admin.dashboard.stock-buckets') }}" + (currentWarehouseId ? ('?warehouse_id=' + currentWarehouseId) : '');
+
+            $.getJSON("{{ route('admin.dashboard.data') }}", { warehouse_id: wid })
+                .done(function(resp){
+                    applyDashboardData(resp);
+                })
+                .fail(function(){
+                    if (window.toastr) toastr.error('Gagal memuat data dashboard'); else alert('Gagal memuat data dashboard');
+                })
+                .always(function(){
+                    setFilterLoading(false);
+                });
+        });
     });
 </script>

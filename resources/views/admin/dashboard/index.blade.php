@@ -19,35 +19,64 @@
         </div>
         <!--end::Row-->
 
+        <!--begin::Row: Warehouse Filter Card-->
+        <div class="row g-5 g-xxl-8 mt-3">
+            <div class="col-12">
+                <div class="card card-animate border-0 bg-light">
+                    <div class="card-body">
+                        <form id="warehouseFilterForm" class="d-flex align-items-center gap-3 flex-wrap" onsubmit="return false;">
+                            <label class="fw-bold me-2">Filter Gudang:</label>
+                            <select id="warehouseFilterSelect" name="warehouse_id" class="form-select" style="max-width: 320px;">
+                                <option value="" {{ empty($currentWarehouseId) ? 'selected' : '' }}>Semua Gudang</option>
+                                @foreach(($warehouses ?? []) as $wh)
+                                    <option value="{{ $wh->id }}" {{ (int)($currentWarehouseId ?? 0) === (int)$wh->id ? 'selected' : '' }}>{{ $wh->name }}</option>
+                                @endforeach
+                            </select>
+                            <div id="warehouseFilterLoading" class="spinner-border spinner-border-sm text-primary d-none" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <button type="button" id="warehouseFilterReset" class="btn btn-light">Reset</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!--end::Row: Warehouse Filter Card-->
+
         <!--begin::Row-->
-        <div class="row g-5 g-xxl-8 mt-5">
-            @if (isset($totalUsers)) {{-- System-wide view --}}
-                @include('admin.dashboard._summary_card', [
-                    'delay' => '0.1s', 'icon' => 'users', 'iconBg' => 'primary', 'value' => $totalUsers, 'label' => 'Total Pengguna'
-                ])
-                @include('admin.dashboard._summary_card', [
-                    'delay' => '0.2s', 'icon' => 'warehouse', 'iconBg' => 'warning', 'value' => $totalWarehouses, 'label' => 'Total Gudang'
-                ])
-            @else
-                @include('admin.dashboard._summary_card', [
-                    'delay' => '0.1s', 'icon' => 'exchange-alt', 'iconBg' => 'warning', 'value' => $pendingTransfers, 'label' => 'Permintaan Transfer Tertunda'
-                ])
-                @include('admin.dashboard._summary_card', [
-                    'delay' => '0.2s', 'icon' => 'exclamation-triangle', 'iconBg' => 'info', 'value' => $lowStockItems, 'label' => 'Stok Segera Habis'
-                ])
-            @endif
+        <div class="row g-5 g-xxl-8 mt-5" id="dash-summary-row">
+            @include('admin.dashboard._summary_card', [
+                'delay' => '0.1s', 'icon' => 'users', 'iconBg' => 'primary', 'value' => $totalUsers ?? '-', 'label' => 'Total Pengguna', 'valueId' => 'dash-total-users'
+                , 'wrapClass' => 'sys-only ' . (isset($totalUsers) ? '' : 'd-none')
+            ])
+            @include('admin.dashboard._summary_card', [
+                'delay' => '0.2s', 'icon' => 'warehouse', 'iconBg' => 'warning', 'value' => $totalWarehouses ?? '-', 'label' => 'Total Gudang', 'valueId' => 'dash-total-warehouses'
+                , 'wrapClass' => 'sys-only ' . (isset($totalUsers) ? '' : 'd-none')
+            ])
+            @include('admin.dashboard._summary_card', [
+                'delay' => '0.1s', 'icon' => 'exchange-alt', 'iconBg' => 'warning', 'value' => $pendingTransfers ?? '-', 'label' => 'Permintaan Transfer Tertunda', 'valueId' => 'dash-pending-transfers'
+                , 'wrapClass' => 'wh-only ' . (isset($totalUsers) ? 'd-none' : '')
+            ])
+            @include('admin.dashboard._summary_card', [
+                'delay' => '0.2s', 'icon' => 'exclamation-triangle', 'iconBg' => 'info', 'value' => $lowStockItems ?? '-', 'label' => 'Stok Segera Habis', 'valueId' => 'dash-low-stock-items-card'
+                , 'wrapClass' => 'wh-only ' . (isset($totalUsers) ? 'd-none' : '')
+            ])
 
             @include('admin.dashboard._summary_card', [
                 'delay' => '0.3s', 'icon' => 'arrow-down', 'iconBg' => 'success',
                 'value' => number_format($todayStockIn, 0, ',', '.'),
                 'label' => 'Stok Masuk Hari Ini',
-                'meta' => 'Koli: ' . number_format($todayStockInKoli ?? 0, 0, ',', '.')
+                'meta' => 'Koli: ' . number_format($todayStockInKoli ?? 0, 0, ',', '.'),
+                'valueId' => 'dash-today-stock-in',
+                'metaId' => 'dash-today-stock-in-koli'
             ])
             @include('admin.dashboard._summary_card', [
                 'delay' => '0.4s', 'icon' => 'arrow-up', 'iconBg' => 'danger',
                 'value' => number_format($todayStockOut, 0, ',', '.'),
                 'label' => 'Stok Keluar Hari Ini',
-                'meta' => 'Koli: ' . number_format($todayStockOutKoli ?? 0, 0, ',', '.')
+                'meta' => 'Koli: ' . number_format($todayStockOutKoli ?? 0, 0, ',', '.'),
+                'valueId' => 'dash-today-stock-out',
+                'metaId' => 'dash-today-stock-out-koli'
             ])
         </div>
         <!--end::Row-->
@@ -56,22 +85,26 @@
         <div class="row g-5 g-xxl-8 mt-1">
             @include('admin.dashboard._summary_card', [
                 'delay' => '0.1s', 'icon' => 'ban', 'iconBg' => 'danger', 'value' => $zeroStockItems, 'label' => 'Stok Habis', 'bucket' => 'out_of_stock'
-            ])
+                , 'valueId' => 'dash-zero-stock']
+            )
             @include('admin.dashboard._summary_card', [
                 'delay' => '0.2s', 'icon' => 'level-down-alt', 'iconBg' => 'warning', 'value' => $lowStockItems, 'label' => 'Stok Menipis', 'bucket' => 'low_stock'
-            ])
+                , 'valueId' => 'dash-low-stock']
+            )
             @include('admin.dashboard._summary_card', [
                 'delay' => '0.3s', 'icon' => 'check', 'iconBg' => 'success', 'value' => $optimalStockItems, 'label' => 'Stok Aman', 'bucket' => 'safe'
-            ])
+                , 'valueId' => 'dash-optimal-stock']
+            )
             @include('admin.dashboard._summary_card', [
                 'delay' => '0.4s', 'icon' => 'boxes', 'iconBg' => 'primary', 'value' => $overStockItems, 'label' => 'Stok Berlebih', 'bucket' => 'over_stock'
-            ])
+                , 'valueId' => 'dash-over-stock']
+            )
         </div>
         <!--end::Row: Stock Reminders-->
 
         <!--begin::Row: Stock Summary & Status-->
         <div class="row g-5 g-xxl-8 mt-1">
-            @include('admin.dashboard._summary_card', ['delay' => '0.1s', 'icon' => 'barcode', 'iconBg' => 'primary', 'value' => number_format($totalSkus, 0, ',', '.'), 'label' => 'Total SKU Aktif'])
+            @include('admin.dashboard._summary_card', ['delay' => '0.1s', 'icon' => 'barcode', 'iconBg' => 'primary', 'value' => number_format($totalSkus, 0, ',', '.'), 'label' => 'Total SKU Aktif', 'valueId' => 'dash-total-skus'])
             
             <div class="col-xl-9">
                 <div class="card card-xl-stretch mb-xl-8 summary-card card-animate" style="animation-delay: 0.3s;">
@@ -90,15 +123,15 @@
                             </div>
                             <div class="status-metrics">
                                 <div class="metric">
-                                    <div class="chip chip-warning">{{ $stockInRequested }}</div>
+                                    <div class="chip chip-warning" id="dash-stockin-requested">{{ $stockInRequested }}</div>
                                     <div class="text-muted fs-8 mt-1">Requested</div>
                                 </div>
                                 <div class="metric">
-                                    <div class="chip chip-primary">{{ $stockInShipped }}</div>
+                                    <div class="chip chip-primary" id="dash-stockin-shipped">{{ $stockInShipped }}</div>
                                     <div class="text-muted fs-8 mt-1">Shipped</div>
                                 </div>
                                 <div class="metric">
-                                    <div class="chip chip-success">{{ $stockInCompleted }}</div>
+                                    <div class="chip chip-success" id="dash-stockin-completed">{{ $stockInCompleted }}</div>
                                     <div class="text-muted fs-8 mt-1">Completed</div>
                                 </div>
                             </div>
@@ -127,7 +160,7 @@
                                         <th>Item</th><th>SKU</th><th class="text-end">Qty</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="dash-toplow-tbody">
                                 @forelse($topLowStocks as $inv)
                                     <tr>
                                         <td class="fw-bolder text-gray-800">{{ $inv->item->nama_barang ?? '-' }}</td>
@@ -151,7 +184,7 @@
                             <span class="text-muted mt-1 fw-bold fs-7">5 transaksi terakhir</span>
                         </h3>
                     </div>
-                    <div class="card-body pt-2">
+                    <div class="card-body pt-2" id="dash-recent-movements">
                         @forelse($recentMovements as $mov)
                             <div class="d-flex align-items-center mb-5">
                                 <div class="symbol symbol-35px me-4">
@@ -199,7 +232,7 @@
                             <span class="text-muted mt-1 fw-bold fs-7">5 aktivitas terakhir</span>
                         </h3>
                     </div>
-                    <div class="card-body pt-2">
+                    <div class="card-body pt-2" id="dash-recent-activities">
                         @foreach ($recentActivities as $activity)
                             <div class="d-flex align-items-center mb-5">
                                 <div class="symbol symbol-35px me-4">

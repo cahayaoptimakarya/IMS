@@ -18,11 +18,23 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        $warehouseId = $user->warehouse_id;
+        // Allow overriding warehouse via query filter
+        $selectedWarehouseId = $request->query('warehouse_id');
+        if (!is_null($selectedWarehouseId) && $selectedWarehouseId !== '') {
+            $selectedWarehouseId = is_numeric($selectedWarehouseId) ? (int) $selectedWarehouseId : null;
+            if ($selectedWarehouseId && !Warehouse::where('id', $selectedWarehouseId)->exists()) {
+                $selectedWarehouseId = null; // fallback when invalid
+            }
+        } else {
+            $selectedWarehouseId = null;
+        }
+
+        $warehouseId = $selectedWarehouseId ?? $user->warehouse_id;
         $overMultiplier = 5;
+        $warehouses = Warehouse::orderBy('name')->get(['id','name']);
 
         if ($warehouseId) {
             // Data for users with a warehouse
@@ -98,6 +110,7 @@ class DashboardController extends Controller
                 ->take(5)
                 ->get();
 
+            $currentWarehouseId = $warehouseId;
             return view('admin.dashboard.index', compact(
                 'user',
                 'recentActivities',
@@ -116,7 +129,9 @@ class DashboardController extends Controller
                 'stockInShipped',
                 'stockInCompleted',
                 'recentMovements',
-                'topLowStocks'
+                'topLowStocks',
+                'warehouses',
+                'currentWarehouseId'
             ));
         } else {
             // Data for users without a warehouse (system-wide)
@@ -157,6 +172,7 @@ class DashboardController extends Controller
             $recentMovements = StockMovement::with('item')->latest('id')->take(5)->get();
             $topLowStocks = Inventory::with('item')->orderBy('koli', 'asc')->take(5)->get();
 
+            $currentWarehouseId = null;
             return view('admin.dashboard.index', compact(
                 'user',
                 'totalUsers',
@@ -176,7 +192,9 @@ class DashboardController extends Controller
                 'stockInShipped',
                 'stockInCompleted',
                 'recentMovements',
-                'topLowStocks'
+                'topLowStocks',
+                'warehouses',
+                'currentWarehouseId'
             ));
         }
     }
@@ -222,10 +240,151 @@ class DashboardController extends Controller
         return $chartData;
     }
 
+    public function data(Request $request)
+    {
+        $user = Auth::user();
+        $selectedWarehouseId = $request->query('warehouse_id');
+        if (!is_null($selectedWarehouseId) && $selectedWarehouseId !== '') {
+            $selectedWarehouseId = is_numeric($selectedWarehouseId) ? (int) $selectedWarehouseId : null;
+            if ($selectedWarehouseId && !Warehouse::where('id', $selectedWarehouseId)->exists()) {
+                $selectedWarehouseId = null; // invalid -> treat as system
+            }
+        } else {
+            $selectedWarehouseId = null;
+        }
+
+        $warehouseId = $selectedWarehouseId ?? null; // system-wide when null
+        $overMultiplier = 5;
+
+        if ($warehouseId) {
+            $todayStockIn = StockMovement::where('warehouse_id', $warehouseId)->where('type', 'stock_in')->whereDate('date', today())->sum('quantity');
+            $todayStockInKoli = StockMovement::where('warehouse_id', $warehouseId)->where('type', 'stock_in')->whereDate('date', today())->sum('koli');
+            $todayStockOut = StockMovement::where('warehouse_id', $warehouseId)->where('type', 'stock_out')->where('reference_type', 'stock_out_items')->whereDate('date', today())->sum('quantity');
+            $todayStockOutKoli = StockMovement::where('warehouse_id', $warehouseId)->where('type', 'stock_out')->where('reference_type', 'stock_out_items')->whereDate('date', today())->sum('koli');
+
+            $pendingTransfers = TransferRequest::where('to_warehouse_id', $warehouseId)->where('status', 'on_progress')->count();
+
+            $invJoin = Inventory::query()->join('items','inventories.item_id','=','items.id')->where('inventories.warehouse_id', $warehouseId);
+            $zeroStockItems = (clone $invJoin)->where('inventories.koli','<=',0)->count();
+            $lowStockItems = (clone $invJoin)->where('inventories.koli','>',0)->whereColumn('inventories.koli','<=','items.low_stock_threshold')->count();
+            $optimalStockItems = (clone $invJoin)->whereColumn('inventories.koli','>','items.low_stock_threshold')->whereRaw('inventories.koli <= (items.low_stock_threshold * ?)', [$overMultiplier])->count();
+            $overStockItems = (clone $invJoin)->whereRaw('inventories.koli > (items.low_stock_threshold * ?)', [$overMultiplier])->count();
+
+            $stockChartData = $this->getStockChartData($warehouseId);
+            $totalSkus = Inventory::where('warehouse_id', $warehouseId)->distinct('item_id')->count('item_id');
+            $stockInRequested = StockInOrder::where('warehouse_id', $warehouseId)->where('status', 'requested')->count();
+            $stockInShipped = StockInOrder::where('warehouse_id', $warehouseId)->where('status', 'on_progress')->count();
+            $stockInCompleted = StockInOrder::where('warehouse_id', $warehouseId)->where('status', 'completed')->count();
+
+            $recentMovements = StockMovement::with('item')->where('warehouse_id', $warehouseId)->latest('id')->take(5)->get();
+            $topLowStocks = Inventory::with('item')->where('warehouse_id', $warehouseId)->orderBy('koli', 'asc')->take(5)->get();
+
+            return response()->json([
+                'mode' => 'warehouse',
+                'todayStockIn' => (int) $todayStockIn,
+                'todayStockInKoli' => (int) ($todayStockInKoli ?? 0),
+                'todayStockOut' => (int) $todayStockOut,
+                'todayStockOutKoli' => (int) ($todayStockOutKoli ?? 0),
+                'pendingTransfers' => (int) $pendingTransfers,
+                'zeroStockItems' => (int) $zeroStockItems,
+                'lowStockItems' => (int) $lowStockItems,
+                'optimalStockItems' => (int) $optimalStockItems,
+                'overStockItems' => (int) $overStockItems,
+                'stockChartData' => $stockChartData,
+                'totalSkus' => (int) $totalSkus,
+                'stockInRequested' => (int) $stockInRequested,
+                'stockInShipped' => (int) $stockInShipped,
+                'stockInCompleted' => (int) $stockInCompleted,
+                'recentMovements' => $recentMovements->map(function($m){
+                    return [
+                        'item' => $m->item->nama_barang ?? 'Item',
+                        'sku' => $m->item->sku ?? '-',
+                        'type' => $m->type,
+                        'quantity' => (float) $m->quantity,
+                        'date' => $m->date,
+                    ];
+                }),
+                'topLowStocks' => $topLowStocks->map(function($inv){
+                    return [
+                        'item' => $inv->item->nama_barang ?? '-',
+                        'sku' => $inv->item->sku ?? '-',
+                        'quantity' => (float) ($inv->quantity ?? 0),
+                    ];
+                }),
+            ]);
+        } else {
+            $todayStockIn = StockMovement::where('type', 'stock_in')->whereDate('date', today())->sum('quantity');
+            $todayStockInKoli = StockMovement::where('type', 'stock_in')->whereDate('date', today())->sum('koli');
+            $todayStockOut = StockMovement::where('type', 'stock_out')->whereDate('date', today())->sum('quantity');
+            $todayStockOutKoli = StockMovement::where('type', 'stock_out')->whereDate('date', today())->sum('koli');
+
+            $totalUsers = User::count();
+            $totalWarehouses = Warehouse::count();
+
+            $invAll = Inventory::query()->join('items','inventories.item_id','=','items.id');
+            $zeroStockItems = (clone $invAll)->where('inventories.koli','<=',0)->count();
+            $lowStockItems = (clone $invAll)->where('inventories.koli','>',0)->whereColumn('inventories.koli','<=','items.low_stock_threshold')->count();
+            $optimalStockItems = (clone $invAll)->whereColumn('inventories.koli','>','items.low_stock_threshold')->whereRaw('inventories.koli <= (items.low_stock_threshold * ?)', [$overMultiplier])->count();
+            $overStockItems = (clone $invAll)->whereRaw('inventories.koli > (items.low_stock_threshold * ?)', [$overMultiplier])->count();
+
+            $stockChartData = $this->getStockChartData(null);
+            $totalSkus = Inventory::distinct('item_id')->count('item_id');
+            $stockInRequested = StockInOrder::where('status', 'requested')->count();
+            $stockInShipped = StockInOrder::where('status', 'on_progress')->count();
+            $stockInCompleted = StockInOrder::where('status', 'completed')->count();
+
+            $recentMovements = StockMovement::with('item')->latest('id')->take(5)->get();
+            $topLowStocks = Inventory::with('item')->orderBy('koli', 'asc')->take(5)->get();
+
+            return response()->json([
+                'mode' => 'system',
+                'todayStockIn' => (int) $todayStockIn,
+                'todayStockInKoli' => (int) ($todayStockInKoli ?? 0),
+                'todayStockOut' => (int) $todayStockOut,
+                'todayStockOutKoli' => (int) ($todayStockOutKoli ?? 0),
+                'totalUsers' => (int) $totalUsers,
+                'totalWarehouses' => (int) $totalWarehouses,
+                'zeroStockItems' => (int) $zeroStockItems,
+                'lowStockItems' => (int) $lowStockItems,
+                'optimalStockItems' => (int) $optimalStockItems,
+                'overStockItems' => (int) $overStockItems,
+                'stockChartData' => $stockChartData,
+                'totalSkus' => (int) $totalSkus,
+                'stockInRequested' => (int) $stockInRequested,
+                'stockInShipped' => (int) $stockInShipped,
+                'stockInCompleted' => (int) $stockInCompleted,
+                'recentMovements' => $recentMovements->map(function($m){
+                    return [
+                        'item' => $m->item->nama_barang ?? 'Item',
+                        'sku' => $m->item->sku ?? '-',
+                        'type' => $m->type,
+                        'quantity' => (float) $m->quantity,
+                        'date' => $m->date,
+                    ];
+                }),
+                'topLowStocks' => $topLowStocks->map(function($inv){
+                    return [
+                        'item' => $inv->item->nama_barang ?? '-',
+                        'sku' => $inv->item->sku ?? '-',
+                        'quantity' => (float) ($inv->quantity ?? 0),
+                    ];
+                }),
+            ]);
+        }
+    }
     public function stockBuckets(Request $request)
     {
         $user = Auth::user();
-        $warehouseId = $user->warehouse_id;
+        // Allow overriding warehouse via query filter
+        $warehouseId = $request->query('warehouse_id');
+        if (!is_null($warehouseId) && $warehouseId !== '') {
+            $warehouseId = is_numeric($warehouseId) ? (int) $warehouseId : null;
+            if ($warehouseId && !Warehouse::where('id', $warehouseId)->exists()) {
+                $warehouseId = null;
+            }
+        } else {
+            $warehouseId = $user->warehouse_id;
+        }
         $overMultiplier = 5;
 
         $base = Inventory::query()

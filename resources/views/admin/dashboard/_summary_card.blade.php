@@ -1,6 +1,6 @@
-@props(['delay' => '0.1s', 'icon' => 'box', 'iconBg' => 'primary', 'value' => '-', 'label' => '', 'bucket' => null, 'meta' => null])
+@props(['delay' => '0.1s', 'icon' => 'box', 'iconBg' => 'primary', 'value' => '-', 'label' => '', 'bucket' => null, 'meta' => null, 'valueId' => null, 'metaId' => null, 'wrapClass' => ''])
 
-<div class="col-xl-3">
+<div class="col-xl-3 {{ $wrapClass }}">
     <div class="card card-xl-stretch mb-xl-8 summary-card card-animate {{ $bucket ? 'cursor-pointer' : '' }}"
          style="animation-delay: {{ $delay }};"
          @if($bucket)
@@ -19,10 +19,10 @@
                     </div>
                 </div>
                 <div>
-                    <div class="text-dark fw-bolder fs-2">{{ $value }}</div>
+                    <div class="text-dark fw-bolder fs-2" @if($valueId) id="{{ $valueId }}" @endif>{{ $value }}</div>
                     <div class="text-muted fw-bold">{{ $label }}</div>
                     @if($meta)
-                        <div class="text-muted fs-8 mt-1">{{ $meta }}</div>
+                        <div class="text-muted fs-8 mt-1" @if($metaId) id="{{ $metaId }}" @endif>{{ $meta }}</div>
                     @endif
                 </div>
             </div>
