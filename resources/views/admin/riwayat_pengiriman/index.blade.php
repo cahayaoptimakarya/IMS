@@ -243,10 +243,18 @@
                                         <a href="${showUrl}" class="menu-link px-3">Detail</a>
                                     </div>`;
                         @if($canEdit)
-                        if (String(row.status).toLowerCase() === 'packing') {
+                        const isPacking = String(row.status).toLowerCase() === 'packing';
+                        const isTransferReq = String(row.reference_type || '').toLowerCase() === 'transfer request';
+                        if (isPacking) {
                             menu += `<div class="menu-item px-3"><a href="${editUrl}" class="menu-link px-3">Edit</a></div>`;
                             // Kirim action only when packing
                             menu += `<div class="menu-item px-3"><a href="#" class="menu-link px-3 btn-kirim" data-id="${data}" data-code="${row.code}">Kirim</a></div>`;
+                            @if($canDelete)
+                            // Batal action only for transfer request & packing
+                            if (isTransferReq) {
+                                menu += `<div class=\"menu-item px-3\"><a href=\"#\" class=\"menu-link px-3 text-danger btn-batal\" data-id=\"${data}\" data-code=\"${row.code}\">Batal</a></div>`;
+                            }
+                            @endif
                         }
                         @endif
                         menu += `</div></div>`;
@@ -301,6 +309,39 @@
                         },
                         error: function(xhr){
                             const msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal mengirim shipment.';
+                            toastr.error(msg);
+                        }
+                    });
+                });
+            });
+
+            // Delegate Batal action
+            $(document).on('click', '.btn-batal', function(e){
+                e.preventDefault();
+                const id = $(this).data('id');
+                const code = $(this).data('code');
+                Swal.fire({
+                    text: `Batalkan shipment ${code}? Stok akan dikembalikan dan surat jalan dihapus.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Batalkan',
+                    cancelButtonText: 'Tutup',
+                    buttonsStyling: false,
+                    customClass: {
+                        confirmButton: 'btn fw-bold btn-danger',
+                        cancelButton: 'btn fw-bold btn-active-light-primary'
+                    }
+                }).then(function(res){
+                    if (!res.isConfirmed) return;
+                    $.post({
+                        url: "{{ route('admin.riwayat-pengiriman.cancel', ['shipment' => 'SHIPMENT_ID']) }}".replace('SHIPMENT_ID', id),
+                        data: { _token: '{{ csrf_token() }}' },
+                        success: function(resp){
+                            toastr.success(resp.message || 'Shipment dibatalkan.');
+                            table.draw(false);
+                        },
+                        error: function(xhr){
+                            const msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Gagal membatalkan shipment.';
                             toastr.error(msg);
                         }
                     });

@@ -12,6 +12,7 @@ use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Models\Vehicle;
 use App\Models\Employee;
+use App\Models\UserActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -194,7 +195,108 @@ class RiwayatPengirimanController extends Controller
         $shipment->shipped_by = auth()->id();
         $shipment->save();
 
+        // Log user activity
+        UserActivity::create([
+            'user_id' => Auth::id(),
+            'activity' => 'updated',
+            'menu' => 'Riwayat Pengiriman',
+            'description' => 'Menandai shipment ' . ($shipment->code ?? ('#'.$shipment->id)) . ' dalam perjalanan',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->header('User-Agent'),
+        ]);
+
         return response()->json(['success' => true, 'message' => 'Shipment telah ditandai dalam perjalanan.']);
+    }
+
+    public function cancel(Request $request, Shipment $shipment)
+    {
+        if (strtolower((string)$shipment->status) !== 'packing') {
+            return response()->json(['success' => false, 'message' => 'Hanya shipment dengan status packing yang dapat dibatalkan.'], 422);
+        }
+        if ($shipment->reference_type !== Shipment::REFERENCE_TYPE_TRANSFER_REQUEST) {
+            return response()->json(['success' => false, 'message' => 'Hanya shipment bertipe Transfer Request yang dapat dibatalkan.'], 422);
+        }
+
+        try {
+            $code = $shipment->code ?? ('#'.$shipment->id);
+            DB::transaction(function () use ($shipment) {
+                $fromWarehouseId = (int) $shipment->from_warehouse_id;
+
+                // Collect affected Transfer Request IDs via details
+                $detailRows = ShipmentItemDetail::where('shipment_id', $shipment->id)->get();
+                $affectedTransferRequestIds = [];
+
+                foreach ($detailRows as $detail) {
+                    // Restore inventory back to from warehouse
+                    $inv = Inventory::firstOrNew([
+                        'warehouse_id' => $fromWarehouseId,
+                        'item_id' => $detail->item_id,
+                    ]);
+                    $inv->quantity = (float) ($inv->quantity ?? 0) + (float) ($detail->quantity_shipped ?? 0);
+                    $inv->koli = (float) ($inv->koli ?? 0) + (float) ($detail->koli_shipped ?? 0);
+                    $inv->save();
+
+                    // Restore TRI remaining
+                    if ($detail->reference_type === ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM) {
+                        $tri = TransferRequestItem::find($detail->reference_id);
+                        if ($tri) {
+                            $tri->ship_remaining_quantity = (float) ($tri->ship_remaining_quantity ?? 0) + (float) ($detail->quantity_shipped ?? 0);
+                            $tri->ship_remaining_koli = (float) ($tri->ship_remaining_koli ?? 0) + (float) ($detail->koli_shipped ?? 0);
+                            $tri->save();
+                            if ($tri->transfer_request_id) {
+                                $affectedTransferRequestIds[] = (int) $tri->transfer_request_id;
+                            }
+                        }
+                    }
+
+                    // Delete related stock movements
+                    StockMovement::where('type', 'stock_out')
+                        ->where('warehouse_id', $fromWarehouseId)
+                        ->where('item_id', $detail->item_id)
+                        ->where('reference_type', 'shipment_item_details')
+                        ->where('reference_id', $detail->id)
+                        ->delete();
+
+                    // Delete detail row
+                    $detail->delete();
+                }
+
+                // Delete shipment header after details removed
+                $shipment->delete();
+
+                // For each affected Transfer Request: if no shipments remain, revert status to approved
+                $affectedTransferRequestIds = array_values(array_unique($affectedTransferRequestIds));
+                if (!empty($affectedTransferRequestIds)) {
+                    foreach ($affectedTransferRequestIds as $trId) {
+                        $shipmentsCount = DB::table('shipment_item_details as sid')
+                            ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
+                            ->join('shipments as s', 's.id', '=', 'sid.shipment_id')
+                            ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                            ->where('tri.transfer_request_id', $trId)
+                            ->count();
+                        if ($shipmentsCount === 0) {
+                            DB::table('transfer_requests')->where('id', $trId)->update([
+                                'status' => 'approved',
+                            ]);
+                        }
+                    }
+                }
+            });
+
+            // Log user activity
+            UserActivity::create([
+                'user_id' => Auth::id(),
+                'activity' => 'deleted',
+                'menu' => 'Riwayat Pengiriman',
+                'description' => 'Membatalkan dan menghapus shipment ' . $code,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->header('User-Agent'),
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Shipment berhasil dibatalkan dan surat jalan dihapus.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Gagal membatalkan shipment: ' . $e->getMessage()], 500);
+        }
     }
 
     public function show(Shipment $shipment)
