@@ -530,10 +530,23 @@
                                     <div class="menu-item px-3">
                                         <a href="#" class="menu-link px-3" onclick="confirmStatusChange(${row.id}, 'approved', '${row.code}')">Approve</a>
                                     </div>`;
+                                    // Reject when pending
+                                    actionsHtml += `
+                                    <div class="menu-item px-3">
+                                        <a href="#" class="menu-link px-3 text-danger" onclick="confirmStatusChange(${row.id}, 'rejected', '${row.code}')">Reject</a>
+                                    </div>`;
                                 } else if ((row.status === 'approved' || row.status === 'on_progress') && canEdit) {
                                     actionsHtml += `
                                     <div class="menu-item px-3">
                                         <a href="#" class="menu-link px-3 kirim-barang-btn" data-bs-toggle="modal" data-bs-target="#kt_modal_kirim_barang" data-id="${row.id}" data-code="${row.code}">Kirim Barang</a>
+                                    </div>`;
+                                }
+
+                                // Also allow Reject on approved (no shipments yet)
+                                if (row.status === 'approved' && canApprove) {
+                                    actionsHtml += `
+                                    <div class="menu-item px-3">
+                                        <a href="#" class="menu-link px-3 text-danger" onclick="confirmStatusChange(${row.id}, 'rejected', '${row.code}')">Reject</a>
                                     </div>`;
                                 }
 
@@ -579,6 +592,9 @@
                 if (status === 'approved') {
                     confirmationText = `Apakah Anda yakin ingin menyetujui permintaan transfer ${code}?`;
                     successText = `Permintaan transfer ${code} berhasil disetujui.`;
+                } else if (status === 'rejected') {
+                    confirmationText = `Apakah Anda yakin ingin menolak permintaan transfer ${code}?`;
+                    successText = `Permintaan transfer ${code} berhasil ditolak.`;
                 }
 
                 Swal.fire({

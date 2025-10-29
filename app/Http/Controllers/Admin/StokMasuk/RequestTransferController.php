@@ -145,6 +145,8 @@ class RequestTransferController extends Controller
             // Only shipments that are in transit and from transfer request
             $query->where('s.status', 'dalam perjalanan')
                   ->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST);
+            // Exclude rejected transfer requests
+            $query->where('tr.status', '!=', 'rejected');
 
             // Scope to user's warehouse (destination)
             if (!is_null(auth()->user()->warehouse_id)) {
@@ -202,6 +204,11 @@ class RequestTransferController extends Controller
             $query = DB::table('shipment_item_details as sid')
                 ->join('shipments as s', 's.id', '=', 'sid.shipment_id')
                 ->join('items as i', 'i.id', '=', 'sid.item_id')
+                ->join('transfer_request_items as tri', function($j){
+                    $j->on('tri.id', '=', 'sid.reference_id')
+                      ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM);
+                })
+                ->join('transfer_requests as tr', 'tr.id', '=', 'tri.transfer_request_id')
                 ->select(
                     'sid.id as shipment_item_id',
                     'i.sku as item_sku',
@@ -212,6 +219,9 @@ class RequestTransferController extends Controller
                 ->where('s.status', 'packing')
                 ->where('s.reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
                 ->groupBy('sid.id','i.sku','i.nama_barang');
+
+            // Exclude rejected transfer requests
+            $query->where('tr.status', '!=', 'rejected');
 
             if (!is_null(auth()->user()->warehouse_id)) {
                 $query->where('s.to_warehouse_id', auth()->user()->warehouse_id);
@@ -266,6 +276,9 @@ class RequestTransferController extends Controller
                     $q->where('tri.ship_remaining_quantity', '>', 0)
                       ->orWhere('tri.ship_remaining_koli', '>', 0);
                 });
+
+            // Exclude rejected transfer requests
+            $query->where('tr.status', '!=', 'rejected');
 
             if (!is_null(auth()->user()->warehouse_id)) {
                 $query->where('tr.to_warehouse_id', auth()->user()->warehouse_id);

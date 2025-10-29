@@ -204,7 +204,7 @@ class PermintaanBarangController extends Controller
     public function updateStatus(Request $request, TransferRequest $transferRequest)
     {
         $request->validate([
-            'status' => 'required|in:approved',
+            'status' => 'required|in:approved,rejected',
         ]);
 
         $newStatus = $request->status;
@@ -212,34 +212,41 @@ class PermintaanBarangController extends Controller
         if ($newStatus === 'approved' && $transferRequest->status !== 'pending') {
             return response()->json(['success' => false, 'message' => 'Hanya permintaan dengan status pending yang bisa disetujui.'], 422);
         }
+        if ($newStatus === 'rejected' && !in_array($transferRequest->status, ['pending','approved'])) {
+            return response()->json(['success' => false, 'message' => 'Hanya permintaan dengan status pending atau approved yang bisa ditolak.'], 422);
+        }
 
         try {
             DB::beginTransaction();
 
-            $transferRequest->approved_by = Auth::id();
-            $transferRequest->approved_at = now();
+            if ($newStatus === 'approved') {
+                $transferRequest->approved_by = Auth::id();
+                $transferRequest->approved_at = now();
+            }
             $transferRequest->status = $newStatus;
             $transferRequest->save();
 
             UserActivity::create([
                 'user_id' => Auth::id(),
-                'activity' => 'approved',
+                'activity' => $newStatus === 'approved' ? 'approved' : 'rejected',
                 'menu' => 'Permintaan Barang',
-                'description' => 'Menyetujui Permintaan Barang menjadi '.$newStatus.'dengan kode ' . $transferRequest->code,
+                'description' => ($newStatus === 'approved' ? 'Menyetujui' : 'Menolak') . ' Permintaan Barang dengan kode ' . $transferRequest->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('User-Agent'),
             ]);
 
             DB::commit();
 
-            // Notify requesting warehouse users that the request was approved
-            try {
-                $recipients = User::where('warehouse_id', $transferRequest->to_warehouse_id)->get();
-                foreach ($recipients as $user) {
-                    $user->notify(new TransferRequestApproved($transferRequest));
+            if ($newStatus === 'approved') {
+                // Notify requesting warehouse users that the request was approved
+                try {
+                    $recipients = User::where('warehouse_id', $transferRequest->to_warehouse_id)->get();
+                    foreach ($recipients as $user) {
+                        $user->notify(new TransferRequestApproved($transferRequest));
+                    }
+                } catch (\Throwable $e) {
+                    // Do not block the response on notification failures
                 }
-            } catch (\Throwable $e) {
-                // Do not block the response on notification failures
             }
 
             return response()->json(['success' => true, 'message' => 'Status berhasil diperbarui.']);
@@ -275,7 +282,9 @@ class PermintaanBarangController extends Controller
             ->where(function($q){
                 $q->where('tri.ship_remaining_quantity', '>', 0)
                   ->orWhere('tri.ship_remaining_koli', '>', 0);
-            });
+            })
+            // Exclude rejected transfer requests
+            ->where('tr.status', '!=', 'rejected');
 
         if ($userWarehouseId) {
             // User pada Stok Keluar adalah gudang asal (from)
@@ -330,7 +339,9 @@ class PermintaanBarangController extends Controller
             ->where(function($q){
                 $q->where('tri.ship_remaining_quantity', '>', 0)
                   ->orWhere('tri.ship_remaining_koli', '>', 0);
-            });
+            })
+            // Exclude rejected transfer requests
+            ->where('tr.status', '!=', 'rejected');
 
         if (auth()->user() && auth()->user()->warehouse_id) {
             // Pada Stok Keluar, batasi ke gudang asal milik user
