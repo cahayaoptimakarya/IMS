@@ -56,6 +56,16 @@
                     </div>
                 </div>
                 <div class="card-toolbar">
+                    <button type="button" id="export_excel" class="btn btn-success me-3">
+                        <span class="svg-icon svg-icon-2 me-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path opacity="0.3" d="M5 8H19V19C19 20.1046 18.1046 21 17 21H7C5.89543 21 5 20.1046 5 19V8Z" fill="black"/>
+                                <path d="M12 3C12.5523 3 13 3.44772 13 4V12C13 12.5523 12.5523 13 12 13C11.4477 13 11 12.5523 11 12V4C11 3.44772 11.4477 3 12 3Z" fill="black"/>
+                                <path d="M8.29289 8.29289C8.68342 7.90237 9.31658 7.90237 9.70711 8.29289L12 10.5858L14.2929 8.29289C14.6834 7.90237 15.3166 7.90237 15.7071 8.29289C16.0976 8.68342 16.0976 9.31658 15.7071 9.70711L12.7071 12.7071C12.3166 13.0976 11.6834 13.0976 11.2929 12.7071L8.29289 9.70711C7.90237 9.31658 7.90237 8.68342 8.29289 8.29289Z" fill="black"/>
+                            </svg>
+                        </span>
+                        Export Excel
+                    </button>
                     <button type="button" class="btn btn-light-primary me-3" data-kt-menu-trigger="click"
                         data-kt-menu-placement="bottom-end">
                         <span class="svg-icon svg-icon-2">
@@ -254,6 +264,16 @@
                     table.ajax.reload();
                 }
             }));
+
+            $('#export_excel').on('click', function() {
+                const params = new URLSearchParams({
+                    warehouse_id: $warehouseFilter.val() || '',
+                    category_id: $categoryFilter.val() || '',
+                    search: $searchInput.val() || ''
+                });
+                const url = "{{ route('admin.manajemenstok.masterstok.export-excel') }}" + '?' + params.toString();
+                window.location.href = url;
+            });
         });
     </script>
 @endpush

@@ -10,6 +10,8 @@ use App\Models\Warehouse;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\InventoryExport;
 
 class InventoryController extends Controller
 {
@@ -183,5 +185,106 @@ class InventoryController extends Controller
         }
 
         return $map;
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $searchValue = trim((string) $request->input('search', ''));
+        $warehouseFilter = $request->input('warehouse_id'); // 'all' or specific id
+        $categoryFilter = $request->input('category_id'); // 'all' or specific id
+
+        if (($warehouseFilter === null || $warehouseFilter === '') && (auth()->user()?->warehouse_id === null)) {
+            $defaultWarehouseId = Warehouse::where('name', 'Gudang Nanggewer')->value('id');
+            if ($defaultWarehouseId) {
+                $warehouseFilter = (string) $defaultWarehouseId;
+            }
+        }
+
+        $query = Inventory::query()
+            ->join('items', 'inventories.item_id', '=', 'items.id')
+            ->leftJoin('warehouses as w', 'inventories.warehouse_id', '=', 'w.id')
+            ->leftJoin('uoms as u', 'items.uom_id', '=', 'u.id');
+
+        if (auth()->user() && auth()->user()->warehouse_id && ($warehouseFilter === null || $warehouseFilter === '')) {
+            $query->where('inventories.warehouse_id', auth()->user()->warehouse_id);
+        }
+
+        if (!empty($warehouseFilter) && $warehouseFilter !== 'all') {
+            $query->where('inventories.warehouse_id', $warehouseFilter);
+        }
+
+        if (!empty($categoryFilter) && $categoryFilter !== 'all') {
+            $query->where('items.item_category_id', $categoryFilter);
+        }
+
+        if ($searchValue !== '') {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('items.nama_barang', 'like', "%{$searchValue}%")
+                  ->orWhere('items.sku', 'like', "%{$searchValue}%");
+            });
+        }
+
+        $aggregateAll = ($warehouseFilter === 'all');
+
+        if ($aggregateAll) {
+            $dataQuery = (clone $query)
+                ->select([
+                    'items.id as item_id',
+                    'items.sku',
+                    'items.nama_barang as item_name',
+                    'items.koli as per_koli',
+                    DB::raw('MAX(COALESCE(u.symbol, u.name)) as uom_symbol'),
+                    DB::raw('SUM(inventories.quantity) as quantity'),
+                    DB::raw('SUM(inventories.koli) as koli'),
+                ])
+                ->groupBy('items.id', 'items.sku', 'items.nama_barang', 'items.koli');
+        } else {
+            $dataQuery = (clone $query)
+                ->select([
+                    'items.id as item_id',
+                    'items.sku',
+                    'items.nama_barang as item_name',
+                    'items.koli as per_koli',
+                    DB::raw('MAX(COALESCE(u.symbol, u.name)) as uom_symbol'),
+                    DB::raw('SUM(inventories.quantity) as quantity'),
+                    DB::raw('SUM(inventories.koli) as koli'),
+                    DB::raw('MAX(w.name) as warehouse_name'),
+                ])
+                ->groupBy('items.id', 'items.sku', 'items.nama_barang', 'items.koli');
+        }
+
+        $rows = $dataQuery->orderBy('items.nama_barang', 'asc')->get();
+
+        $itemIds = $rows->pluck('item_id')->map(fn($v) => (int)$v)->unique()->values()->all();
+        $avgTurnoverMap = $this->avgDailyTurnoverNanggewer($itemIds);
+
+        $headings = [
+            'SKU',
+            'Nama Barang',
+            'Per Koli',
+            'Quantity',
+            'Koli',
+            'Avg OUT/Hari (Gudang Nanggewer)',
+            'Gudang',
+        ];
+
+        $dataRows = [];
+        foreach ($rows as $r) {
+            $perKoli = (int) ($r->per_koli ?? 0);
+            $uom = $r->uom_symbol ?? '';
+            $perKoliDisplay = $uom ? ($perKoli . ' ' . $uom) : (string) $perKoli;
+            $dataRows[] = [
+                $r->sku,
+                $r->item_name,
+                $perKoliDisplay,
+                (float) ($r->quantity ?? 0),
+                (float) ($r->koli ?? 0),
+                round((float) ($avgTurnoverMap[(int)$r->item_id] ?? 0), 2),
+                $aggregateAll ? 'Semua Gudang' : ($r->warehouse_name ?? '-'),
+            ];
+        }
+
+        $fileName = 'master_stok_' . now()->format('Ymd_His') . '.xlsx';
+        return Excel::download(new \App\Exports\InventoryExport($dataRows, $headings), $fileName);
     }
 }
