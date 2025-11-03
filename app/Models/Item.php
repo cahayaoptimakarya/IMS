@@ -13,6 +13,7 @@ class Item extends Model
         'koli',
         'sku',
         'uom_id',
+        'item_type_id',
         'nama_barang',
         'tempat',
         'deskripsi',
@@ -31,5 +32,10 @@ class Item extends Model
     public function itemCategory()
     {
         return $this->belongsTo(ItemCategory::class);
+    }
+
+    public function itemType()
+    {
+        return $this->belongsTo(ItemType::class);
     }
 }

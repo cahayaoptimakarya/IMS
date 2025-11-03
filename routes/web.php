@@ -49,6 +49,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::resource('warehouses', WarehouseController::class);
         Route::resource('menus', MenuController::class);
         Route::resource('itemcategories', ItemCategoryController::class);
+        Route::resource('itemtypes', \App\Http\Controllers\Admin\Masterdata\ItemTypeController::class);
         Route::resource('uoms', UomController::class);
         // Put data route BEFORE resource to avoid binding 'data' as {item}
         Route::get('items/data', [ItemController::class, 'data'])->name('items.data');

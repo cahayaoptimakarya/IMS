@@ -127,6 +127,17 @@ class MenuSeeder extends Seeder
             ]
         );
 
+        // Item Types
+        $itemTypeMenu = Menu::updateOrCreate(
+            ['name' => 'Tipe Item'],
+            [
+                'url' => '/admin/masterdata/itemtypes',
+                'icon' => 'fas fa-list',
+                'parent_id' => $masterdata->id,
+                'order' => 12,
+            ]
+        );
+
         // Employees & Vehicles
         Menu::updateOrCreate(
             ['name' => 'Karyawan & Kendaraan'],
