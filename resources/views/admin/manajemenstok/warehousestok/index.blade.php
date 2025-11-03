@@ -123,6 +123,16 @@
                                 </select>
                             </div>
                             <div class="mb-10">
+                                <label class="form-label fs-5 fw-bold mb-3">Tipe Item:</label>
+                                <select class="form-select form-select-solid fw-bolder" data-kt-select2="true"
+                                    id="item_type_filter" data-dropdown-parent="#kt-toolbar-filter">
+                                    <option value="semua">Semua Tipe</option>
+                                    @foreach ($itemTypes as $type)
+                                        <option value="{{ $type->id }}">{{ $type->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="mb-10">
                                 <label class="form-label fs-5 fw-bold mb-3">Rentang Tanggal:</label>
                                 <div class="row g-3">
                                     <div class="col">
@@ -199,6 +209,7 @@
 
             const $searchInput = $('#search_input');
             const $categoryFilter = $('#category_filter');
+            const $typeFilter = $('#item_type_filter');
             const $warehouseFilter = $('#warehouse_filter');
             const $dateFrom = $('#date_from');
             const $dateTo = $('#date_to');
@@ -289,16 +300,25 @@
                 }
                 return 'Semua Tanggal';
             };
+            const resolveTypeText = (value) => {
+                if (!value || value === 'semua') {
+                    return 'Semua Tipe';
+                }
+                const option = $typeFilter.find('option:selected');
+                return option.length ? option.text() : 'Semua Tipe';
+            };
 
             const loadDataTable = () => {
                 const warehouseValue = ($warehouseFilter?.val() || (userWarehouseId || 'semua'));
                 const categoryValue = $categoryFilter.val() || 'semua';
                 const dateFromValue = $dateFrom.val();
                 const dateToValue = $dateTo.val();
+                const typeValue = $typeFilter.val() || 'semua';
 
                 const warehouseText = resolveWarehouseText(warehouseValue);
                 const categoryText = resolveCategoryText(categoryValue);
                 const dateText = resolveDateText(dateFromValue, dateToValue);
+                const typeText = resolveTypeText(typeValue);
 
                 const warehouseHtml = `
                     <div class=\"info-line\">
@@ -318,6 +338,10 @@
                     <div class=\"info-chip\">${iconTag}
                         <span class=\"label\">Kategori:</span>
                         <span class=\"value\">${escapeHtml(categoryText)}</span>
+                    </div>
+                    <div class=\"info-chip\">${iconTag}
+                        <span class=\"label\">Tipe:</span>
+                        <span class=\"value\">${escapeHtml(typeText)}</span>
                     </div>
                 `;
                 $filterInfo.html(filterHtml);
@@ -364,6 +388,7 @@
                             d.category_filter = categoryValue;
                             d.date_from = dateFromValue;
                             d.date_to = dateToValue;
+                            d.item_type_filter = typeValue;
                         },
                     },
                     order: [[hasWarehouseColumn ? 2 : 1, 'asc']],
@@ -436,6 +461,7 @@
             $('#kt-toolbar-filter [type="reset"]').on('click', function () {
                 $warehouseFilter.val(userWarehouseId ? String(userWarehouseId) : 'semua').trigger('change');
                 $categoryFilter.val('semua').trigger('change');
+                $typeFilter.val('semua').trigger('change');
                 $dateFrom.val(defaultDateFrom);
                 $dateTo.val(defaultDateTo);
                 loadDataTable();
@@ -466,6 +492,7 @@
                         const categoryValue = $categoryFilter?.val() || 'semua';
                         const dateFromValue = $dateFrom.val();
                         const dateToValue = $dateTo.val();
+                        const typeValue = $typeFilter?.val() || 'semua';
 
                         if (searchValue) {
                             params.append('search', searchValue);
@@ -475,6 +502,9 @@
                         }
                         if (categoryValue && categoryValue !== 'semua') {
                             params.append('category_filter', categoryValue);
+                        }
+                        if (typeValue && typeValue !== 'semua') {
+                            params.append('item_type_filter', typeValue);
                         }
                         if (dateFromValue) {
                             params.append('date_from', dateFromValue);
@@ -492,7 +522,5 @@
         });
     </script>
 @endpush
-
-
 
 

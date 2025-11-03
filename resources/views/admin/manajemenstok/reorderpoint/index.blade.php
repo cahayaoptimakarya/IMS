@@ -104,6 +104,15 @@
                                 </select>
                             </div>
                             <div class="mb-7">
+                                <label class="form-label fs-6 fw-bold mb-2">Tipe Item:</label>
+                                <select class="form-select form-select-solid fw-bolder" id="item_type_filter" data-kt-select2="true">
+                                    <option value="all">Semua Tipe</option>
+                                    @foreach ($itemTypes as $t)
+                                        <option value="{{ $t->id }}">{{ $t->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="mb-7">
                                 <label class="form-label fs-6 fw-bold mb-2">Status:</label>
                                 <select class="form-select form-select-solid fw-bolder" id="status_filter" data-kt-select2="true">
                                     <option value="all">Semua</option>
@@ -204,6 +213,7 @@ $(function(){
     const $wh = $('#warehouse_filter');
     const $cat = $('#category_filter');
     const $status = $('#status_filter');
+    const $type = $('#item_type_filter');
     
 
     const formatName = (sku, name, perKoli, uom) => {
@@ -243,15 +253,16 @@ $(function(){
     const load = () => {
         const whText = resolveText($wh, 'Semua Gudang');
         const catText = resolveText($cat, 'Semua Kategori');
+        const typeText = resolveText($type, 'Semua Tipe');
         const stText = resolveText($status, 'Semua Status');
-        $('#filter-info').text(`Gudang: ${whText} • Kategori: ${catText} • Status: ${stText}`);
+        $('#filter-info').text(`Gudang: ${whText} • Kategori: ${catText} • Tipe: ${typeText} • Status: ${stText}`);
         loadStatusCounts();
         if ($.fn.DataTable.isDataTable('#table-on-page')) { $table.DataTable().destroy(); }
         $table.DataTable({
             processing:true, serverSide:true, searching:false,
             ajax:{ url: `{{ route('admin.manajemenstok.reorder-point.data') }}`, data: function(d){
                 d.search = d.search || {}; d.search.value = $search.val();
-                d.warehouse_id = $wh.val(); d.category_id = $cat.val(); d.status = $status.val();
+                d.warehouse_id = $wh.val(); d.category_id = $cat.val(); d.item_type_id = $type.val(); d.status = $status.val();
             }},
             order:[[0,'asc']],
             drawCallback: function(){
@@ -296,13 +307,14 @@ $(function(){
     // Simple debounce helper to avoid external libs
     const debounce = (fn, wait=400) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn.apply(null,args), wait); }; };
     $('#apply_filter').on('click', load);
-    $('#reset_filter').on('click', function(){ $wh.val('{{ $defaultWarehouseId ?? '' }}').trigger('change'); $cat.val('all').trigger('change'); $status.val('all').trigger('change'); load();});
+    $('#reset_filter').on('click', function(){ $wh.val('{{ $defaultWarehouseId ?? '' }}').trigger('change'); $cat.val('all').trigger('change'); $type.val('all').trigger('change'); $status.val('all').trigger('change'); load();});
     $search.on('keyup', debounce(load, 400));
     $('#btn-export-excel').on('click', function(e){
         e.preventDefault();
         const params = new URLSearchParams({
             warehouse_id: $wh.val() || '',
             category_id: $cat.val() || '',
+            item_type_id: $type.val() || '',
             status: $status.val() || 'all',
             search: $search.val() || ''
         }).toString();

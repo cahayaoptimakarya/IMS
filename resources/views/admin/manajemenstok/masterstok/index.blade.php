@@ -105,6 +105,16 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <div class="mb-10">
+                                <label class="form-label fs-5 fw-bold mb-3">Tipe Item:</label>
+                                <select class="form-select form-select-solid fw-bolder" data-kt-select2="true"
+                                    id="item_type_filter" data-dropdown-parent="#kt-toolbar-filter">
+                                    <option value="all">Semua Tipe</option>
+                                    @foreach ($itemTypes ?? [] as $t)
+                                        <option value="{{ $t->id }}">{{ $t->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                             <div class="d-flex justify-content-end">
                                 <button type="reset" class="btn btn-light btn-active-light-primary me-2"
                                     data-kt-menu-dismiss="true">Reset</button>
@@ -154,6 +164,7 @@
             const $filterInfo = $('#filter-info');
             const $warehouseFilter = $('#warehouse_filter');
             const $categoryFilter = $('#category_filter');
+            const $typeFilter = $('#item_type_filter');
             const DEFAULT_WAREHOUSE_ID = '{{ $defaultWarehouseId ?? '' }}';
 
             let table = null;
@@ -190,12 +201,18 @@
                 return opt.length ? opt.text() : 'Semua Kategori';
             };
 
+            const resolveTypeText = () => {
+                const opt = $typeFilter.find('option:selected');
+                return opt.length ? opt.text() : 'Semua Tipe';
+            };
+
             const metricKeys = ['quantity', 'koli'];
 
             const loadDataTable = () => {
                 const warehouseText = resolveWarehouseText();
                 const categoryText = resolveCategoryText();
-                $filterInfo.text(`Gudang: ${warehouseText} • Kategori: ${categoryText}`);
+                const typeText = resolveTypeText();
+                $filterInfo.text(`Gudang: ${warehouseText} • Kategori: ${categoryText} • Tipe: ${typeText}`);
 
                 if ($.fn.DataTable.isDataTable('#table-on-page')) {
                     $('#table-on-page').DataTable().destroy();
@@ -222,6 +239,7 @@
                             d.search.value = $searchInput.val();
                             d.warehouse_id = $warehouseFilter.val();
                             d.category_id = $categoryFilter.val();
+                            d.item_type_id = $typeFilter.val();
                         },
                     },
                     order: [
@@ -256,6 +274,7 @@
             $('#kt-toolbar-filter [type="reset"]').on('click', function() {
                 $warehouseFilter.val(DEFAULT_WAREHOUSE_ID || 'all').trigger('change');
                 $categoryFilter.val('all').trigger('change');
+                $typeFilter.val('all').trigger('change');
                 loadDataTable();
             });
 
@@ -269,6 +288,7 @@
                 const params = new URLSearchParams({
                     warehouse_id: $warehouseFilter.val() || '',
                     category_id: $categoryFilter.val() || '',
+                    item_type_id: $typeFilter.val() || '',
                     search: $searchInput.val() || ''
                 });
                 const url = "{{ route('admin.manajemenstok.masterstok.export-excel') }}" + '?' + params.toString();

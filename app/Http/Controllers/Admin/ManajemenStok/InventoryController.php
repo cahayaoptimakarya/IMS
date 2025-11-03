@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\ManajemenStok;
 use App\Http\Controllers\Controller;
 use App\Models\Inventory;
 use App\Models\ItemCategory;
+use App\Models\ItemType;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use Carbon\Carbon;
@@ -24,6 +25,7 @@ class InventoryController extends Controller
             $draw = (int) $request->input('draw', 0);
             $warehouseFilter = $request->input('warehouse_id'); // 'all' or specific id
             $categoryFilter = $request->input('category_id'); // 'all' or specific id
+            $typeFilter = $request->input('item_type_id'); // 'all' or specific id
 
             // Default warehouse when user has no warehouse: Gudang Nanggewer
             if (($warehouseFilter === null || $warehouseFilter === '') && (auth()->user()?->warehouse_id === null)) {
@@ -49,6 +51,10 @@ class InventoryController extends Controller
 
             if (!empty($categoryFilter) && $categoryFilter !== 'all') {
                 $query->where('items.item_category_id', $categoryFilter);
+            }
+
+            if (!empty($typeFilter) && $typeFilter !== 'all') {
+                $query->where('items.item_type_id', $typeFilter);
             }
 
             if (!empty($searchValue)) {
@@ -138,8 +144,9 @@ class InventoryController extends Controller
 
         $warehouses = \App\Models\Warehouse::orderBy('name')->get();
         $categories = ItemCategory::orderBy('name')->get();
+        $itemTypes = ItemType::orderBy('name')->get();
         $defaultWarehouseId = auth()->user()?->warehouse_id ?? Warehouse::where('name', 'Gudang Nanggewer')->value('id');
-        return view('admin.manajemenstok.masterstok.index', compact('warehouses', 'categories', 'defaultWarehouseId'));
+        return view('admin.manajemenstok.masterstok.index', compact('warehouses', 'categories', 'itemTypes', 'defaultWarehouseId'));
     }
 
     /**
@@ -192,6 +199,7 @@ class InventoryController extends Controller
         $searchValue = trim((string) $request->input('search', ''));
         $warehouseFilter = $request->input('warehouse_id'); // 'all' or specific id
         $categoryFilter = $request->input('category_id'); // 'all' or specific id
+        $typeFilter = $request->input('item_type_id'); // 'all' or specific id
 
         if (($warehouseFilter === null || $warehouseFilter === '') && (auth()->user()?->warehouse_id === null)) {
             $defaultWarehouseId = Warehouse::where('name', 'Gudang Nanggewer')->value('id');
@@ -215,6 +223,10 @@ class InventoryController extends Controller
 
         if (!empty($categoryFilter) && $categoryFilter !== 'all') {
             $query->where('items.item_category_id', $categoryFilter);
+        }
+
+        if (!empty($typeFilter) && $typeFilter !== 'all') {
+            $query->where('items.item_type_id', $typeFilter);
         }
 
         if ($searchValue !== '') {

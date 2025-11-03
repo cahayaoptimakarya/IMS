@@ -5,6 +5,7 @@ use App\Exports\WarehouseStokExport;
 use App\Models\Inventory;
 use App\Models\Warehouse;
 use App\Models\Item;
+use App\Models\ItemType;
 use App\Models\StockMovement;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class WarehouseStokController extends Controller
             $draw = (int) $request->input('draw', 0);
             $warehouseFilter = $request->input('warehouse_filter');
             $categoryFilter = $request->input('category_filter');
+            $typeFilter = $request->input('item_type_filter');
             $dateFromInput = $request->input('date_from');
             $dateToInput = $request->input('date_to');
             try {
@@ -71,6 +73,9 @@ class WarehouseStokController extends Controller
             if ($categoryFilter && $categoryFilter !== 'semua') {
                 $query->where('items.item_category_id', $categoryFilter);
             }
+            if ($typeFilter && $typeFilter !== 'semua') {
+                $query->where('items.item_type_id', $typeFilter);
+            }
             if (!empty($searchValue)) {
                 $query->where(function ($q) use ($searchValue) {
                     $q->where('items.nama_barang', 'LIKE', "%{$searchValue}%")
@@ -85,6 +90,11 @@ class WarehouseStokController extends Controller
             if ($categoryFilter && $categoryFilter !== 'semua') {
                 $totalRecordsQuery->whereHas('item', function ($q) use ($categoryFilter) {
                     $q->where('item_category_id', $categoryFilter);
+                });
+            }
+            if ($typeFilter && $typeFilter !== 'semua') {
+                $totalRecordsQuery->whereHas('item', function ($q) use ($typeFilter) {
+                    $q->where('item_type_id', $typeFilter);
                 });
             }
             $totalRecords = $totalRecordsQuery->count();
@@ -212,9 +222,11 @@ class WarehouseStokController extends Controller
         }
         $warehouses = Warehouse::all();
         $categories = \App\Models\ItemCategory::all();
+        $itemTypes = ItemType::all();
         return view('admin.manajemenstok.warehousestok.index', [
             'warehouses' => $warehouses,
             'categories' => $categories,
+            'itemTypes' => $itemTypes,
             'defaultDateFrom' => $defaultStart->toDateString(),
             'defaultDateTo' => $defaultEnd->toDateString(),
         ]);
@@ -226,6 +238,7 @@ public function export(Request $request)
     $defaultEnd = $today->copy();
     $warehouseFilter = $request->input('warehouse_filter');
     $categoryFilter = $request->input('category_filter');
+    $typeFilter = $request->input('item_type_filter');
     $dateFromInput = $request->input('date_from');
     $dateToInput = $request->input('date_to');
     $searchValue = $request->input('search.value');
@@ -285,6 +298,9 @@ public function export(Request $request)
     }
     if ($categoryFilter && $categoryFilter !== 'semua') {
         $query->where('items.item_category_id', $categoryFilter);
+    }
+    if ($typeFilter && $typeFilter !== 'semua') {
+        $query->where('items.item_type_id', $typeFilter);
     }
     if ($searchValue !== '') {
         $query->where(function ($q) use ($searchValue) {

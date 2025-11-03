@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ItemReorderMetric;
 use App\Models\Warehouse;
 use App\Models\ItemCategory;
+use App\Models\ItemType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -18,8 +19,9 @@ class ReorderPointController extends Controller
     {
         $warehouses = Warehouse::orderBy('name')->get();
         $categories = ItemCategory::orderBy('name')->get();
+        $itemTypes = ItemType::orderBy('name')->get();
         $defaultWarehouseId = auth()->user()?->warehouse_id ?? Warehouse::where('name', 'Gudang Nanggewer')->value('id');
-        return view('admin.manajemenstok.reorderpoint.index', compact('warehouses', 'categories', 'defaultWarehouseId'));
+        return view('admin.manajemenstok.reorderpoint.index', compact('warehouses', 'categories', 'itemTypes', 'defaultWarehouseId'));
     }
 
     public function data(Request $request)
@@ -30,6 +32,7 @@ class ReorderPointController extends Controller
         $search = trim((string) data_get($request->input('search', []), 'value', ''));
         $warehouseId = $request->input('warehouse_id');
         $categoryId = $request->input('category_id');
+        $typeId = $request->input('item_type_id');
         $status = $request->input('status'); // all|reorder|ok
         // Remove only_reorder filter: always show all rows
 
@@ -102,6 +105,9 @@ class ReorderPointController extends Controller
         if (!empty($categoryId) && $categoryId !== 'all') {
             $query->where('i.item_category_id', $categoryId);
         }
+        if (!empty($typeId) && $typeId !== 'all') {
+            $query->where('i.item_type_id', $typeId);
+        }
         // Status filter
         if ($status === 'reorder') {
             $query->whereRaw('COALESCE(inv.quantity,0) < m.rop_qty');
@@ -165,13 +171,15 @@ class ReorderPointController extends Controller
     {
         $warehouseId = $request->input('warehouse_id');
         $categoryId = $request->input('category_id');
+        $typeId = $request->input('item_type_id');
 
         $q = ItemReorderMetric::query()
             ->from('item_reorder_metrics as m')
             ->join('items as i', 'm.item_id', '=', 'i.id')
             ->leftJoin('inventories as inv', function($j){ $j->on('inv.item_id', '=', 'm.item_id')->on('inv.warehouse_id', '=', 'm.warehouse_id'); })
             ->when(!empty($warehouseId) && $warehouseId !== 'all', fn($qq)=>$qq->where('m.warehouse_id', $warehouseId))
-            ->when(!empty($categoryId) && $categoryId !== 'all', fn($qq)=>$qq->where('i.item_category_id', $categoryId));
+            ->when(!empty($categoryId) && $categoryId !== 'all', fn($qq)=>$qq->where('i.item_category_id', $categoryId))
+            ->when(!empty($typeId) && $typeId !== 'all', fn($qq)=>$qq->where('i.item_type_id', $typeId));
 
         $total = (clone $q)->count();
         $reorder = (clone $q)->whereRaw('COALESCE(inv.quantity,0) < m.rop_qty')->count();
@@ -188,6 +196,7 @@ class ReorderPointController extends Controller
     {
         $warehouseId = $request->input('warehouse_id');
         $categoryId = $request->input('category_id');
+        $typeId = $request->input('item_type_id');
         $status = $request->input('status');
         $search = trim((string)$request->input('search', ''));
 
@@ -235,6 +244,9 @@ class ReorderPointController extends Controller
         }
         if (!empty($categoryId) && $categoryId !== 'all') {
             $query->where('i.item_category_id', $categoryId);
+        }
+        if (!empty($typeId) && $typeId !== 'all') {
+            $query->where('i.item_type_id', $typeId);
         }
         if ($status === 'reorder') {
             $query->whereRaw('COALESCE(inv.quantity,0) < m.rop_qty');
