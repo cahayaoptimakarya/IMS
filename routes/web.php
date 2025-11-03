@@ -59,6 +59,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::get('import-kategori-item', [ItemCategoryImportController::class, 'index'])->name('item-categories-import.index');
         Route::post('import-kategori-item/import', [ItemCategoryImportController::class, 'import'])->name('item-categories-import.import');
         Route::post('import-kategori-item/import-tempat', [ItemCategoryImportController::class, 'importTempat'])->name('item-categories-import.import-tempat');
+        Route::post('import-kategori-item/import-item-type', [ItemCategoryImportController::class, 'importItemType'])->name('item-categories-import.import-item-type');
         Route::resource('assemblyrecipes', AssemblyRecipeController::class)->parameters([
             'assemblyrecipes' => 'assemblyrecipe'
         ]);

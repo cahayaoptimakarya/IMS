@@ -74,6 +74,53 @@
 
                 <hr class="my-10" />
                 <div class="card-title mb-3">
+                    <h3 class="fw-bolder mb-0">Import Tipe Item dari CSV</h3>
+                </div>
+                <form id="import-tipe-form" action="{{ route('admin.masterdata.item-categories-import.import-item-type') }}" method="POST" enctype="multipart/form-data"> 
+                    @csrf
+                    <div class="row g-5 align-items-end">
+                        <div class="col-lg-8 col-md-9">
+                            <div class="fv-row">
+                                <label class="form-label required">Pilih CSV</label>
+                                <div class="input-group">
+                                    <input type="file" name="csv_file_tipe" id="csv-input-tipe" class="form-control" accept=".csv,text/csv">
+                                    <button type="submit" class="btn btn-primary" id="btn-import-tipe">
+                                        <span class="indicator-label">Import</span>
+                                        <span class="indicator-progress">Mohon tunggu...
+                                            <span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+                                        </span>
+                                    </button>
+                                </div>
+                                <div class="form-text">Gunakan file CSV dengan delimiter titik koma (;)</div>
+                                <span id="csv-filename-tipe" class="ms-2 text-muted small d-none"></span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="w-100 mt-6">
+                    <div class="alert alert-light-primary border csv-help p-4 mb-0">
+                        <div class="fw-bold mb-1">Format CSV (Tipe)</div>
+                        <div class="text-gray-700 small">Delimiter <code>;</code>. Header tidak wajib.</div>
+                        <div class="row g-3 mt-2 small">
+                            <div class="col-md-6">
+                                <ul class="mb-0 list-unstyled">
+                                    <li><span class="csv-col">A</span> SKU</li>
+                                    <li class="mt-1"><span class="csv-col">B</span> Nama Tipe</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <div>
+                                    Jika tipe (kolom B) belum ada, sistem akan otomatis membuatnya. Item dengan SKU (kolom A)
+                                    akan diperbarui agar menggunakan tipe tersebut.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-10" />
+                <div class="card-title mb-3">
                     <h3 class="fw-bolder mb-0">Import Tempat Item dari CSV</h3>
                 </div>
                 <form id="import-tempat-form" action="{{ route('admin.masterdata.item-categories-import.import-tempat') }}" method="POST" enctype="multipart/form-data">
@@ -97,6 +144,30 @@
                         </div>
                     </div>
                 </form>
+
+                @php($summaryTipe = session('import_tipe_summary'))
+                @if ($summaryTipe)
+                <div class="w-100 mt-6">
+                    <div class="alert alert-light-info border p-4">
+                        <div class="fw-bold mb-1">Ringkasan Import Tipe</div>
+                        <div class="row g-3 small">
+                            <div class="col-md-4">Tipe dibuat: <span class="fw-bold text-success">{{ $summaryTipe['created_types'] ?? 0 }}</span></div>
+                            <div class="col-md-4">Item diperbarui: <span class="fw-bold text-primary">{{ $summaryTipe['updated_items'] ?? 0 }}</span></div>
+                            <div class="col-md-4">Baris dilewati: <span class="fw-bold text-warning">{{ $summaryTipe['skipped'] ?? 0 }}</span></div>
+                        </div>
+                        @if (!empty($summaryTipe['notes']))
+                        <div class="mt-2">
+                            <div class="fw-bold">Catatan</div>
+                            <ul class="mb-0 small text-gray-700">
+                                @foreach ($summaryTipe['notes'] as $note)
+                                    <li>{{ $note }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+                @endif
 
                 @php($summaryTempat = session('import_tempat_summary'))
                 @if ($summaryTempat)
@@ -222,6 +293,32 @@
                     if (result.isConfirmed) {
                         btn.setAttribute('data-kt-indicator','on');
                         btn.disabled = true;
+                        e.currentTarget.submit();
+                    }
+                });
+            });
+
+            // Import tipe form
+            $('#csv-input-tipe').on('change', function(){
+                var f = this.files && this.files[0];
+                if (f) { $('#csv-filename-tipe').text(f.name).removeClass('d-none'); }
+                else { $('#csv-filename-tipe').text('').addClass('d-none'); }
+            });
+            const btnTipe = document.getElementById('btn-import-tipe');
+            $('#import-tipe-form').on('submit', function(e){
+                e.preventDefault();
+                const file = document.getElementById('csv-input-tipe').files[0];
+                if (!file) { toastr.error('Pilih file CSV terlebih dahulu.'); return; }
+                Swal.fire({
+                    text: 'Import tipe dari file ' + file.name + ' ?',
+                    icon: 'question', showCancelButton: true,
+                    buttonsStyling: false,
+                    confirmButtonText: 'Ya, import!', cancelButtonText: 'Batal',
+                    customClass: { confirmButton: 'btn fw-bold btn-primary', cancelButton: 'btn fw-bold btn-active-light-primary' }
+                }).then(function(result){
+                    if (result.isConfirmed) {
+                        btnTipe.setAttribute('data-kt-indicator','on');
+                        btnTipe.disabled = true;
                         e.currentTarget.submit();
                     }
                 });

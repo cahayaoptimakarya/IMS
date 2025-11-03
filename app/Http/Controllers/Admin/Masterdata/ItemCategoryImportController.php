@@ -50,26 +50,32 @@ class ItemCategoryImportController extends Controller
                 $sku = isset($row[0]) ? trim((string)$row[0]) : '';
                 $categoryName = isset($row[1]) ? trim((string)$row[1]) : '';
 
-                if ($sku === '' || $categoryName === '') {
-                    $errors[] = "Baris {$rowNumber}: SKU dan Nama Kategori wajib.";
+                if ($sku === '') {
+                    $errors[] = "Baris {$rowNumber}: SKU wajib.";
                     $skipped++;
                     continue;
                 }
 
-                // Ensure category exists (create if missing)
-                $existingCategory = ItemCategory::whereRaw('LOWER(name) = ?', [mb_strtolower($categoryName)])
-                    ->first();
-                if (!$existingCategory) {
-                    $existingCategory = ItemCategory::create([
-                        'name' => $categoryName,
-                        'description' => null,
-                    ]);
-                    $createdCategories++;
+                // Tentukan kategori: jika kolom B kosong, pakai default id=1
+                if ($categoryName === '') {
+                    $categoryId = 1;
+                } else {
+                    // Ensure category exists (create if missing)
+                    $existingCategory = ItemCategory::whereRaw('LOWER(name) = ?', [mb_strtolower($categoryName)])
+                        ->first();
+                    if (!$existingCategory) {
+                        $existingCategory = ItemCategory::create([
+                            'name' => $categoryName,
+                            'description' => null,
+                        ]);
+                        $createdCategories++;
+                    }
+                    $categoryId = $existingCategory->id;
                 }
 
                 // Update item category by SKU
                 $affected = Item::where('sku', $sku)->update([
-                    'item_category_id' => $existingCategory->id,
+                    'item_category_id' => $categoryId,
                 ]);
 
                 if ($affected > 0) {
@@ -184,6 +190,82 @@ class ItemCategoryImportController extends Controller
             DB::rollBack();
             if (is_resource($handle)) { fclose($handle); }
             return redirect()->back()->with('error', 'Gagal mengimpor CSV tempat: ' . $e->getMessage());
+        }
+    }
+
+    public function importItemType(Request $request)
+    {
+        $request->validate([
+            'csv_file_tipe' => 'required|file|mimes:csv,txt',
+        ]);
+
+        $file = $request->file('csv_file_tipe');
+        $path = $file->getRealPath();
+
+        $handle = fopen($path, 'r');
+        if ($handle === false) {
+            return redirect()->back()->with('error', 'Gagal membuka file CSV.');
+        }
+
+        $createdTypes = 0; $updatedItems = 0; $skipped = 0; $errors = [];
+
+        DB::beginTransaction();
+        try {
+            $rowNumber = 0;
+            while (($row = fgetcsv($handle, 0, ';')) !== false) {
+                $rowNumber++;
+                if (count($row) === 0 || (count($row) === 1 && trim((string)($row[0] ?? '')) === '')) {
+                    continue;
+                }
+                $sku = isset($row[0]) ? trim((string)$row[0]) : '';
+                $typeName = isset($row[1]) ? trim((string)$row[1]) : '';
+
+                if ($sku === '' || $typeName === '') {
+                    $errors[] = "Baris {$rowNumber}: SKU dan Nama Tipe wajib.";
+                    $skipped++;
+                    continue;
+                }
+
+                $existingType = \App\Models\ItemType::whereRaw('LOWER(name) = ?', [mb_strtolower($typeName)])->first();
+                if (!$existingType) {
+                    $existingType = \App\Models\ItemType::create(['name' => $typeName, 'description' => null]);
+                    $createdTypes++;
+                }
+
+                $affected = Item::where('sku', $sku)->update(['item_type_id' => $existingType->id]);
+                if ($affected > 0) { $updatedItems += $affected; }
+                else { $errors[] = "Baris {$rowNumber}: SKU '{$sku}' tidak ditemukan; dilewati."; $skipped++; }
+            }
+
+            fclose($handle);
+
+            if ($updatedItems > 0 || $createdTypes > 0) {
+                UserActivity::create([
+                    'user_id' => Auth::id(),
+                    'activity' => 'imported',
+                    'menu' => 'itemtypes-import',
+                    'description' => "Import tipe dari CSV: {$createdTypes} tipe baru, {$updatedItems} item terbarui.",
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ]);
+            }
+
+            DB::commit();
+
+            session()->flash('import_tipe_summary', [
+                'created_types' => $createdTypes,
+                'updated_items' => $updatedItems,
+                'skipped' => $skipped,
+                'notes' => array_slice($errors, 0, 50),
+            ]);
+
+            $msg = "Import tipe selesai. {$createdTypes} tipe dibuat, {$updatedItems} item diperbarui, {$skipped} baris dilewati.";
+            if (count($errors) > 0) { $msg .= ' Catatan: ' . implode(' | ', array_slice($errors, 0, 5)); }
+            return redirect()->route('admin.masterdata.item-categories-import.index')->with('success', $msg);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            if (is_resource($handle)) { fclose($handle); }
+            return redirect()->back()->with('error', 'Gagal mengimpor CSV tipe: ' . $e->getMessage());
         }
     }
 }
