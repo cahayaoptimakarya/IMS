@@ -606,12 +606,31 @@ XYZ002;85</pre>
                     contentType: false,
                     success: function(response) {
                         const message = (response && response.message) ? response.message : 'Import berhasil.';
-                        toastr.success(message);
+                        const newSkuCount = (response && response.created_skus) ? response.created_skus.length : 0;
+                        let extraHtml = '';
+                        if (newSkuCount > 0) {
+                            const skuList = response.created_skus.map(sku => `<li class="text-start">${sku}</li>`).join('');
+                            extraHtml = `
+                                <div class="mt-4 text-start">
+                                    <div class="fw-bold mb-2">SKU baru (${newSkuCount}):</div>
+                                    <ul class="ps-3 mb-0">${skuList}</ul>
+                                </div>`;
+                        }
                         if (adjustmentImportModal) {
                             adjustmentImportModal.hide();
                         }
                         resetAdjustmentImportForm();
                         loadDataTable();
+                        Swal.fire({
+                            title: 'Import Berhasil',
+                            html: `<p class="mb-0">${message}</p>${extraHtml}`,
+                            icon: 'success',
+                            buttonsStyling: false,
+                            confirmButtonText: 'Oke',
+                            customClass: {
+                                confirmButton: 'btn btn-primary'
+                            }
+                        });
                     },
                     error: function(xhr) {
                         let message = 'Terjadi kesalahan saat import.';
