@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\Laporan\LaporanStokController;
 use App\Http\Controllers\Admin\Laporan\LaporanController;
 use App\Http\Controllers\Admin\Laporan\LaporanPengadaanController;
+use App\Http\Controllers\Admin\Laporan\LaporanStockOpnameController;
 use App\Http\Controllers\Admin\ManajemenStok\InventoryController;
 use App\Http\Controllers\Admin\ManajemenStok\KartuStokController;
 use App\Http\Controllers\Admin\ManajemenStok\WarehouseStokController;
@@ -209,6 +210,11 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::get('laporan-pergerakan-barang/data', [LaporanController::class, 'pergerakanBarangData'])->name('pergerakanBarang.data');
         Route::get('laporan-transfer-gudang', [\App\Http\Controllers\Admin\Laporan\LaporanTransferGudangController::class, 'index'])->name('laporan-transfer-gudang');
         Route::get('laporan-transfer-gudang/data', [\App\Http\Controllers\Admin\Laporan\LaporanTransferGudangController::class, 'transferGudangData'])->name('laporan-transfer-gudang.data');
+        Route::get('laporan-stock-opname', [LaporanStockOpnameController::class, 'index'])->name('stockopname.index');
+        Route::get('laporan-stock-opname/summary', [LaporanStockOpnameController::class, 'summary'])->name('stockopname.summary');
+        Route::get('laporan-stock-opname/data', [LaporanStockOpnameController::class, 'data'])->name('stockopname.data');
+        Route::get('laporan-stock-opname/surplus-data', [LaporanStockOpnameController::class, 'surplusData'])->name('stockopname.surplus');
+        Route::get('laporan-stock-opname/shortage-data', [LaporanStockOpnameController::class, 'shortageData'])->name('stockopname.shortage');
     });
 
     // Laporan Pengadaan

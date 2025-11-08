@@ -420,6 +420,16 @@ class MenuSeeder extends Seeder
             ]
         );
 
+        Menu::updateOrCreate(
+            ['name' => 'Laporan Stock Opname'],
+            [
+                'url' => '/admin/laporan/laporan-stock-opname',
+                'icon' => 'fas fa-search-location',
+                'parent_id' => $laporan->id,
+                'order' => 5,
+            ]
+        );
+
         // Assign permissions to a role
         $developerJabatan = Jabatan::where('name', 'Developer')->first();
 
