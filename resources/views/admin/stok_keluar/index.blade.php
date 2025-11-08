@@ -125,6 +125,9 @@
                         </div>
                     </div>
                     <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-light-success me-3" data-bs-toggle="modal" data-bs-target="#importStockOutModal">
+                            Import CSV
+                        </button>
                         <a href="{{ route('admin.stok-keluar.pengeluaran-barang.create') }}" class="btn btn-primary">Buat Pengeluaran</a>
                     </div>
                 </div>
@@ -139,7 +142,7 @@
                         <table class="table align-middle table-row-dashed fs-6 gy-5 dataTable no-footer" id="table-on-page">
                             <thead>
                                 <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                    <th class="min-w-50px sorting">ID</th>
+                                    <th class="min-w-50px sorting_disabled">No</th>
                                     <th class="min-w-125px sorting">Tanggal</th>
                                     @if(auth()->user()->warehouse_id === null)
                                     <th class="min-w-125px sorting">Gudang</th>
@@ -155,6 +158,74 @@
                         </table>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="importStockOutModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Import Pengeluaran Barang (Pending)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="import-stockout-form" action="{{ route('admin.stok-keluar.pengeluaran-barang.import') }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="alert alert-light-primary mb-5">
+                            <div class="fw-bold mb-2">Format CSV</div>
+                            <p class="mb-2">Gunakan pemisah titik koma (<code>;</code>) dengan header <code>SKU</code> dan <code>Jumlah</code>. Setiap baris akan otomatis dihitung koli-nya berdasarkan data item.</p>
+                            <pre class="bg-light rounded p-3 mb-0">SKU;Jumlah
+ABC001;10
+XYZ002;5</pre>
+                        </div>
+                        <div class="alert alert-danger d-none" id="import-error-box"></div>
+                        <div class="mb-5">
+                            <label class="form-label required">File CSV</label>
+                            <input type="file" name="import_file" accept=".csv,text/csv" class="form-control @error('import_file') is-invalid @enderror">
+                            @error('import_file')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                            <div class="text-muted fs-7 mt-2">Maksimal ukuran 10 MB.</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-5">
+                                <label class="form-label required">Tanggal Pengeluaran</label>
+                                <input type="text" name="import_date" id="import_date" class="form-control form-control-solid @error('import_date') is-invalid @enderror" value="{{ old('import_date', now()->format('Y-m-d')) }}">
+                                @error('import_date')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="col-md-6 mb-5">
+                                <label class="form-label {{ auth()->user()->warehouse_id ? '' : 'required' }}">Gudang</label>
+                                @if(auth()->user()->warehouse_id)
+                                    <input type="text" class="form-control form-control-solid" value="{{ auth()->user()->warehouse->name }}" readonly>
+                                    <input type="hidden" name="import_warehouse_id" value="{{ auth()->user()->warehouse_id }}">
+                                @else
+                                    <select name="import_warehouse_id" class="form-select form-select-solid @error('import_warehouse_id') is-invalid @enderror" data-control="select2" data-placeholder="Pilih gudang">
+                                        <option></option>
+                                        @foreach ($warehouses as $warehouse)
+                                            <option value="{{ $warehouse->id }}" {{ old('import_warehouse_id') == $warehouse->id ? 'selected' : '' }}>{{ $warehouse->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('import_warehouse_id')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                @endif
+                            </div>
+                        </div>
+                        <div class="mb-5">
+                            <label class="form-label">Catatan</label>
+                            <textarea name="import_notes" class="form-control form-control-solid @error('import_notes') is-invalid @enderror" rows="3" placeholder="Contoh: hasil picking shift pagi">{{ old('import_notes') }}</textarea>
+                            @error('import_notes')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="import-submit-btn">Import &amp; Buat Pending</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -184,6 +255,17 @@
                 }
             });
 
+            let importDatePicker = null;
+            if ($('#import_date').length) {
+                $('#import_date').flatpickr({
+                    dateFormat: "Y-m-d",
+                    defaultDate: $('#import_date').val() || new Date(),
+                    onReady: function(selectedDates, dateStr, instance) {
+                        importDatePicker = instance;
+                    }
+                });
+            }
+
             toastr.options = {
                 "closeButton": true,
                 "progressBar": true,
@@ -197,6 +279,145 @@
             @if (Session::has('error'))
                 toastr.error("{{ session('error') }}");
             @endif
+
+            @if (session('showImportModal'))
+                const importModal = new bootstrap.Modal(document.getElementById('importStockOutModal'));
+                importModal.show();
+            @endif
+
+            const importForm = $('#import-stockout-form');
+            const importErrorBox = $('#import-error-box');
+            const importSubmitBtn = $('#import-submit-btn');
+            const importModalEl = document.getElementById('importStockOutModal');
+
+            function clearImportErrors() {
+                if (!importForm.length) return;
+                importErrorBox.addClass('d-none').html('');
+                importForm.find('.is-invalid').removeClass('is-invalid');
+                importForm.find('.select2-selection').removeClass('is-invalid');
+                importForm.find('.dynamic-import-error').remove();
+            }
+
+            function showImportErrors(message, fieldErrors) {
+                if (message) {
+                    importErrorBox.removeClass('d-none').html(message);
+                }
+
+                if (fieldErrors && typeof fieldErrors === 'object') {
+                    Object.entries(fieldErrors).forEach(([field, errors]) => {
+                        const input = importForm.find(`[name="${field}"]`);
+                        if (!input.length) {
+                            return;
+                        }
+                        input.addClass('is-invalid');
+                        if (input.hasClass('form-select')) {
+                            input.next('.select2').find('.select2-selection').addClass('is-invalid');
+                        }
+                        const messages = Array.isArray(errors) ? errors.join(' ') : errors;
+                        const feedback = $('<div class="invalid-feedback d-block dynamic-import-error"></div>').text(messages);
+                        input.closest('.mb-5').append(feedback);
+                    });
+                }
+            }
+
+            function toggleImportLoading(isLoading) {
+                if (!importSubmitBtn.length) return;
+                if (isLoading) {
+                    if (!importSubmitBtn.data('original-html')) {
+                        importSubmitBtn.data('original-html', importSubmitBtn.html());
+                    }
+                    importSubmitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Memproses...');
+                } else {
+                    const originalHtml = importSubmitBtn.data('original-html');
+                    if (originalHtml) {
+                        importSubmitBtn.html(originalHtml);
+                    }
+                    importSubmitBtn.prop('disabled', false);
+                }
+            }
+
+            function resetImportFormState() {
+                if (!importForm.length) return;
+                const formEl = importForm[0];
+                formEl.reset();
+                clearImportErrors();
+                if (importDatePicker) {
+                    importDatePicker.setDate(new Date());
+                }
+                const warehouseSelect = importForm.find('select[name="import_warehouse_id"]');
+                if (warehouseSelect.length) {
+                    warehouseSelect.val('').trigger('change');
+                }
+            }
+
+            function submitImportForm() {
+                if (!importForm.length) return;
+                const formData = new FormData(importForm[0]);
+                clearImportErrors();
+                toggleImportLoading(true);
+
+                $.ajax({
+                    url: importForm.attr('action'),
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        toastr.success(response.message || 'Import berhasil.');
+                        if (importModalEl) {
+                            let modalInstance = bootstrap.Modal.getInstance(importModalEl);
+                            if (!modalInstance) {
+                                modalInstance = new bootstrap.Modal(importModalEl);
+                            }
+                            modalInstance.hide();
+                        }
+                        resetImportFormState();
+                        if (typeof table !== 'undefined') {
+                            table.ajax.reload(null, false);
+                        }
+                        updateCardCounts();
+                    },
+                    error: function(xhr) {
+                        let message = 'Terjadi kesalahan saat import.';
+                        let errors = null;
+                        if (xhr.responseJSON) {
+                            message = xhr.responseJSON.message || message;
+                            if (xhr.responseJSON.errors) {
+                                errors = xhr.responseJSON.errors;
+                            } else if (xhr.responseJSON.data && xhr.responseJSON.data.errors) {
+                                errors = xhr.responseJSON.data.errors;
+                            }
+                        }
+                        showImportErrors(message, errors);
+                        toastr.error(message);
+                    },
+                    complete: function() {
+                        toggleImportLoading(false);
+                    }
+                });
+            }
+
+            if (importForm.length) {
+                importForm.on('submit', function(e) {
+                    e.preventDefault();
+                    Swal.fire({
+                        text: "Apakah Anda yakin ingin mengimport pengeluaran barang dari file ini?",
+                        icon: "question",
+                        showCancelButton: true,
+                        buttonsStyling: false,
+                        confirmButtonText: "Ya, import",
+                        cancelButtonText: "Batal",
+                        customClass: {
+                            confirmButton: "btn btn-primary",
+                            cancelButton: "btn btn-light"
+                        }
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            submitImportForm();
+                        }
+                    });
+                });
+            }
 
             function loadDataTable() {
                 var warehouseFilter = $('#warehouse_filter').val();
@@ -232,7 +453,7 @@
                     },
                     columns: (function() {
                         let cols = [
-                            { data: 'id', name: 'id' },
+                            { data: null, name: 'row_number', orderable: false, searchable: false, defaultContent: '' },
                             { data: 'date', name: 'date' },
                         ];
 
@@ -247,7 +468,7 @@
 
                         return cols;
                     })(),
-                    order: [[0, 'desc']],
+                    order: [[1, 'desc']],
                     columnDefs: (function() {
                         const hasWarehouse = @json(auth()->user()->warehouse_id === null);
                         const itemsIdx = hasWarehouse ? 3 : 2;
@@ -255,6 +476,14 @@
                         const actionsIdx = hasWarehouse ? 6 : 5;
 
                         let defs = [
+                        {
+                            targets: 0, // Row number column
+                            orderable: false,
+                            searchable: false,
+                            render: function(data, type, row, meta) {
+                                return meta.row + 1 + meta.settings._iDisplayStart;
+                            }
+                        },
                         {
                             targets: 1, // Date column
                             render: function(data, type, row) {
@@ -278,30 +507,86 @@
                                 if (data === 'completed') badgeClass = 'success';
                                 return `<span class="badge badge-light-${badgeClass}">${data}</span>`;
                             }
-                        },
-                        {
+                        },                        {
+
                             targets: actionsIdx, // Actions column
+
                             render: function(data, type, row) {
+
                                 let showUrl = "{{ route('admin.stok-keluar.pengeluaran-barang.show', ':id') }}".replace(':id', row.id);
+
                                 let editUrl = "{{ route('admin.stok-keluar.pengeluaran-barang.edit', ':id') }}".replace(':id', row.id);
+
                                 let destroyUrl = "{{ route('admin.stok-keluar.pengeluaran-barang.destroy', ':id') }}".replace(':id', row.id);
+
+                                let confirmUrl = "{{ route('admin.stok-keluar.pengeluaran-barang.confirm', ':id') }}".replace(':id', row.id);
+
                                 let csrfToken = "{{ csrf_token() }}";
-                                return `
-                                <a href="#" class="btn btn-sm btn-light btn-active-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">Actions
-                                    <span class="svg-icon svg-icon-5 m-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M11.4343 12.7344L7.25 8.55005C6.83579 8.13583 6.16421 8.13584 5.75 10.05L11.2929 15.5929C11.6834 15.9835 12.3166 15.9835 12.7071 15.5929L18.25 10.05C18.6642 9.63584 18.6642 8.96426 18.25 8.55005C17.8358 8.13584 17.1642 8.13584 16.75 8.55005L12.5657 12.7344C12.2533 13.0468 11.7467 13.0468 11.4343 12.7344Z" fill="black"></path></svg></span>
-                                </a>
-                                <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-125px py-4" data-kt-menu="true">
-                                    <div class="menu-item px-3"><a href="${showUrl}" class="menu-link px-3">Lihat</a></div>
-                                    <div class="menu-item px-3"><a href="${editUrl}" class="menu-link px-3">Edit</a></div>
+
+                                let editAction = '';
+                                if (row.status === 'pending') {
+                                    editAction = `<div class="menu-item px-3"><a href="${editUrl}" class="menu-link px-3">Edit</a></div>`;
+                                }
+
+                                let confirmAction = '';
+                                let deleteAction = '';
+
+                                if (row.status === 'pending') {
+
+                                    confirmAction = `
+
                                     <div class="menu-item px-3">
-                                        <form class="form-delete" action="${destroyUrl}" method="POST">
+
+                                        <form class="form-confirm" action="${confirmUrl}" method="POST">
+
                                             <input type="hidden" name="_token" value="${csrfToken}">
-                                            <input type="hidden" name="_method" value="DELETE">
-                                            <button type="submit" class="menu-link px-3 border-0 bg-transparent w-100 text-start" data-document-id="${row.id}">Hapus</button>
+
+                                            <button type="submit" class="menu-link px-3 border-0 bg-transparent w-100 text-start" data-document-id="${row.id}">Konfirmasi</button>
+
                                         </form>
-                                    </div>
+
+                                    </div>`;
+
+                                    deleteAction = `
+
+                                    <div class="menu-item px-3">
+
+                                        <form class="form-delete" action="${destroyUrl}" method="POST">
+
+                                            <input type="hidden" name="_token" value="${csrfToken}">
+
+                                            <input type="hidden" name="_method" value="DELETE">
+
+                                            <button type="submit" class="menu-link px-3 border-0 bg-transparent w-100 text-start" data-document-id="${row.id}">Hapus</button>
+
+                                        </form>
+
+                                    </div>`;
+
+                                }
+
+                                return `
+
+                                <a href="#" class="btn btn-sm btn-light btn-active-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">Actions
+
+                                    <span class="svg-icon svg-icon-5 m-0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M11.4343 12.7344L7.25 8.55005C6.83579 8.13583 6.16421 8.13584 5.75 8.55005L11.2929 15.5929C11.6834 15.9835 12.3166 15.9835 12.7071 15.5929L18.25 10.05C18.6642 9.63584 18.6642 8.96426 18.25 8.55005C17.8358 8.13584 17.1642 8.13584 16.75 8.55005L12.5657 12.7344C12.2533 13.0468 11.7467 13.0468 11.4343 12.7344Z" fill="black"></path></svg></span>
+
+                                </a>
+
+                                <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-125px py-4" data-kt-menu="true">
+
+                                    <div class="menu-item px-3"><a href="${showUrl}" class="menu-link px-3">Lihat</a></div>
+
+                                    ${editAction}
+
+                                    ${confirmAction}
+
+                                    ${deleteAction}
+
                                 </div>`;
+
                             }
+
                         }
                         ];
                         return defs;
@@ -378,6 +663,47 @@
                     }
                 });
             });
+
+            $('#table-on-page').on('submit', '.form-confirm', function(e) {
+                e.preventDefault();
+                var form = $(this);
+                var docId = form.find('button[data-document-id]').data('document-id');
+                Swal.fire({
+                    text: `Apakah yakin ingin mengonfirmasi dokumen #${docId}?`,
+                    icon: "question",
+                    showCancelButton: true,
+                    buttonsStyling: false,
+                    confirmButtonText: "Ya, konfirmasi!",
+                    cancelButtonText: "Tidak, batalkan",
+                    customClass: {
+                        confirmButton: "btn fw-bold btn-primary",
+                        cancelButton: "btn fw-bold btn-active-light"
+                    }
+                }).then(function(result) {
+                    if (result.value) {
+                        $.ajax({
+                            url: form.attr('action'),
+                            type: 'POST',
+                            data: form.serialize(),
+                            success: function(response) {
+                                const message = (response && response.message) ? response.message : `Dokumen #${docId} berhasil dikonfirmasi.`;
+                                toastr.success(message);
+                                table.ajax.reload(null, false);
+                                updateCardCounts();
+                            },
+                            error: function(xhr) {
+                                let errorMessage = `Gagal mengonfirmasi dokumen #${docId}.`;
+                                if (xhr.responseJSON && xhr.responseJSON.message) {
+                                    errorMessage = xhr.responseJSON.message;
+                                }
+                                toastr.error(errorMessage);
+                            }
+                        });
+                    }
+                });
+            });
         });
     </script>
 @endpush
+
+

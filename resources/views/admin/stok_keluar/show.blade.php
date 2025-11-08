@@ -112,8 +112,11 @@
                     <td>{{ $i + 1 }}</td>
                     <td>
                       <div class="d-flex flex-column">
-                        <span class="meta-label">{{ $row->item->sku ?? '-' }}</span>
-                        <span class="meta-value">{{ $row->item->nama_barang ?? $row->item->name ?? '-' }}</span>
+                        @php
+                          $sku = $row->item->sku ?? '-';
+                          $name = $row->item->nama_barang ?? $row->item->name ?? '-';
+                        @endphp
+                        <span class="meta-value">{{ $sku }} - {{ $name }}</span>
                       </div>
                     </td>
                     <td class="text-end">{{ number_format((float) ($row->quantity ?? 0), 0, ',', '.') }}</td>
@@ -141,6 +144,12 @@
 
         <div class="row mt-12 no-print">
           <div class="col-12 d-flex justify-content-end gap-2">
+            @if($pengeluaranBarang->status === 'pending')
+              <form id="confirm-show-form" action="{{ route('admin.stok-keluar.pengeluaran-barang.confirm', $pengeluaranBarang->id) }}" method="POST">
+                @csrf
+                <button type="submit" class="btn btn-success">Konfirmasi</button>
+              </form>
+            @endif
             <button type="button" class="btn btn-primary" onclick="window.print()">Cetak Bukti</button>
             <a href="{{ route('admin.stok-keluar.pengeluaran-barang.index') }}" class="btn btn-light">Kembali</a>
           </div>
@@ -150,3 +159,31 @@
   </div>
 @endsection
 
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmForm = document.getElementById('confirm-show-form');
+    if (confirmForm) {
+        confirmForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            Swal.fire({
+                text: 'Apakah yakin ingin mengonfirmasi dokumen ini?',
+                icon: 'question',
+                showCancelButton: true,
+                buttonsStyling: false,
+                confirmButtonText: 'Ya, konfirmasi',
+                cancelButtonText: 'Batal',
+                customClass: {
+                    confirmButton: 'btn btn-primary',
+                    cancelButton: 'btn btn-light'
+                }
+            }).then(function(result) {
+                if (result.value) {
+                    confirmForm.submit();
+                }
+            });
+        });
+    }
+});
+</script>
+@endpush

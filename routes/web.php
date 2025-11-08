@@ -116,6 +116,8 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
 
     Route::prefix('admin/stok-keluar')->name('admin.stok-keluar.')->group(function () {
         Route::get('pengeluaran-barang/status-counts', [PengeluaranBarangController::class, 'getStatusCounts'])->name('pengeluaran-barang.status-counts');
+        Route::post('pengeluaran-barang/import', [PengeluaranBarangController::class, 'import'])->name('pengeluaran-barang.import');
+        Route::post('pengeluaran-barang/{pengeluaranBarang}/konfirmasi', [PengeluaranBarangController::class, 'confirm'])->name('pengeluaran-barang.confirm');
         Route::resource('pengeluaran-barang', PengeluaranBarangController::class)->parameter('pengeluaran-barang', 'pengeluaranBarang');
 
         Route::get('permintaan-barang/status-counts', [PermintaanBarangController::class, 'getStatusCounts'])->name('permintaan-barang.status-counts');

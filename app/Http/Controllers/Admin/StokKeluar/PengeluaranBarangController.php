@@ -12,7 +12,9 @@ use App\Models\UserActivity;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PengeluaranBarangController extends Controller
 {
@@ -190,53 +192,148 @@ class PengeluaranBarangController extends Controller
                 'date' => $request->date,
                 'created_by' => auth()->id(),
                 'notes' => $request->notes,
-                'status' => 'completed',
+                'status' => 'pending',
             ]);
 
-            foreach ($request->items as $itemData) {
-                $stockOutItem = $stockOut->items()->create([
+            $itemsPayload = collect($request->items)->map(function ($itemData) {
+                return [
                     'item_id' => $itemData['item_id'],
                     'quantity' => $itemData['quantity'],
                     'koli' => $itemData['koli'],
-                ]);
+                ];
+            })->toArray();
 
-                $inventory = Inventory::where('warehouse_id', $request->warehouse_id)
-                                    ->where('item_id', $itemData['item_id'])
-                                    ->first();
-                
-                $stockBefore = $inventory->quantity;
-                $inventory->decrement('quantity', $itemData['quantity']);
-                // Update koli in inventory as well
-                $inventory->decrement('koli', $itemData['koli']);
-                $stockAfter = $inventory->quantity;
-
-                StockMovement::create([
-                    'item_id' => $itemData['item_id'],
-                    'warehouse_id' => $request->warehouse_id,
-                    'quantity' => -$itemData['quantity'],
-                    'koli' => -$itemData['koli'],
-                    'stock_before' => $stockBefore,
-                    'stock_after' => $stockAfter,
-                    'type' => 'stock_out',
-                    'description' => 'Pengeluaran Barang',
-                    'reference_id' => $stockOutItem->id,
-                    'reference_type' => 'stock_out_items',
-                    'user_id' => auth()->id(),
-                    'date' => $request->date,
-                ]);
-            }
+            $stockOut->items()->createMany($itemsPayload);
 
             UserActivity::create([
                 'user_id' => auth()->id(),
                 'activity' => 'created',
                 'menu' => 'Stok Keluar',
-                'description' => 'Membuat data pengeluaran barang baru dengan kode ' . $stockOut->code,
+                'description' => 'Membuat draft pengeluaran barang dengan kode ' . $stockOut->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('user-agent'),
             ]);
         });
 
         return redirect()->route('admin.stok-keluar.pengeluaran-barang.index')->with('success', 'Data pengeluaran barang berhasil disimpan.');
+    }
+
+    public function import(Request $request)
+    {
+        $rules = [
+            'import_file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
+            'import_date' => ['required', 'date'],
+            'import_notes' => ['nullable', 'string'],
+        ];
+
+        if (!auth()->user()->warehouse_id) {
+            $rules['import_warehouse_id'] = ['required', 'exists:warehouses,id'];
+        }
+
+        $validator = Validator::make($request->all(), $rules, [], [
+            'import_file' => 'file CSV',
+            'import_date' => 'tanggal pengeluaran',
+            'import_warehouse_id' => 'gudang',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->importResponse($request, false, 'Validasi import gagal.', [
+                'errors' => $validator->errors()->toArray(),
+            ]);
+        }
+
+        $validated = $validator->validated();
+        $warehouseId = auth()->user()->warehouse_id ?? $validated['import_warehouse_id'];
+
+        try {
+            $csvItems = $this->parsePendingStockOutCsv($request->file('import_file')->getRealPath());
+        } catch (\RuntimeException $exception) {
+            return $this->importResponse($request, false, $exception->getMessage());
+        }
+
+        if (empty($csvItems)) {
+            return $this->importResponse($request, false, 'File CSV tidak memiliki baris SKU yang valid.');
+        }
+
+        $items = Item::whereIn('sku', array_keys($csvItems))->get()->keyBy('sku');
+        $missingSkus = array_values(array_diff(array_keys($csvItems), $items->keys()->all()));
+
+        if ($items->isEmpty()) {
+            return $this->importResponse(
+                $request,
+                false,
+                'Tidak ada SKU valid yang ditemukan pada sistem.'
+            );
+        }
+
+        $stockOutCode = null;
+        $itemCount = 0;
+        $skippedSkus = $missingSkus;
+
+        DB::transaction(function () use ($csvItems, $items, $warehouseId, $validated, &$stockOutCode, &$itemCount, $request) {
+            $stockOut = StockOut::create([
+                'code' => $this->generateNewCode(),
+                'warehouse_id' => $warehouseId,
+                'date' => $validated['import_date'],
+                'created_by' => auth()->id(),
+                'user_id' => auth()->id(),
+                'notes' => $validated['import_notes'] ?? null,
+                'status' => 'pending',
+            ]);
+
+            $grouped = [];
+            foreach ($csvItems as $sku => $quantity) {
+                $item = $items->get($sku);
+                if (!$item) {
+                    continue;
+                }
+                if (!isset($grouped[$item->id])) {
+                    $grouped[$item->id] = [
+                        'item' => $item,
+                        'quantity' => 0,
+                    ];
+                }
+                $grouped[$item->id]['quantity'] += $quantity;
+            }
+
+            $payload = [];
+            foreach ($grouped as $data) {
+                $item = $data['item'];
+                $qty = $data['quantity'];
+                $perKoli = max(1, (float) ($item->koli ?? 1));
+                $payload[] = [
+                    'item_id' => $item->id,
+                    'quantity' => $qty,
+                    'koli' => round($qty / $perKoli, 2),
+                ];
+            }
+
+
+            $stockOut->items()->createMany($payload);
+
+            $itemCount = count($payload);
+            $stockOutCode = $stockOut->code;
+
+            UserActivity::create([
+                'user_id' => auth()->id(),
+                'activity' => 'imported',
+                'menu' => 'Stok Keluar',
+                'description' => 'Mengimpor pengeluaran barang pending dengan kode ' . $stockOut->code,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->header('user-agent'),
+            ]);
+        });
+
+        $message = "Berhasil membuat {$itemCount} item pengeluaran pending melalui import (kode {$stockOutCode}).";
+        if (!empty($skippedSkus)) {
+            $message .= ' SKU dilewati: ' . implode(', ', $skippedSkus);
+        }
+
+        return $this->importResponse($request, true, $message, [
+            'stock_out_code' => $stockOutCode,
+            'items_count' => $itemCount,
+            'skipped_skus' => $skippedSkus,
+        ]);
     }
 
     public function show(StockOut $pengeluaranBarang)
@@ -259,12 +356,40 @@ class PengeluaranBarangController extends Controller
             })
             ->get()
             ->groupBy('warehouse_id');
+
         $pengeluaranBarang->load('items.item');
+
+        $warehouseInventory = $inventory->get($pengeluaranBarang->warehouse_id, collect());
+        $needsUpdate = false;
+
+        foreach ($pengeluaranBarang->items as $stockOutItem) {
+            $existing = $warehouseInventory->firstWhere('item_id', $stockOutItem->item_id);
+            if (!$existing) {
+                $mockInventory = new Inventory([
+                    'warehouse_id' => $pengeluaranBarang->warehouse_id,
+                    'item_id' => $stockOutItem->item_id,
+                    'quantity' => 0,
+                    'koli' => 0,
+                ]);
+                $mockInventory->setRelation('item', $stockOutItem->item);
+                $warehouseInventory->push($mockInventory);
+                $needsUpdate = true;
+            }
+        }
+
+        if ($needsUpdate || !$inventory->has($pengeluaranBarang->warehouse_id)) {
+            $inventory->put($pengeluaranBarang->warehouse_id, $warehouseInventory);
+        }
+
         return view('admin.stok_keluar.edit', compact('pengeluaranBarang', 'warehouses', 'inventory'));
     }
 
     public function update(Request $request, StockOut $pengeluaranBarang)
     {
+        if ($pengeluaranBarang->status !== 'pending') {
+            return redirect()->back()->with('error', 'Pengeluaran barang yang sudah dikonfirmasi tidak dapat diedit.');
+        }
+
         $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'date' => 'required|date',
@@ -275,141 +400,156 @@ class PengeluaranBarangController extends Controller
             'items.*.quantity' => [
                 'required',
                 'numeric',
-                'min:0',
-                function ($attribute, $value, $fail) use ($request, $pengeluaranBarang) {
-                    $index = explode('.', $attribute)[1];
-                    $itemId = $request->input("items.$index.item_id");
-                    
-                    $inventory = Inventory::where('warehouse_id', $request->warehouse_id)
-                                        ->where('item_id', $itemId)
-                                        ->first();
-
-                    $originalQuantity = 0;
-                    if ($pengeluaranBarang->warehouse_id == $request->warehouse_id) {
-                        $originalItem = $pengeluaranBarang->items()->where('item_id', $itemId)->first();
-                        if($originalItem) {
-                           $originalQuantity = $originalItem->quantity;
-                        }
-                    }
-
-                    $currentStock = $inventory ? $inventory->quantity : 0;
-                    
-                    if (($currentStock + $originalQuantity) < $value) {
-                        $fail('tidak ada item digudang');
-                    }
-                },
+                'min:1',
             ],
         ]);
 
         DB::transaction(function () use ($request, $pengeluaranBarang) {
-            // Revert old stock quantities
-            foreach ($pengeluaranBarang->items as $oldItem) {
-                $inventory = Inventory::where('warehouse_id', $pengeluaranBarang->warehouse_id)
-                         ->where('item_id', $oldItem->item_id)->first();
-
-                $stockBefore = $inventory->quantity;
-                $inventory->increment('quantity', $oldItem->quantity);
-                // Revert koli back to inventory
-                $inventory->increment('koli', $oldItem->koli);
-                $stockAfter = $inventory->quantity;
-
-                StockMovement::create([
-                    'item_id' => $oldItem->item_id,
-                    'warehouse_id' => $pengeluaranBarang->warehouse_id,
-                    'quantity' => $oldItem->quantity,
-                    'koli' => $oldItem->koli,
-                    'stock_before' => $stockBefore,
-                    'stock_after' => $stockAfter,
-                    'type' => 'stock_out',
-                    'description' => 'Revisi Pengeluaran Barang (Increment)',
-                    'reference_id' => $oldItem->id,
-                    'reference_type' => 'stock_out_items',
-                    'user_id' => auth()->id(),
-                    'date' => $pengeluaranBarang->date,
-                ]);
-            }
-
             $pengeluaranBarang->items()->delete();
 
             $pengeluaranBarang->update([
                 'warehouse_id' => $request->warehouse_id,
                 'date' => $request->date,
                 'notes' => $request->notes,
+                'status' => 'pending',
             ]);
 
-            foreach ($request->items as $itemData) {
-                $stockOutItem = $pengeluaranBarang->items()->create([
+            $itemsPayload = collect($request->items)->map(function ($itemData) {
+                return [
                     'item_id' => $itemData['item_id'],
                     'quantity' => $itemData['quantity'],
                     'koli' => $itemData['koli'],
-                ]);
-                $inventory = Inventory::where('warehouse_id', $request->warehouse_id)
-                         ->where('item_id', $itemData['item_id'])
-                         ->first();
+                ];
+            })->toArray();
 
-                $stockBefore = $inventory->quantity;
-                $inventory->decrement('quantity', $itemData['quantity']);
-                // Decrease koli in inventory to match stock out
-                $inventory->decrement('koli', $itemData['koli']);
-                $stockAfter = $inventory->quantity;
-
-                StockMovement::create([
-                    'item_id' => $itemData['item_id'],
-                    'warehouse_id' => $request->warehouse_id,
-                    'quantity' => -$itemData['quantity'],
-                    'koli' => -$itemData['koli'],
-                    'stock_before' => $stockBefore,
-                    'stock_after' => $stockAfter,
-                    'type' => 'stock_out',
-                    'description' => 'Revisi Pengeluaran Barang (Decrement)',
-                    'reference_id' => $stockOutItem->id,
-                    'reference_type' => 'stock_out_items',
-                    'user_id' => auth()->id(),
-                    'date' => $request->date,
-                ]);
-            }
+            $pengeluaranBarang->items()->createMany($itemsPayload);
 
             UserActivity::create([
                 'user_id' => auth()->id(),
                 'activity' => 'updated',
                 'menu' => 'Stok Keluar',
-                'description' => 'Memperbarui data pengeluaran barang dengan kode ' . $pengeluaranBarang->code,
+                'description' => 'Memperbarui draft pengeluaran barang dengan kode ' . $pengeluaranBarang->code,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->header('user-agent'),
             ]);
         });
 
-        return redirect()->route('admin.stok-keluar.pengeluaran-barang.index')->with('success', 'Data pengeluaran barang berhasil diperbarui.');
+        return redirect()->route('admin.stok-keluar.pengeluaran-barang.index')->with('success', 'Draft pengeluaran barang berhasil diperbarui.');
+    }
+
+    public function confirm(Request $request, StockOut $pengeluaranBarang)
+    {
+        if ($pengeluaranBarang->status !== 'pending') {
+            return redirect()->back()->with('error', 'Dokumen ini sudah diproses.');
+        }
+
+        $pengeluaranBarang->loadMissing('items.item');
+
+        try {
+            DB::transaction(function () use ($pengeluaranBarang, $request) {
+                foreach ($pengeluaranBarang->items as $item) {
+                    $inventory = Inventory::where('warehouse_id', $pengeluaranBarang->warehouse_id)
+                        ->where('item_id', $item->item_id)
+                        ->lockForUpdate()
+                        ->first();
+
+                    $availableQty = $inventory ? $inventory->quantity : 0;
+                    if (!$inventory || $availableQty < $item->quantity) {
+                        $sku = $item->item->sku ?? '-';
+                        throw ValidationException::withMessages([
+                            'inventory' => "Stok untuk SKU {$sku} tidak mencukupi (tersedia {$availableQty}).",
+                        ]);
+                    }
+
+                    $stockBefore = $inventory->quantity;
+                    $inventory->decrement('quantity', $item->quantity);
+                    $inventory->decrement('koli', $item->koli);
+                    $stockAfter = $inventory->quantity;
+
+                    StockMovement::create([
+                        'item_id' => $item->item_id,
+                        'warehouse_id' => $pengeluaranBarang->warehouse_id,
+                        'quantity' => -$item->quantity,
+                        'koli' => -$item->koli,
+                        'stock_before' => $stockBefore,
+                        'stock_after' => $stockAfter,
+                        'type' => 'stock_out',
+                        'description' => 'Konfirmasi Pengeluaran Barang',
+                        'reference_id' => $item->id,
+                        'reference_type' => 'stock_out_items',
+                        'user_id' => auth()->id(),
+                        'date' => $pengeluaranBarang->date,
+                    ]);
+                }
+
+                $pengeluaranBarang->update(['status' => 'completed']);
+
+                UserActivity::create([
+                    'user_id' => auth()->id(),
+                    'activity' => 'confirmed',
+                    'menu' => 'Stok Keluar',
+                    'description' => 'Mengonfirmasi pengeluaran barang dengan kode ' . $pengeluaranBarang->code,
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('user-agent'),
+                ]);
+            });
+        } catch (ValidationException $e) {
+            $message = collect($e->errors())->flatten()->first();
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $message ?? 'Stok tidak mencukupi untuk dikonfirmasi.',
+                ], 422);
+            }
+
+            return redirect()->back()
+                ->withErrors($e->errors())
+                ->with('error', $message ?? 'Stok tidak mencukupi untuk dikonfirmasi.');
+        }
+
+        $successMessage = 'Pengeluaran barang berhasil dikonfirmasi.';
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $successMessage,
+            ]);
+        }
+
+        return redirect()->route('admin.stok-keluar.pengeluaran-barang.index')->with('success', $successMessage);
     }
 
     public function destroy(StockOut $pengeluaranBarang)
     {
         DB::transaction(function () use ($pengeluaranBarang) {
-            foreach ($pengeluaranBarang->items as $item) {
-                $inventory = Inventory::where('warehouse_id', $pengeluaranBarang->warehouse_id)
-                         ->where('item_id', $item->item_id)->first();
-                
-                $stockBefore = $inventory->quantity;
-                $inventory->increment('quantity', $item->quantity);
-                // Return koli back to inventory when deleting stock out
-                $inventory->increment('koli', $item->koli);
-                $stockAfter = $inventory->quantity;
+            if ($pengeluaranBarang->status === 'completed') {
+                foreach ($pengeluaranBarang->items as $item) {
+                    $inventory = Inventory::where('warehouse_id', $pengeluaranBarang->warehouse_id)
+                             ->where('item_id', $item->item_id)->first();
+                    
+                    $stockBefore = $inventory->quantity;
+                    $inventory->increment('quantity', $item->quantity);
+                    // Return koli back to inventory when deleting stock out
+                    $inventory->increment('koli', $item->koli);
+                    $stockAfter = $inventory->quantity;
 
-                StockMovement::create([
-                    'item_id' => $item->item_id,
-                    'warehouse_id' => $pengeluaranBarang->warehouse_id,
-                    'quantity' => $item->quantity,
-                    'koli' => $item->koli,
-                    'stock_before' => $stockBefore,
-                    'stock_after' => $stockAfter,
-                    'type' => 'stock_out',
-                    'description' => 'Hapus Pengeluaran Barang',
-                    'reference_id' => $item->id,
-                    'reference_type' => 'stock_out_items',
-                    'user_id' => auth()->id(),
-                    'date' => $pengeluaranBarang->date,
-                ]);
+                    StockMovement::create([
+                        'item_id' => $item->item_id,
+                        'warehouse_id' => $pengeluaranBarang->warehouse_id,
+                        'quantity' => $item->quantity,
+                        'koli' => $item->koli,
+                        'stock_before' => $stockBefore,
+                        'stock_after' => $stockAfter,
+                        'type' => 'stock_out',
+                        'description' => 'Hapus Pengeluaran Barang',
+                        'reference_id' => $item->id,
+                        'reference_type' => 'stock_out_items',
+                        'user_id' => auth()->id(),
+                        'date' => $pengeluaranBarang->date,
+                    ]);
+                }
             }
+
+            $pengeluaranBarang->items()->delete();
             $pengeluaranBarang->delete();
 
             UserActivity::create([
@@ -423,5 +563,142 @@ class PengeluaranBarangController extends Controller
         });
 
         return redirect()->route('admin.stok-keluar.pengeluaran-barang.index')->with('success', 'Data pengeluaran barang berhasil dihapus.');
+    }
+
+    private function parsePendingStockOutCsv(string $path): array
+    {
+        if (!file_exists($path)) {
+            throw new \RuntimeException('File CSV tidak ditemukan.');
+        }
+
+        $handle = fopen($path, 'r');
+        if (!$handle) {
+            throw new \RuntimeException('File CSV tidak dapat dibuka.');
+        }
+
+        $firstLine = fgets($handle);
+        if ($firstLine === false) {
+            fclose($handle);
+            throw new \RuntimeException('File CSV kosong.');
+        }
+
+        $firstLine = $this->stripBom($firstLine);
+        $delimiter = ';';
+
+        $headers = array_map(fn ($value) => strtolower(trim($value)), str_getcsv($firstLine, $delimiter));
+        $skuIndex = array_search('sku', $headers);
+        $qtyIndex = array_search('jumlah', $headers);
+
+        if ($skuIndex === false || $qtyIndex === false) {
+            fclose($handle);
+            throw new \RuntimeException('Header CSV harus memuat kolom "SKU" dan "Jumlah".');
+        }
+
+        $lineNumber = 1;
+        $result = [];
+
+        while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+            $lineNumber++;
+
+            if ($this->isEmptyCsvRow($row)) {
+                continue;
+            }
+
+            $sku = trim($row[$skuIndex] ?? '');
+            $rawQty = trim($row[$qtyIndex] ?? '');
+
+            if ($sku === '') {
+                continue;
+            }
+
+            if ($rawQty === '') {
+                fclose($handle);
+                throw new \RuntimeException("Jumlah kosong untuk SKU {$sku} (baris {$lineNumber}).");
+            }
+
+            $quantity = $this->normalizeNumericValue($rawQty);
+            if ($quantity <= 0) {
+                fclose($handle);
+                throw new \RuntimeException("Jumlah untuk SKU {$sku} pada baris {$lineNumber} harus lebih besar dari 0.");
+            }
+
+            $result[$sku] = ($result[$sku] ?? 0) + $quantity;
+        }
+
+        fclose($handle);
+
+        if (empty($result)) {
+            throw new \RuntimeException('Tidak ada baris item yang dapat diproses dari file CSV.');
+        }
+
+        return $result;
+    }
+
+    private function stripBom(string $line): string
+    {
+        if (str_starts_with($line, "\xEF\xBB\xBF")) {
+            return substr($line, 3);
+        }
+
+        return $line;
+    }
+    private function isEmptyCsvRow(array $row): bool
+    {
+        foreach ($row as $value) {
+            if (trim((string) $value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function normalizeNumericValue(string $value): float
+    {
+        $value = str_replace(["\xC2\xA0", ' ', "\t"], '', trim($value));
+
+        if ($value === '') {
+            return 0;
+        }
+
+        $commaPos = strrpos($value, ',');
+        $dotPos = strrpos($value, '.');
+
+        if ($commaPos !== false && ($dotPos === false || $commaPos > $dotPos)) {
+            $value = str_replace('.', '', $value);
+            $value = str_replace(',', '.', $value);
+        } else {
+            $value = str_replace(',', '', $value);
+        }
+
+        return (float) $value;
+    }
+
+    private function importResponse(Request $request, bool $success, string $message, array $payload = [])
+    {
+        if ($request->ajax() || $request->wantsJson()) {
+            $status = $success ? 200 : 422;
+            return response()->json(array_merge([
+                'success' => $success,
+                'message' => $message,
+            ], $payload), $status);
+        }
+
+        if ($success) {
+            return redirect()->route('admin.stok-keluar.pengeluaran-barang.index')
+                ->with('success', $message);
+        }
+
+        $errors = [];
+        if (!empty($payload['errors']) && is_array($payload['errors'])) {
+            $errors = $payload['errors'];
+        } else {
+            $errors = ['import_file' => $message];
+        }
+
+        return redirect()->back()
+            ->withErrors($errors)
+            ->withInput()
+            ->with('showImportModal', true);
     }
 }
