@@ -152,6 +152,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::post('stok-opname/{stok_opname}/update-status', [StockOpnameController::class, 'updateStatus'])->name('stok-opname.updateStatus');
         Route::resource('stok-opname', StockOpnameController::class);
         Route::get('adjustment/status-counts', [AdjustmentController::class, 'getStatusCounts'])->name('adjustment.status-counts');
+        Route::post('adjustment/import', [AdjustmentController::class, 'import'])->name('adjustment.import');
         Route::resource('adjustment', AdjustmentController::class);
         Route::post('adjustment/{adjustment}/update-status', [AdjustmentController::class, 'updateStatus'])->name('adjustment.updateStatus');
         Route::resource('defects', DefectController::class)->except(['show','destroy']);

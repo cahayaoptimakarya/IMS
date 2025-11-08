@@ -160,6 +160,9 @@
                     </div>
 
                     <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-light-primary me-3" data-bs-toggle="modal" data-bs-target="#adjustmentImportModal">
+                            Import CSV
+                        </button>
                         <a href="{{ route('admin.manajemenstok.adjustment.create') }}"
                             class="btn btn-primary">Tambah Penyesuaian</a>
                     </div>
@@ -194,6 +197,75 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="adjustmentImportModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Import Penyesuaian Stok (Pending)</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="adjustment-import-form" action="{{ route('admin.manajemenstok.adjustment.import') }}" method="POST" enctype="multipart/form-data">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="alert alert-light-primary mb-5">
+                            <div class="fw-bold mb-2">Format CSV</div>
+                            <p class="mb-2">Gunakan header <code>SKU</code> dan <code>qty</code>. Nilai qty berisi <strong>stok akhir</strong> di gudang (bukan selisih). Sistem akan otomatis menghitung selisih penyesuaian dan membuat item baru bila SKU belum pernah ada.</p>
+                            <pre class="bg-light rounded p-3 mb-0">SKU;qty
+ABC001;120
+XYZ002;85</pre>
+                        </div>
+                        <div class="alert alert-danger d-none" id="adjustment-import-error"></div>
+                        <div class="mb-5">
+                            <label class="form-label required">File CSV</label>
+                            <input type="file" name="import_file" accept=".csv,text/csv" class="form-control @error('import_file') is-invalid @enderror">
+                            <div class="text-muted fs-7 mt-2">Maksimal ukuran 10 MB.</div>
+                            @error('import_file')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-5">
+                                <label class="form-label required">Tanggal Penyesuaian</label>
+                                <input type="text" name="import_adjustment_date" id="import_adjustment_date" class="form-control form-control-solid @error('import_adjustment_date') is-invalid @enderror" value="{{ old('import_adjustment_date', now()->format('Y-m-d')) }}">
+                                @error('import_adjustment_date')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div class="col-md-6 mb-5">
+                                <label class="form-label {{ auth()->user()->warehouse_id ? '' : 'required' }}">Gudang</label>
+                                @if(auth()->user()->warehouse_id)
+                                    <input type="text" class="form-control form-control-solid" value="{{ optional(auth()->user()->warehouse)->name ?? '-' }}" readonly>
+                                    <input type="hidden" name="import_warehouse_id" value="{{ auth()->user()->warehouse_id }}">
+                                @else
+                                    <select name="import_warehouse_id" class="form-select form-select-solid @error('import_warehouse_id') is-invalid @enderror" data-control="select2" data-placeholder="Pilih gudang">
+                                        <option></option>
+                                        @foreach ($warehouses as $warehouse)
+                                            <option value="{{ $warehouse->id }}" @selected(old('import_warehouse_id') == $warehouse->id)>{{ $warehouse->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('import_warehouse_id')
+                                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                                    @enderror
+                                @endif
+                            </div>
+                        </div>
+                        <div class="mb-5">
+                            <label class="form-label">Catatan</label>
+                            <textarea name="import_notes" class="form-control form-control-solid @error('import_notes') is-invalid @enderror" rows="3" placeholder="Contoh: hasil audit pagi">{{ old('import_notes') }}</textarea>
+                            @error('import_notes')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary" id="adjustment-import-submit">Import &amp; Buat Pending</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -218,6 +290,25 @@
                     $("#date_filter").val(''); // Clear the date when 'Semua' is selected
                 }
             });
+
+            let importAdjustmentDatePicker = null;
+            if ($('#import_adjustment_date').length) {
+                $('#import_adjustment_date').flatpickr({
+                    dateFormat: "Y-m-d",
+                    defaultDate: $('#import_adjustment_date').val() || new Date(),
+                    onReady: function(selectedDates, dateStr, instance) {
+                        importAdjustmentDatePicker = instance;
+                    }
+                });
+            }
+
+            if ($('#adjustment-import-form select[data-control="select2"]').length) {
+                $('#adjustment-import-form select[data-control="select2"]').select2({
+                    dropdownParent: $('#adjustmentImportModal'),
+                    placeholder: "Pilih gudang",
+                    width: '100%'
+                });
+            }
 
             toastr.options = {
                 "closeButton": true,
@@ -350,17 +441,39 @@
                         {
                             targets: actionsIdx, // Actions column
                             render: function(data, type, row) {
-                                let showUrl =
-                                    "{{ route('admin.manajemenstok.adjustment.show', ':id') }}"
-                                    .replace(':id', row.id);
-                                let editUrl =
-                                    "{{ route('admin.manajemenstok.adjustment.edit', ':id') }}"
-                                    .replace(':id', row.id);
-                                let destroyUrl =
-                                    "{{ route('admin.manajemenstok.adjustment.destroy', ':id') }}"
-                                    .replace(':id', row.id);
+                                let showUrl = "{{ route('admin.manajemenstok.adjustment.show', ':id') }}".replace(':id', row.id);
+                                let editUrl = "{{ route('admin.manajemenstok.adjustment.edit', ':id') }}".replace(':id', row.id);
+                                let destroyUrl = "{{ route('admin.manajemenstok.adjustment.destroy', ':id') }}".replace(':id', row.id);
                                 let csrfToken = "{{ csrf_token() }}";
-                                let actionsHtml = `
+
+                                let editAction = '';
+                                let deleteAction = '';
+                                let completeAction = '';
+
+                                if (row.status === 'pending') {
+                                    editAction = `
+                                    <div class="menu-item px-3">
+                                        <a href="${editUrl}" class="menu-link px-3">Edit</a>
+                                    </div>`;
+
+                                    deleteAction = `
+                                    <div class="menu-item px-3">
+                                        <form class="form-delete" action="${destroyUrl}" method="POST">
+                                            <input type="hidden" name="_token" value="${csrfToken}">
+                                            <input type="hidden" name="_method" value="DELETE">
+                                            <button type="submit" class="menu-link px-3 border-0 bg-transparent w-100 text-start" data-document-code="${row.code}">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    </div>`;
+
+                                    completeAction = `
+                                    <div class="menu-item px-3">
+                                        <a href="#" class="menu-link px-3" onclick="confirmStatusChange(${row.id}, 'completed', '${row.code}')">Selesaikan</a>
+                                    </div>`;
+                                }
+
+                                return `
                                 <a href="#" class="btn btn-sm btn-light btn-active-light-primary" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">Actions
                                     <span class="svg-icon svg-icon-5 m-0">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -371,30 +484,11 @@
                                 <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-600 menu-state-bg-light-primary fw-bold fs-7 w-125px py-4" data-kt-menu="true">
                                     <div class="menu-item px-3">
                                         <a href="${showUrl}" class="menu-link px-3">View</a>
-                                    </div>`;
-
-                                if (row.status === 'pending') {
-                                    actionsHtml += `
-                                      <div class="menu-item px-3">
-                                        <a href="${editUrl}" class="menu-link px-3">Edit</a>
                                     </div>
-                                    <div class="menu-item px-3">
-                                        <form class="form-delete" action="${destroyUrl}" method="POST">
-                                            <input type="hidden" name="_token" value="${csrfToken}">
-                                            <input type="hidden" name="_method" value="DELETE">
-                                            <button type="submit" class="menu-link px-3 border-0 bg-transparent w-100 text-start" data-document-code="${row.code}">
-                                                Delete
-                                            </button>
-                                        </form>
-                                    </div>
-                                    <div class="menu-item px-3">
-                                        <a href="#" class="menu-link px-3" onclick="confirmStatusChange(${row.id}, 'completed', '${row.code}')">Selesaikan</a>
-                                    </div>
-                                    `;
-                                }
-
-                                actionsHtml += `</div>`;
-                                return actionsHtml;
+                                    ${editAction}
+                                    ${deleteAction}
+                                    ${completeAction}
+                                </div>`;
                             }
                         }
                         ];
@@ -426,6 +520,136 @@
             $("#search_input").on('keyup', debounce(function() {
                 table.draw();
             }, 500)); // 500ms delay
+
+            const adjustmentImportForm = $('#adjustment-import-form');
+            const adjustmentImportError = $('#adjustment-import-error');
+            const adjustmentImportSubmit = $('#adjustment-import-submit');
+            const adjustmentImportModalEl = document.getElementById('adjustmentImportModal');
+            const adjustmentImportModal = adjustmentImportModalEl ? bootstrap.Modal.getOrCreateInstance(adjustmentImportModalEl) : null;
+
+            @if (session('showAdjustmentImportModal'))
+                if (adjustmentImportModal) {
+                    adjustmentImportModal.show();
+                }
+            @endif
+
+            function clearAdjustmentImportErrors() {
+                adjustmentImportError.addClass('d-none').html('');
+                adjustmentImportForm.find('.is-invalid').removeClass('is-invalid');
+                adjustmentImportForm.find('.dynamic-adjustment-import-error').remove();
+            }
+
+            function showAdjustmentImportErrors(message, fieldErrors) {
+                if (message) {
+                    adjustmentImportError.removeClass('d-none').html(message);
+                }
+
+                if (fieldErrors && typeof fieldErrors === 'object') {
+                    Object.entries(fieldErrors).forEach(([field, errors]) => {
+                        const input = adjustmentImportForm.find(`[name="${field}"]`);
+                        if (!input.length) {
+                            return;
+                        }
+                        input.addClass('is-invalid');
+                        const messages = Array.isArray(errors) ? errors.join(' ') : errors;
+                        const feedback = $('<div class="invalid-feedback d-block dynamic-adjustment-import-error"></div>').text(messages);
+                        if (input.closest('.mb-5').length) {
+                            input.closest('.mb-5').append(feedback);
+                        } else {
+                            input.after(feedback);
+                        }
+                    });
+                }
+            }
+
+            function toggleAdjustmentImportLoading(isLoading) {
+                if (!adjustmentImportSubmit.length) return;
+                if (isLoading) {
+                    if (!adjustmentImportSubmit.data('original-html')) {
+                        adjustmentImportSubmit.data('original-html', adjustmentImportSubmit.html());
+                    }
+                    adjustmentImportSubmit.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>Memproses...');
+                } else {
+                    const originalHtml = adjustmentImportSubmit.data('original-html');
+                    if (originalHtml) {
+                        adjustmentImportSubmit.html(originalHtml);
+                    }
+                    adjustmentImportSubmit.prop('disabled', false);
+                }
+            }
+
+            function resetAdjustmentImportForm() {
+                if (!adjustmentImportForm.length) return;
+                adjustmentImportForm[0].reset();
+                clearAdjustmentImportErrors();
+                if (importAdjustmentDatePicker) {
+                    importAdjustmentDatePicker.setDate(new Date());
+                } else {
+                    $('#import_adjustment_date').val(new Date().toISOString().slice(0, 10));
+                }
+                const selectWarehouse = adjustmentImportForm.find('select[name="import_warehouse_id"]');
+                if (selectWarehouse.length) {
+                    selectWarehouse.val('').trigger('change');
+                }
+            }
+
+            function submitAdjustmentImportForm() {
+                const formData = new FormData(adjustmentImportForm[0]);
+                clearAdjustmentImportErrors();
+                toggleAdjustmentImportLoading(true);
+
+                $.ajax({
+                    url: adjustmentImportForm.attr('action'),
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        const message = (response && response.message) ? response.message : 'Import berhasil.';
+                        toastr.success(message);
+                        if (adjustmentImportModal) {
+                            adjustmentImportModal.hide();
+                        }
+                        resetAdjustmentImportForm();
+                        loadDataTable();
+                    },
+                    error: function(xhr) {
+                        let message = 'Terjadi kesalahan saat import.';
+                        let errors = null;
+                        if (xhr.responseJSON) {
+                            message = xhr.responseJSON.message || message;
+                            errors = xhr.responseJSON.errors || null;
+                        }
+                        showAdjustmentImportErrors(message, errors);
+                        toastr.error(message);
+                    },
+                    complete: function() {
+                        toggleAdjustmentImportLoading(false);
+                    }
+                });
+            }
+
+            if (adjustmentImportForm.length) {
+                adjustmentImportForm.on('submit', function(e) {
+                    e.preventDefault();
+                    Swal.fire({
+                        text: "Apakah Anda yakin ingin mengimpor penyesuaian stok dari file ini?",
+                        icon: "question",
+                        showCancelButton: true,
+                        buttonsStyling: false,
+                        confirmButtonText: "Ya, import",
+                        cancelButtonText: "Batal",
+                        customClass: {
+                            confirmButton: "btn btn-primary",
+                            cancelButton: "btn btn-light"
+                        }
+                    }).then(function(result) {
+                        if (result.value) {
+                            submitAdjustmentImportForm();
+                        }
+                    });
+                });
+            }
 
             $("#table-on-page").on('submit', '.form-delete', function(e) {
                 e.preventDefault();

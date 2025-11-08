@@ -7,11 +7,14 @@ use App\Models\Adjustment;
 use App\Models\AdjustmentItem;
 use App\Models\Inventory;
 use App\Models\Item;
+use App\Models\ItemType;
 use App\Models\StockMovement;
+use App\Models\Uom;
 use App\Models\Warehouse;
 use App\Models\UserActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -126,6 +129,136 @@ class AdjustmentController extends Controller
 
         $warehouses = Warehouse::all();
         return view('admin.manajemenstok.adjustment.index', compact('warehouses'));
+    }
+
+    public function import(Request $request)
+    {
+        $rules = [
+            'import_file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
+            'import_adjustment_date' => ['required', 'date'],
+            'import_notes' => ['nullable', 'string'],
+        ];
+
+        if (!auth()->user()->warehouse_id) {
+            $rules['import_warehouse_id'] = ['required', 'exists:warehouses,id'];
+        }
+
+        $validator = Validator::make($request->all(), $rules, [], [
+            'import_file' => 'file CSV',
+            'import_adjustment_date' => 'tanggal penyesuaian',
+            'import_warehouse_id' => 'gudang',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->adjustmentImportResponse($request, false, 'Validasi import gagal.', [
+                'errors' => $validator->errors()->toArray(),
+            ]);
+        }
+
+        $validated = $validator->validated();
+        $warehouseId = auth()->user()->warehouse_id ?? $validated['import_warehouse_id'];
+
+        try {
+            $csvItems = $this->parseAdjustmentCsv($request->file('import_file')->getRealPath());
+        } catch (\RuntimeException $exception) {
+            return $this->adjustmentImportResponse($request, false, $exception->getMessage());
+        }
+
+        if (empty($csvItems)) {
+            return $this->adjustmentImportResponse($request, false, 'File CSV tidak memiliki baris SKU yang valid.');
+        }
+
+        $items = Item::whereIn('sku', array_keys($csvItems))->get()->keyBy('sku');
+        $createdSkus = [];
+        $differences = [];
+
+        foreach ($csvItems as $sku => $finalQty) {
+            $item = $items->get($sku);
+            if (!$item) {
+                $item = $this->createPlaceholderItem($sku);
+                $items->put($sku, $item);
+                $createdSkus[] = $sku;
+            }
+
+            $inventory = Inventory::firstOrNew([
+                'warehouse_id' => $warehouseId,
+                'item_id' => $item->id,
+            ]);
+
+            $currentQty = (float) ($inventory->quantity ?? 0);
+            $difference = (float) $finalQty - $currentQty;
+
+            if (abs($difference) < 0.0001) {
+                continue;
+            }
+
+            $perKoli = (float) ($item->koli ?? 1);
+            if ($perKoli <= 0) {
+                $perKoli = 1;
+            }
+
+            $differences[] = [
+                'item' => $item,
+                'quantity' => $difference,
+                'koli' => round($difference / $perKoli, 2),
+            ];
+        }
+
+        if (empty($differences)) {
+            return $this->adjustmentImportResponse($request, false, 'Tidak ada perubahan stok berdasarkan CSV.');
+        }
+
+        $adjustmentCode = null;
+        $itemCount = count($differences);
+
+        DB::beginTransaction();
+        try {
+            $adjustment = Adjustment::create([
+                'code' => $this->generateNewCode(),
+                'adjustment_date' => $validated['import_adjustment_date'],
+                'warehouse_id' => $warehouseId,
+                'user_id' => auth()->id(),
+                'notes' => $validated['import_notes'] ?? null,
+                'status' => 'pending',
+            ]);
+
+            $payload = [];
+            foreach ($differences as $data) {
+                $payload[] = [
+                    'item_id' => $data['item']->id,
+                    'quantity' => $data['quantity'],
+                    'koli' => $data['koli'],
+                ];
+            }
+
+            $adjustment->adjustmentItems()->createMany($payload);
+            $adjustmentCode = $adjustment->code;
+
+            UserActivity::create([
+                'user_id' => auth()->id(),
+                'description' => 'Mengimpor penyesuaian stok (pending) dengan kode ' . $adjustment->code,
+                'activity' => 'imported',
+                'menu' => 'Penyesuaian Stok',
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->adjustmentImportResponse($request, false, 'Gagal menyimpan data: ' . $e->getMessage());
+        }
+
+        $message = "Berhasil membuat penyesuaian pending ({$itemCount} item, kode {$adjustmentCode}).";
+        if (!empty($createdSkus)) {
+            $message .= ' SKU baru: ' . implode(', ', $createdSkus) . '.';
+        }
+
+        return $this->adjustmentImportResponse($request, true, $message, [
+            'items_count' => $itemCount,
+            'code' => $adjustmentCode,
+            'created_skus' => $createdSkus,
+        ]);
     }
 
     public function getStatusCounts(Request $request)
@@ -464,4 +597,192 @@ class AdjustmentController extends Controller
             ], 500);
         }
     }
+
+    private function parseAdjustmentCsv(string $path): array
+    {
+        if (!file_exists($path)) {
+            throw new \RuntimeException('File CSV tidak ditemukan.');
+        }
+
+        $handle = fopen($path, 'r');
+        if (!$handle) {
+            throw new \RuntimeException('File CSV tidak dapat dibuka.');
+        }
+
+        $firstLine = fgets($handle);
+        if ($firstLine === false) {
+            fclose($handle);
+            throw new \RuntimeException('File CSV kosong.');
+        }
+
+        $firstLine = $this->stripBom($firstLine);
+        $delimiter = $this->detectDelimiter($firstLine);
+        $headers = array_map(fn ($value) => strtolower(trim($value)), str_getcsv($firstLine, $delimiter));
+
+        $skuIndex = array_search('sku', $headers);
+        $qtyIndex = array_search('qty', $headers);
+
+        if ($skuIndex === false || $qtyIndex === false) {
+            fclose($handle);
+            throw new \RuntimeException('Header CSV harus memuat kolom "SKU" dan "qty".');
+        }
+
+        $result = [];
+        $lineNumber = 1;
+
+        while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+            $lineNumber++;
+
+            if ($this->isEmptyCsvRow($row)) {
+                continue;
+            }
+
+            $sku = trim($row[$skuIndex] ?? '');
+            $rawQty = trim($row[$qtyIndex] ?? '');
+
+            if ($sku === '') {
+                continue;
+            }
+
+            if ($rawQty === '') {
+                fclose($handle);
+                throw new \RuntimeException("Qty kosong pada SKU {$sku} (baris {$lineNumber}).");
+            }
+
+            $quantity = $this->normalizeImportNumber($rawQty);
+
+            if (array_key_exists($sku, $result)) {
+                fclose($handle);
+                throw new \RuntimeException("SKU {$sku} muncul lebih dari sekali (baris {$lineNumber}). Gunakan satu baris per SKU.");
+            }
+
+            $result[$sku] = $quantity;
+        }
+
+        fclose($handle);
+
+        return $result;
+    }
+
+    private function stripBom(string $line): string
+    {
+        if (str_starts_with($line, "\xEF\xBB\xBF")) {
+            return substr($line, 3);
+        }
+
+        return $line;
+    }
+
+    private function detectDelimiter(string $line): string
+    {
+        $semicolonCount = substr_count($line, ';');
+        $commaCount = substr_count($line, ',');
+
+        return $semicolonCount > $commaCount ? ';' : ',';
+    }
+
+    private function isEmptyCsvRow(array $row): bool
+    {
+        foreach ($row as $value) {
+            if (trim((string) $value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function normalizeImportNumber(string $value): float
+    {
+        $value = str_replace(["\xC2\xA0", ' ', "\t"], '', trim($value));
+
+        if ($value === '') {
+            return 0;
+        }
+
+        $commaPos = strrpos($value, ',');
+        $dotPos = strrpos($value, '.');
+
+        if ($commaPos !== false && ($dotPos === false || $commaPos > $dotPos)) {
+            $value = str_replace('.', '', $value);
+            $value = str_replace(',', '.', $value);
+        } else {
+            $value = str_replace(',', '', $value);
+        }
+
+        return (float) $value;
+    }
+
+    private function adjustmentImportResponse(Request $request, bool $success, string $message, array $payload = [])
+    {
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(array_merge([
+                'success' => $success,
+                'message' => $message,
+            ], $payload), $success ? 200 : 422);
+        }
+
+        if ($success) {
+            return redirect()
+                ->route('admin.manajemenstok.adjustment.index')
+                ->with('success', $message);
+        }
+
+        $errors = $payload['errors'] ?? ['import_file' => $message];
+
+        return redirect()
+            ->back()
+            ->withErrors($errors)
+            ->withInput()
+            ->with('showAdjustmentImportModal', true);
+    }
+
+    private function createPlaceholderItem(string $sku): Item
+    {
+        $uomId = $this->getDefaultUomId();
+        $itemTypeId = $this->getDefaultItemTypeId();
+
+        return Item::create([
+            'sku' => $sku,
+            'nama_barang' => 'Belum Ada Nama Item',
+            'koli' => 1,
+            'uom_id' => $uomId,
+            'item_type_id' => $itemTypeId,
+            'item_category_id' => null,
+            'low_stock_threshold' => 0,
+            'lead_time_po_days' => 0,
+            'lead_time_safety_days' => 0,
+            'tempat' => null,
+            'deskripsi' => 'Item hasil import penyesuaian stok',
+        ]);
+    }
+
+    private function getDefaultUomId(): int
+    {
+        $uom = Uom::first();
+        if (!$uom) {
+            $uom = Uom::create([
+                'name' => 'Unit',
+                'symbol' => 'UNIT',
+                'description' => 'UOM otomatis untuk import penyesuaian',
+            ]);
+        }
+
+        return $uom->id;
+    }
+
+    private function getDefaultItemTypeId(): int
+    {
+        $itemType = ItemType::first();
+        if (!$itemType) {
+            $itemType = ItemType::create([
+                'name' => 'Default',
+                'description' => 'Item type otomatis untuk import penyesuaian',
+            ]);
+        }
+
+        return $itemType->id;
+    }
 }
+
+
