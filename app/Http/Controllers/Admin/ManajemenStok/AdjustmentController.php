@@ -651,6 +651,11 @@ class AdjustmentController extends Controller
 
             $quantity = $this->normalizeImportNumber($rawQty);
 
+            if ($quantity < 0) {
+                fclose($handle);
+                throw new \RuntimeException("Qty pada SKU {$sku} (baris {$lineNumber}) tidak boleh minus karena mewakili stok akhir.");
+            }
+
             if (array_key_exists($sku, $result)) {
                 fclose($handle);
                 throw new \RuntimeException("SKU {$sku} muncul lebih dari sekali (baris {$lineNumber}). Gunakan satu baris per SKU.");
@@ -784,5 +789,4 @@ class AdjustmentController extends Controller
         return $itemType->id;
     }
 }
-
 
