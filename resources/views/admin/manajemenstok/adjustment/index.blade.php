@@ -160,7 +160,7 @@
                     </div>
 
                     <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-light-primary me-3" data-bs-toggle="modal" data-bs-target="#adjustmentImportModal">
+                        <button type="button" class="btn btn-light-success me-3" data-bs-toggle="modal" data-bs-target="#adjustmentImportModal">
                             Import CSV
                         </button>
                         <a href="{{ route('admin.manajemenstok.adjustment.create') }}"
