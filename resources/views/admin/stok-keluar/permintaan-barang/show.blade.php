@@ -104,6 +104,7 @@
                                     <th>Nama Item</th>
                                     <th style="width:140px; text-align:right;">Kuantitas</th>
                                     <th style="width:140px; text-align:right;">Koli</th>
+                                    <th style="width:220px">Keterangan</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -119,6 +120,7 @@
                                         </td>
                                         <td style="text-align:right;">{{ number_format($item->quantity ?? 0, 0, ',', '.') }}</td>
                                         <td style="text-align:right;">{{ number_format($item->koli ?? 0, 2, ',', '.') }}</td>
+                                        <td>{{ $item->description ?? '-' }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -127,6 +129,7 @@
                                     <th colspan="3" style="text-align:right;">Total</th>
                                     <th style="text-align:right;">{{ number_format($totalQuantity ?? 0, 0, ',', '.') }}</th>
                                     <th style="text-align:right;">{{ number_format($totalKoli ?? 0, 2, ',', '.') }}</th>
+                                    <th></th>
                                 </tr>
                             </tfoot>
                         </table>
