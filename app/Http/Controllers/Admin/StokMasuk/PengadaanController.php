@@ -75,28 +75,27 @@ class PengadaanController extends Controller
             $orderDirection = $request->input('order.0.dir', 'desc');
 
             // Base query
-            $query = StockInOrder::query()
+            $baseQuery = StockInOrder::query()
                 ->from('stock_in_orders as sio')
                 ->leftJoin('warehouses as w', 'sio.warehouse_id', '=', 'w.id')
                 ->leftJoin('stock_in_order_items as si', 'sio.id', '=', 'si.stock_in_order_id')
-                ->leftJoin('items as i', 'si.item_id', '=', 'i.id')
-                // Group by all non-aggregated columns to satisfy ONLY_FULL_GROUP_BY
-                ->groupBy('sio.id', 'sio.code', 'sio.date', 'sio.type', 'sio.status', 'w.name');
+                ->leftJoin('items as i', 'si.item_id', '=', 'i.id');
 
             if (auth()->user()->warehouse_id) {
-                $query->where('sio.warehouse_id', auth()->user()->warehouse_id);
+                $baseQuery->where('sio.warehouse_id', auth()->user()->warehouse_id);
             } else {
                 if ($warehouseFilter && $warehouseFilter !== 'semua') {
-                    $query->where('sio.warehouse_id', $warehouseFilter);
+                    $baseQuery->where('sio.warehouse_id', $warehouseFilter);
                 }
             }
 
-            // Total records
-            $totalRecords = $query->count();
+            $totalRecords = (clone $baseQuery)->distinct('sio.id')->count('sio.id');
+
+            $filteredQuery = clone $baseQuery;
 
             // Apply filters
             if (!empty($searchValue)) {
-                $query->where(function ($q) use ($searchValue) {
+                $filteredQuery->where(function ($q) use ($searchValue) {
                     $q->where('sio.code', 'LIKE', "%{$searchValue}%")
                         ->orWhere('sio.date', 'LIKE', "%{$searchValue}%")
                         ->orWhere('w.name', 'LIKE', "%{$searchValue}%")
@@ -105,23 +104,23 @@ class PengadaanController extends Controller
             }
 
             if ($statusFilter && $statusFilter !== 'semua') {
-                $query->where('sio.status', $statusFilter);
+                $filteredQuery->where('sio.status', $statusFilter);
             }
 
             if ($dateFilter && $dateFilter !== 'semua') {
                 if (strpos($dateFilter, ' to ') !== false) {
                     [$startDate, $endDate] = explode(' to ', $dateFilter);
-                    $query->whereBetween('sio.date', [$startDate, $endDate]);
+                    $filteredQuery->whereBetween('sio.date', [$startDate, $endDate]);
                 } else {
-                    $query->whereDate('sio.date', $dateFilter);
+                    $filteredQuery->whereDate('sio.date', $dateFilter);
                 }
             }
 
             // Total filtered records
-            $totalFiltered = $query->count();
+            $totalFiltered = (clone $filteredQuery)->distinct('sio.id')->count('sio.id');
 
             // Data query
-            $data = $query->select(
+            $data = $filteredQuery->select(
                 'sio.id',
                 'sio.code',
                 'sio.date',
@@ -132,7 +131,9 @@ class PengadaanController extends Controller
                 DB::raw("GROUP_CONCAT(CONCAT(i.sku, ' (Qty:', FORMAT(si.quantity,0), ')') SEPARATOR ', ') as items_name"),
                 DB::raw('SUM(si.remaining_quantity) as remaining_quantity_sum'),
                 DB::raw('SUM(si.remaining_koli) as remaining_koli_sum')
-            )->orderBy($orderByColumnName, $orderDirection)
+            )
+                ->groupBy('sio.id', 'sio.code', 'sio.date', 'sio.type', 'sio.status', 'w.name')
+                ->orderBy($orderByColumnName, $orderDirection)
                 ->offset($start)
                 ->limit($length)
                 ->get();
