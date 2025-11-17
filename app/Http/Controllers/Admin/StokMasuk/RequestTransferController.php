@@ -317,7 +317,7 @@ class RequestTransferController extends Controller
     {
         $warehouses = Warehouse::all();
         $items = Item::all();
-        $code = 'TR-' . date('Ymd') . '-' . str_pad(TransferRequest::count() + 1, 4, '0', STR_PAD_LEFT);
+        $code = $this->generateCode();
         return view('admin.stok_masuk.request_transfer.create', compact('warehouses', 'items', 'code'));
     }
 
@@ -602,5 +602,23 @@ class RequestTransferController extends Controller
         ];
 
         return response()->json($result);
+    }
+
+    private function generateCode(): string
+    {
+        $today = now();
+        $todayString = $today->format('Ymd');
+
+        $latestCode = TransferRequest::whereDate('date', $today)
+            ->orderByDesc('code')
+            ->value('code');
+
+        $nextNumber = 1;
+        if ($latestCode) {
+            $lastNumber = (int) substr($latestCode, strrpos($latestCode, '-') + 1);
+            $nextNumber = $lastNumber + 1;
+        }
+
+        return 'TR-' . $todayString . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 }
