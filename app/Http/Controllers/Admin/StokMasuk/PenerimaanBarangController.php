@@ -198,6 +198,12 @@ class PenerimaanBarangController extends Controller
         return sprintf('%s-%s-%04d', $prefix, $date, $sequence);
     }
 
+    private function exceedsDecimalLimit($value, $limit, int $precision = 4): bool
+    {
+        $difference = round((float) ($value ?? 0) - (float) ($limit ?? 0), $precision);
+        return $difference > 0;
+    }
+
     private function generateShipmentCode(): string
     {
         $prefix = 'SJP';
@@ -293,7 +299,7 @@ class PenerimaanBarangController extends Controller
                     })->where('shipment_item_id', $shipmentItem->id)->sum('received_koli');
 
                 $remainingQty = (int) max(0, $shippedQty - $alreadyReceivedQty);
-                $remainingKoli = max(0, $shippedKoli - $alreadyReceivedKoli);
+                $remainingKoli = max(0, round($shippedKoli - $alreadyReceivedKoli, 4));
 
                 if (($detail['received_quantity'] ?? 0) > $remainingQty) {
                     $itemName = Item::find($detail['item_id'])->nama_barang ?? 'Item';
@@ -301,7 +307,7 @@ class PenerimaanBarangController extends Controller
                         "details.{$index}.received_quantity" => "Item {$itemName}: Jumlah diterima tidak boleh melebihi sisa dikirim ({$remainingQty})."
                     ])->withInput();
                 }
-                if (($detail['received_koli'] ?? 0) > $remainingKoli) {
+                if ($this->exceedsDecimalLimit($detail['received_koli'] ?? 0, $remainingKoli)) {
                     $itemName = Item::find($detail['item_id'])->nama_barang ?? 'Item';
                     return back()->withErrors([
                         "details.{$index}.received_koli" => "Item {$itemName}: Koli diterima tidak boleh melebihi sisa dikirim ({$remainingKoli})."
@@ -321,14 +327,14 @@ class PenerimaanBarangController extends Controller
                     return back()->withErrors(["details.{$index}.item_id" => 'Item tidak valid untuk dokumen pengadaan ini.'])->withInput();
                 }
                 $remainingQty = (int) ($orderItem->remaining_quantity ?? 0);
-                $remainingKoli = (float) ($orderItem->remaining_koli ?? 0);
+                $remainingKoli = max(0, round((float) ($orderItem->remaining_koli ?? 0), 4));
                 if (($detail['received_quantity'] ?? 0) > $remainingQty) {
                     $itemName = Item::find($detail['item_id'])->nama_barang ?? 'Item';
                     return back()->withErrors([
                         "details.{$index}.received_quantity" => "Item {$itemName}: Jumlah diterima tidak boleh melebihi sisa pesanan ({$remainingQty})."
                     ])->withInput();
                 }
-                if (($detail['received_koli'] ?? 0) > $remainingKoli) {
+                if ($this->exceedsDecimalLimit($detail['received_koli'] ?? 0, $remainingKoli)) {
                     $itemName = Item::find($detail['item_id'])->nama_barang ?? 'Item';
                     return back()->withErrors([
                         "details.{$index}.received_koli" => "Item {$itemName}: Koli diterima tidak boleh melebihi sisa pesanan ({$remainingKoli})."
@@ -1151,14 +1157,14 @@ class PenerimaanBarangController extends Controller
                           ->where('id', '!=', $goodsReceipt->id);
                     })->where('shipment_item_id', $shipmentItem->id)->sum('received_koli');
                 $allowedQty = (int) max(0, $shippedQty - $alreadyReceivedOthersQty);
-                $allowedKoli = max(0, $shippedKoli - $alreadyReceivedOthersKoli);
+                $allowedKoli = max(0, round($shippedKoli - $alreadyReceivedOthersKoli, 4));
                 if (($detail['received_quantity'] ?? 0) > $allowedQty) {
                     $itemName = Item::find($detail['item_id'])->nama_barang ?? 'Item';
                     return back()->withErrors([
                         "details.{$index}.received_quantity" => "Item {$itemName}: Jumlah diterima tidak boleh melebihi sisa dikirim ({$allowedQty})."
                     ])->withInput();
                 }
-                if (($detail['received_koli'] ?? 0) > $allowedKoli) {
+                if ($this->exceedsDecimalLimit($detail['received_koli'] ?? 0, $allowedKoli)) {
                     $itemName = Item::find($detail['item_id'])->nama_barang ?? 'Item';
                     return back()->withErrors([
                         "details.{$index}.received_koli" => "Item {$itemName}: Koli diterima tidak boleh melebihi sisa dikirim ({$allowedKoli})."
@@ -1175,12 +1181,12 @@ class PenerimaanBarangController extends Controller
                     return back()->withErrors(["details.{$index}.item_id" => 'Item tidak valid untuk dokumen pengadaan ini.'])->withInput();
                 }
                 $remainingQty = (int) ($orderItem->remaining_quantity ?? 0);
-                $remainingKoli = (float) ($orderItem->remaining_koli ?? 0);
+                $remainingKoli = max(0, round((float) ($orderItem->remaining_koli ?? 0), 4));
                 if (($detail['received_quantity'] ?? 0) > $remainingQty) {
                     $itemName = Item::find($detail['item_id'])->nama_barang ?? 'Item';
                     return back()->withErrors(["details.{$index}.received_quantity" => "Item {$itemName}: Jumlah diterima tidak boleh melebihi sisa pesanan ({$remainingQty})."]) ->withInput();
                 }
-                if (($detail['received_koli'] ?? 0) > $remainingKoli) {
+                if ($this->exceedsDecimalLimit($detail['received_koli'] ?? 0, $remainingKoli)) {
                     $itemName = Item::find($detail['item_id'])->nama_barang ?? 'Item';
                     return back()->withErrors(["details.{$index}.received_koli" => "Item {$itemName}: Koli diterima tidak boleh melebihi sisa pesanan ({$remainingKoli})."]) ->withInput();
                 }

@@ -240,9 +240,15 @@
         document.addEventListener('DOMContentLoaded', function () {
             const vehicles = @json($vehicles);
             const employees = @json($employees);
+            const blockingSwal = Swal.mixin({
+                allowOutsideClick: () => false,
+                allowEscapeKey: false,
+            });
 
             flatpickr(".flatpickr-date", {
                 dateFormat: "Y-m-d",
+                allowInput: true,
+                disableMobile: true,
             });
             const forcedWarehouseId = @json(optional(auth()->user())->warehouse_id);
             let detailIndex = 0;
@@ -262,15 +268,24 @@
                 description: $('#sd_description'),
             };
 
+            function roundToTwoDecimals(value) {
+                const num = parseFloat(value);
+                if (isNaN(num)) return 0;
+                return Math.round(num * 100) / 100;
+            }
+
             function addNewDetailRow(detail = null) {
                 const index = detailIndex++;
                 const koliRatio = detail ? (detail.item_koli_ratio || 1) : 1;
                 const remainingQty = detail ? (detail.remaining_quantity || 0) : 0;
                 const remainingKoli = detail ? (detail.remaining_koli || 0) : 0;
+                const normalizedQty = Math.round(remainingQty);
+                const normalizedKoliNumber = roundToTwoDecimals(remainingKoli);
+                const normalizedKoliDisplay = normalizedKoliNumber.toFixed(2);
 
                 const safeLabel = detail ? (detail.item_label || '-') : '-';
                 const newRow = `
-                    <tr data-name="${(safeLabel || '').toString().toLowerCase()}" data-koli-ratio="${koliRatio}" data-remaining-qty="${remainingQty}" data-remaining-koli="${remainingKoli}">
+                    <tr data-name="${(safeLabel || '').toString().toLowerCase()}" data-koli-ratio="${koliRatio}" data-remaining-qty="${normalizedQty}" data-remaining-koli="${normalizedKoliDisplay}">
                         <td>
                             <div class="d-flex flex-column">
                                 <div class="fw-bold">${safeLabel}</div>
@@ -280,15 +295,15 @@
                             <input type="hidden" name="details[${index}][order_item_id]" value="${detail && detail.order_item_id ? detail.order_item_id : ''}">
                         </td>
                         <td>
-                            <div class="text-end fw-semibold ordered-qty-display">${Math.round(remainingQty)}</div>
-                            <input type="hidden" name="details[${index}][ordered_quantity]" value="${Math.round(remainingQty)}">
+                            <div class="text-end fw-semibold ordered-qty-display">${normalizedQty}</div>
+                            <input type="hidden" name="details[${index}][ordered_quantity]" value="${normalizedQty}">
                         </td>
                         <td>
-                            <div class="text-end fw-semibold ordered-koli-display">${Number(remainingKoli).toFixed(2)}</div>
-                            <input type="hidden" name="details[${index}][ordered_koli]" value="${Number(remainingKoli).toFixed(2)}">
+                            <div class="text-end fw-semibold ordered-koli-display">${normalizedKoliDisplay}</div>
+                            <input type="hidden" name="details[${index}][ordered_koli]" value="${normalizedKoliDisplay}">
                         </td>
-                        <td><input type="number" step="1" min="0" max="${Math.round(remainingQty)}" name="details[${index}][received_quantity]" class="form-control form-control-solid text-end received-quantity" value="0"></td>
-                        <td><input type="number" step="0.01" min="0" max="${remainingKoli}" name="details[${index}][received_koli]" class="form-control form-control-solid text-end received-koli" value="0"></td>
+                        <td><input type="number" step="1" min="0" max="${normalizedQty}" name="details[${index}][received_quantity]" class="form-control form-control-solid text-end received-quantity" value="0"></td>
+                        <td><input type="number" step="0.01" min="0" max="${normalizedKoliDisplay}" name="details[${index}][received_koli]" class="form-control form-control-solid text-end received-koli" value="0"></td>
                         <td class="text-center">
                             <div class="d-flex justify-content-center gap-2">
                                 <button type="button" class="btn btn-sm btn-light-primary fill-max-row" title="Isi Maksimal">
@@ -680,8 +695,8 @@
                     const remainingQty = parseFloat($row.data('remaining-qty')) || 0;
                     const remainingKoli = parseFloat($row.data('remaining-koli')) || 0;
                     $row.find('.received-quantity').val(Math.round(remainingQty));
-                    // received-koli expects 2 decimals
-                    $row.find('.received-koli').val(Number(remainingKoli).toFixed(2));
+                    const roundedKoli = roundToTwoDecimals(remainingKoli);
+                    $row.find('.received-koli').val(roundedKoli.toFixed(2));
                     updateSummary();
                 });
 
@@ -692,7 +707,8 @@
                         const remainingQty = parseFloat($row.data('remaining-qty')) || 0;
                         const remainingKoli = parseFloat($row.data('remaining-koli')) || 0;
                         $row.find('.received-quantity').val(Math.round(remainingQty));
-                        $row.find('.received-koli').val(Number(remainingKoli).toFixed(2));
+                        const roundedKoli = roundToTwoDecimals(remainingKoli);
+                        $row.find('.received-koli').val(roundedKoli.toFixed(2));
                     });
                     updateSummary();
                 });
@@ -765,7 +781,7 @@
                         return; // Stop submit
                     }
 
-                    Swal.fire({
+                    blockingSwal.fire({
                         title: 'Apakah Anda yakin?',
                         text: "Pastikan semua data yang dimasukkan sudah benar.",
                         icon: 'warning',

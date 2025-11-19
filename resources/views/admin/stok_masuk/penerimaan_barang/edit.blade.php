@@ -267,9 +267,15 @@
         document.addEventListener('DOMContentLoaded', function () {
             const vehicles = @json($vehicles);
             const employees = @json($employees);
+            const blockingSwal = Swal.mixin({
+                allowOutsideClick: () => false,
+                allowEscapeKey: false,
+            });
 
             flatpickr(".flatpickr-date", {
                 dateFormat: "Y-m-d",
+                allowInput: true,
+                disableMobile: true,
             });
 
             $(function () {
@@ -348,16 +354,19 @@
                     const index = $('#detail-rows tr').length;
                     const label = (detail.item_label || '-');
                     const remQty = Math.round(detail.remaining_quantity || 0);
-                    const remKoli = parseFloat(detail.remaining_koli || 0);
+                    const remKoliNumber = roundToTwoDecimals(detail.remaining_koli || 0);
+                    const remKoliDisplay = remKoliNumber.toFixed(2);
                     // preset from existing GR
                     const preset = detail.shipment_item_id ? (existingByShipment[detail.shipment_item_id] || null) : (existingByItem[detail.item_id] || null);
                     const presetQty = preset ? parseInt(preset.received_quantity || 0) : 0;
-                    const presetKoli = preset ? parseFloat(preset.received_koli || 0) : 0;
+                    const presetKoliNumber = roundToTwoDecimals(preset ? parseFloat(preset.received_koli || 0) : 0);
+                    const presetKoliDisplay = presetKoliNumber.toFixed(2);
                     const presetNotes = preset ? (preset.notes || '') : '';
                     const maxQty = remQty + presetQty;
-                    const maxKoli = remKoli + presetKoli;
+                    const maxKoliNumber = roundToTwoDecimals(remKoliNumber + presetKoliNumber);
+                    const maxKoliDisplay = maxKoliNumber.toFixed(2);
                     const row = `
-                    <tr data-name="${(label||'').toString().toLowerCase()}" data-koli-ratio="${detail.item_koli_ratio||1}" data-remaining-qty="${remQty}" data-remaining-koli="${remKoli}">
+                    <tr data-name="${(label||'').toString().toLowerCase()}" data-koli-ratio="${detail.item_koli_ratio||1}" data-remaining-qty="${remQty}" data-remaining-koli="${remKoliDisplay}">
                         <td>
                             <input type="text" class="form-control form-control-white" value="${label}" readonly>
                             <input type="hidden" name="details[${index}][item_id]" value="${detail.item_id||''}">
@@ -365,9 +374,9 @@
                             <input type="hidden" name="details[${index}][order_item_id]" value="${detail.order_item_id||''}">
                         </td>
                         <td><input type="number" step="1" min="0" name="details[${index}][ordered_quantity]" class="form-control form-control-white text-end" value="${remQty}" readonly></td>
-                        <td><input type="number" step="0.01" min="0" name="details[${index}][ordered_koli]" class="form-control form-control-white text-end" value="${remKoli.toFixed(2)}" readonly></td>
+                        <td><input type="number" step="0.01" min="0" name="details[${index}][ordered_koli]" class="form-control form-control-white text-end" value="${remKoliDisplay}" readonly></td>
                         <td><input type="number" step="1" min="0" max="${maxQty}" name="details[${index}][received_quantity]" class="form-control form-control-solid text-end received-quantity" value="${presetQty}"></td>
-                        <td><input type="number" step="0.01" min="0" max="${maxKoli}" name="details[${index}][received_koli]" class="form-control form-control-solid text-end received-koli" value="${presetKoli}"></td>
+                        <td><input type="number" step="0.01" min="0" max="${maxKoliDisplay}" name="details[${index}][received_koli]" class="form-control form-control-solid text-end received-koli" value="${presetKoliDisplay}"></td>
                         <td><input type="text" name="details[${index}][notes]" class="form-control form-control-solid" value="${presetNotes}" placeholder="Catatan"></td>
                         <td class="text-center">
                             <button type="button" class="btn btn-icon btn-light-danger remove-row" disabled>
@@ -594,19 +603,25 @@
                                 const orderedKoliInput = $row.find('input[name$="[ordered_koli]"]');
                                 const ref = map[itemId];
                                 if (ref) {
-                                    const remainingQty = parseFloat(ref.remaining_quantity ?? 0) || 0;
-                                    const remainingKoli = parseFloat(ref.remaining_koli ?? 0) || 0;
+                                    const remainingQtyRaw = parseFloat(ref.remaining_quantity ?? 0) || 0;
+                                    const remainingKoliRaw = parseFloat(ref.remaining_koli ?? 0) || 0;
+                                    const remainingQty = Math.round(remainingQtyRaw);
+                                    const remainingKoliNum = roundToTwoDecimals(remainingKoliRaw);
+                                    const remainingKoliDisplay = remainingKoliNum.toFixed(2);
                                     const currentReceivedQty = parseFloat(recInput.val()) || 0;
                                     const currentReceivedKoli = parseFloat(koliInput.val()) || 0;
                                     const allowedQty = Math.max(remainingQty, currentReceivedQty);
-                                    const allowedKoli = Math.max(remainingKoli, currentReceivedKoli);
+                                    const allowedKoliNum = roundToTwoDecimals(Math.max(remainingKoliNum, currentReceivedKoli));
+                                    const allowedKoliDisplay = allowedKoliNum.toFixed(2);
 
                                     $row.attr('data-remaining-qty', remainingQty);
-                                    $row.attr('data-remaining-koli', remainingKoli);
+                                    $row.attr('data-remaining-koli', remainingKoliDisplay);
                                     recInput.attr('max', allowedQty);
-                                    koliInput.attr('max', allowedKoli);
+                                    koliInput.attr('max', allowedKoliDisplay);
                                     orderedQtyInput.val(remainingQty);
-                                    orderedKoliInput.val(remainingKoli);
+                                    orderedKoliInput.val(remainingKoliDisplay);
+                                    $row.find('.ordered-qty-display').text(remainingQty);
+                                    $row.find('.ordered-koli-display').text(remainingKoliDisplay);
                                 }
                             });
                             updateSummary();
@@ -622,6 +637,11 @@
                         totalQty += qty; totalKoli += koli; itemCount += 1;
                     });
                     $('#items-summary').text(`${itemCount} item • Total: ${totalQty} Qty | ${totalKoli} Koli`);
+                }
+                function roundToTwoDecimals(value) {
+                    const num = parseFloat(value);
+                    if (isNaN(num)) return 0;
+                    return Math.round(num * 100) / 100;
                 }
 
                 // Add per-row and global fill-max handlers (edit view)
@@ -641,7 +661,8 @@
                     const remainingQty = parseFloat($row.data('remaining-qty')) || 0;
                     const remainingKoli = parseFloat($row.data('remaining-koli')) || 0;
                     $row.find('.received-quantity').val(Math.round(remainingQty));
-                    $row.find('.received-koli').val(Number(remainingKoli).toFixed(2));
+                    const roundedKoli = roundToTwoDecimals(remainingKoli);
+                    $row.find('.received-koli').val(roundedKoli.toFixed(2));
                     updateSummary();
                 });
 
@@ -651,7 +672,8 @@
                         const remainingQty = parseFloat($row.data('remaining-qty')) || 0;
                         const remainingKoli = parseFloat($row.data('remaining-koli')) || 0;
                         $row.find('.received-quantity').val(Math.round(remainingQty));
-                        $row.find('.received-koli').val(Number(remainingKoli).toFixed(2));
+                        const roundedKoli = roundToTwoDecimals(remainingKoli);
+                        $row.find('.received-koli').val(roundedKoli.toFixed(2));
                     });
                     updateSummary();
                 });
@@ -733,7 +755,7 @@
                         return;
                     }
 
-                    Swal.fire({
+                    blockingSwal.fire({
                         title: 'Apakah Anda yakin?',
                         text: "Pastikan semua data yang dimasukkan sudah benar.",
                         icon: 'warning',
