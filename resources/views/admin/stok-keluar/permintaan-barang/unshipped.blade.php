@@ -285,6 +285,11 @@
             <label class="form-label">Pilih Shipment (Packing)</label>
             <select id="bp_shipment" class="form-select form-select-solid"><option value="">Memuat...</option></select>
           </div>
+          <div class="col-md-6 text-md-end">
+            <button type="button" class="btn btn-light-primary btn-sm mt-3 mt-md-0" id="bp_fill_all">
+              Isi Maks Semua
+            </button>
+          </div>
         </div>
         <div id="bp_new_shipment_fields" class="mt-2" style="display:none;">
           <div class="rounded border p-3 bg-light">
@@ -310,6 +315,7 @@
                 <th class="text-end">Koli Kirim</th>
                 <th>Catatan</th>
                 <th class="text-center">Max</th>
+                <th class="text-center">Hapus</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -368,6 +374,11 @@
           <td class="text-end"><input type="number" min="0" step="0.01" class="form-control form-control-sm bp-koli" style="max-width:120px; margin-left:auto;"></td>
           <td><input type="text" class="form-control form-control-sm bp-note" maxlength="255" placeholder="Catatan"></td>
           <td class="text-center"><button type="button" class="btn btn-sm btn-light bp-max">Max</button></td>
+          <td class="text-center">
+            <button type="button" class="btn btn-icon btn-sm btn-light-danger bp-remove" title="Hapus SKU">
+              <i class="fas fa-trash"></i>
+            </button>
+          </td>
         </tr>`).join('');
       $('#bp_items_table tbody').html(tb);
 
@@ -501,28 +512,44 @@
         $tr.find('.bp-qty').val(Math.round(qty));
       }
     });
-    // Max button per baris: isi qty/koli ke maksimum yang konsisten dengan ratio dan batas sisa
-    $(document).on('click', '.bp-max', function(){
-      const $tr = $(this).closest('tr');
+    // Hitung isi maksimal untuk satu baris
+    function fillRowMax($tr){
       const ratio = parseFloat($tr.data('ratio')||1);
       const remQty = parseInt($tr.data('rem-qty')||0);
       const remKoli = parseFloat($tr.data('rem-koli')||0);
-      // Target qty maksimum yang masih konsisten dengan batas koli dan stok
       const stockQty = parseInt($tr.data('stock-qty')||0);
       const stockKoli = parseFloat($tr.data('stock-koli')||0);
       let maxQtyByKoli = ratio > 0 ? Math.floor(Math.min(remKoli, stockKoli) * ratio) : Math.min(remQty, stockQty);
       let qtyFinal = Math.min(remQty, stockQty, maxQtyByKoli);
       qtyFinal = isFinite(qtyFinal) ? qtyFinal : 0;
       let koliFinal = ratio > 0 ? (qtyFinal / ratio) : Math.min(remKoli, stockKoli);
-      // Clamp ke batas akhir
       koliFinal = Math.min(koliFinal, remKoli, stockKoli);
       $tr.find('.bp-qty').val(qtyFinal);
       $tr.find('.bp-koli').val((koliFinal||0).toFixed(2));
+    }
+    // Max button per baris: isi qty/koli ke maksimum yang konsisten dengan ratio dan batas sisa
+    $(document).on('click', '.bp-max', function(){
+      fillRowMax($(this).closest('tr'));
+    });
+    // Isi maksimal untuk seluruh SKU sekaligus
+    $(document).on('click', '#bp_fill_all', function(){
+      $('#bp_items_table tbody tr').each(function(){
+        fillRowMax($(this));
+      });
+    });
+    // Hapus baris SKU dari packing massal
+    $(document).on('click', '.bp-remove', function(){
+      const $tr = $(this).closest('tr');
+      $tr.remove();
+      if (!$('#bp_items_table tbody tr').length){
+        warn('Tidak ada SKU tersisa di packing massal.');
+      }
     });
 
     $(document).on('click','#bp_save', function(){
       const shipSel = $('#bp_shipment').val();
       if (!shipSel) return warn('Pilih shipment (packing) atau buat baru.');
+      if (!$('#bp_items_table tbody tr').length) return warn('Tidak ada SKU di packing massal.');
       const csrf = $('meta[name=csrf-token]').attr('content');
       // Build items per TR
       const itemsByTr = {};
