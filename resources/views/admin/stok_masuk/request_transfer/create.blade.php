@@ -199,6 +199,10 @@
             });
             let itemIndex = 0;
             let availableItems = [];
+            const blockingSwal = Swal.mixin({
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+            });
 
             // Normalize locale number strings (supports both comma and dot decimals)
             function parseLocaleNumber(val) {
@@ -272,7 +276,7 @@
 
             $('#add-item-btn').on('click', function() {
                 if (!$('#from_warehouse_id').val()) {
-                    Swal.fire(
+                    blockingSwal.fire(
                         'Peringatan',
                         'Silakan pilih Gudang Asal terlebih dahulu.',
                         'warning'
@@ -292,7 +296,7 @@
                 const toWarehouse = $('[name="to_warehouse_id"]').val();
 
                 if (fromWarehouse && toWarehouse && fromWarehouse === toWarehouse) {
-                    Swal.fire(
+                    blockingSwal.fire(
                         'Gudang Tidak Valid',
                         'Gudang Asal dan Gudang Tujuan tidak boleh sama.',
                         'warning'
@@ -350,7 +354,7 @@
                     });
 
                     if (isDuplicate) {
-                        Swal.fire({
+                        blockingSwal.fire({
                             icon: 'error',
                             title: 'Item Sudah Dipilih',
                             text: 'Item ini sudah ada di daftar. Silakan pilih item lain.',
@@ -425,7 +429,7 @@
                 if (isNaN(availableQuantity)) return;
 
                 if (enteredQuantity > availableQuantity) {
-                    Swal.fire({
+                    blockingSwal.fire({
                         icon: 'warning',
                         title: 'Kuantitas Melebihi Stok',
                         text: `Stok yang tersedia hanya ${availableQuantity}. Kuantitas yang Anda masukkan telah disesuaikan.`,
@@ -517,7 +521,7 @@
                 e.preventDefault();
                 var form = $(this);
 
-                Swal.fire({
+                blockingSwal.fire({
                     text: "Apakah Anda yakin ingin menyimpan request ini?",
                     icon: "question",
                     showCancelButton: true,
@@ -545,7 +549,7 @@
                         });
 
                         if (!allQuantitiesValid) {
-                            Swal.fire('Error',
+                            blockingSwal.fire('Error',
                                 'Satu atau lebih item memiliki kuantitas melebihi stok. Silakan perbaiki.',
                                 'error');
                             return;
@@ -556,7 +560,7 @@
                             type: 'POST',
                             data: form.serialize(),
                             success: function(response) {
-                                Swal.fire({
+                                blockingSwal.fire({
                                     text: "Data berhasil disimpan!",
                                     icon: "success",
                                     buttonsStyling: false,

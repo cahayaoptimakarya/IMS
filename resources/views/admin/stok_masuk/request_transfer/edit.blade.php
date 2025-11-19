@@ -176,6 +176,10 @@
             });
             let itemIndex = 0;
             let availableItems = [];
+            const blockingSwal = Swal.mixin({
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+            });
 
             // Normalize locale number strings (supports "1.234,56" and "1234.56")
             function parseLocaleNumber(val) {
@@ -299,7 +303,7 @@
 
             $('#add-item-btn').on('click', function() {
                 if (!$('#from_warehouse_id').val()) {
-                    Swal.fire('Peringatan', 'Silakan pilih Gudang Asal terlebih dahulu.','warning');
+                    blockingSwal.fire('Peringatan', 'Silakan pilih Gudang Asal terlebih dahulu.','warning');
                     return;
                 }
                 addNewRow();
@@ -315,7 +319,7 @@
                 const toWarehouse = $('[name="to_warehouse_id"]').val();
 
                 if (fromWarehouse && toWarehouse && fromWarehouse === toWarehouse) {
-                    Swal.fire(
+                    blockingSwal.fire(
                         'Gudang Tidak Valid',
                         'Gudang Asal dan Gudang Tujuan tidak boleh sama.',
                         'warning'
@@ -373,7 +377,7 @@
                     });
 
                     if (isDuplicate) {
-                        Swal.fire('Item Sudah Dipilih','Item ini sudah ada di daftar. Silakan pilih item lain.','error');
+                        blockingSwal.fire('Item Sudah Dipilih','Item ini sudah ada di daftar. Silakan pilih item lain.','error');
                         const previousValue = $(currentSelect).data('previous-value');
                         $(currentSelect).val(previousValue).trigger('change.select2');
                         return;
@@ -419,7 +423,7 @@
                 if (isNaN(availableQuantity)) return;
 
                 if (enteredQuantity > availableQuantity) {
-                    Swal.fire('Kuantitas Melebihi Stok',`Stok yang tersedia hanya ${availableQuantity}. Kuantitas Anda telah disesuaikan.`,'error');
+                    blockingSwal.fire('Kuantitas Melebihi Stok',`Stok yang tersedia hanya ${availableQuantity}. Kuantitas Anda telah disesuaikan.`,'error');
                     $(inputElement).val(Number(availableQuantity).toFixed(0));
                     calculateItemValues(row, 'quantity');
                 }
@@ -488,7 +492,7 @@
                 e.preventDefault();
                 var form = $(this);
 
-                Swal.fire({
+                blockingSwal.fire({
                     text: "Apakah Anda yakin ingin menyimpan perubahan ini?",
                     icon: "question",
                     showCancelButton: true,
@@ -510,7 +514,7 @@
                         });
 
                         if (!allQuantitiesValid) {
-                            Swal.fire('Error', 'Satu atau lebih item memiliki kuantitas melebihi stok. Silakan perbaiki.', 'error');
+                            blockingSwal.fire('Error', 'Satu atau lebih item memiliki kuantitas melebihi stok. Silakan perbaiki.', 'error');
                             return;
                         }
 
@@ -519,7 +523,7 @@
                             type: 'POST',
                             data: form.serialize(),
                             success: function(response) {
-                                Swal.fire({
+                                blockingSwal.fire({
                                     text: "Data berhasil diubah!",
                                     icon: "success",
                                     buttonsStyling: false,
