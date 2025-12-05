@@ -257,6 +257,13 @@ class PengeluaranBarangController extends Controller
 
         $items = Item::whereIn('sku', array_keys($csvItems))->get()->keyBy('sku');
         $missingSkus = array_values(array_diff(array_keys($csvItems), $items->keys()->all()));
+        $skippedItems = array_map(function ($sku) use ($csvItems) {
+            return [
+                'sku' => $sku,
+                'quantity' => $csvItems[$sku] ?? 0,
+            ];
+        }, $missingSkus);
+        $skippedTotalQuantity = collect($skippedItems)->sum('quantity');
 
         if ($items->isEmpty()) {
             return $this->importResponse(
@@ -326,13 +333,20 @@ class PengeluaranBarangController extends Controller
 
         $message = "Berhasil membuat {$itemCount} item pengeluaran pending melalui import (kode {$stockOutCode}).";
         if (!empty($skippedSkus)) {
-            $message .= ' SKU dilewati: ' . implode(', ', $skippedSkus);
+            $formattedTotal = rtrim(rtrim(number_format($skippedTotalQuantity, 2, '.', ''), '0'), '.');
+            $formattedSkipped = collect($skippedItems)->map(function ($item) {
+                $formattedQty = rtrim(rtrim(number_format($item['quantity'], 2, '.', ''), '0'), '.');
+                return "{$item['sku']} ({$formattedQty})";
+            })->implode(', ');
+            $message .= " SKU dilewati (total {$formattedTotal}): " . $formattedSkipped;
         }
 
         return $this->importResponse($request, true, $message, [
             'stock_out_code' => $stockOutCode,
             'items_count' => $itemCount,
             'skipped_skus' => $skippedSkus,
+            'skipped_items' => $skippedItems,
+            'skipped_total_quantity' => $skippedTotalQuantity,
         ]);
     }
 

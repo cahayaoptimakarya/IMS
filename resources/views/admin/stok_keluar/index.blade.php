@@ -290,6 +290,40 @@ XYZ002;5</pre>
             const importSubmitBtn = $('#import-submit-btn');
             const importModalEl = document.getElementById('importStockOutModal');
 
+            function formatQty(qty) {
+                const num = parseFloat(qty);
+                if (Number.isNaN(num)) return qty;
+                const fixed = num.toFixed(2);
+                return fixed.replace(/\.?0+$/, '');
+            }
+
+            function showSkippedItems(skippedItems) {
+                if (!Array.isArray(skippedItems) || skippedItems.length === 0) return;
+                const totalQty = skippedItems.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
+                const itemsHtml = skippedItems.map(item => {
+                    return `<div class="d-flex justify-content-between py-1 border-bottom">
+                                <span class="fw-bold">${item.sku}</span>
+                                <span class="text-muted">${formatQty(item.quantity)}</span>
+                            </div>`;
+                }).join('');
+
+                Swal.fire({
+                    title: 'Beberapa SKU dilewati',
+                    html: `<div class="text-start">
+                                <p class="mb-2">SKU berikut tidak dimasukkan karena tidak ditemukan di sistem:</p>
+                                <div class="bg-light rounded p-3">${itemsHtml}</div>
+                                <div class="mt-3 fw-bold">Total jumlah dilewati: ${formatQty(totalQty)}</div>
+                           </div>`,
+                    icon: 'info',
+                    confirmButtonText: 'Mengerti',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    customClass: {
+                        confirmButton: "btn btn-primary"
+                    }
+                });
+            }
+
             function clearImportErrors() {
                 if (!importForm.length) return;
                 importErrorBox.addClass('d-none').html('');
@@ -370,6 +404,9 @@ XYZ002;5</pre>
                                 modalInstance = new bootstrap.Modal(importModalEl);
                             }
                             modalInstance.hide();
+                        }
+                        if (response.skipped_items && response.skipped_items.length) {
+                            showSkippedItems(response.skipped_items);
                         }
                         resetImportFormState();
                         if (typeof table !== 'undefined') {
