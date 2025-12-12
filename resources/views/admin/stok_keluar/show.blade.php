@@ -94,6 +94,16 @@
           </div>
         </div>
 
+        @php
+          $description = $pengeluaranBarang->description ?? $pengeluaranBarang->notes;
+        @endphp
+        @if(!empty($description))
+          <div class="mb-8">
+            <div class="fw-bold mb-2">Keterangan</div>
+            <div class="info-box">{{ $description }}</div>
+          </div>
+        @endif
+
         <div class="mb-8">
           <div class="section-title">Daftar Barang</div>
           <div class="table-responsive">
@@ -134,13 +144,6 @@
             </table>
           </div>
         </div>
-
-        @if(!empty($pengeluaranBarang->notes))
-          <div class="mb-8">
-            <div class="fw-bold mb-2">Catatan</div>
-            <div class="info-box">{{ $pengeluaranBarang->notes }}</div>
-          </div>
-        @endif
 
         <div class="row mt-12 no-print">
           <div class="col-12 d-flex justify-content-end gap-2">

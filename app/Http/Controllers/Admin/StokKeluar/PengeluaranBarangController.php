@@ -191,7 +191,7 @@ class PengeluaranBarangController extends Controller
                 'user_id' => auth()->id(),
                 'date' => $request->date,
                 'created_by' => auth()->id(),
-                'notes' => $request->notes,
+                'description' => $request->notes,
                 'status' => 'pending',
             ]);
 
@@ -284,7 +284,7 @@ class PengeluaranBarangController extends Controller
                 'date' => $validated['import_date'],
                 'created_by' => auth()->id(),
                 'user_id' => auth()->id(),
-                'notes' => $validated['import_notes'] ?? null,
+                'description' => $validated['import_notes'] ?? null,
                 'status' => 'pending',
             ]);
 
@@ -424,7 +424,7 @@ class PengeluaranBarangController extends Controller
             $pengeluaranBarang->update([
                 'warehouse_id' => $request->warehouse_id,
                 'date' => $request->date,
-                'notes' => $request->notes,
+                'description' => $request->notes,
                 'status' => 'pending',
             ]);
 

@@ -59,7 +59,7 @@
 
                     <div class="mb-5">
                         <label class="form-label">Catatan</label>
-                        <textarea name="notes" class="form-control form-control-solid @error('notes') is-invalid @enderror" rows="3">{{ old('notes', $pengeluaranBarang->notes) }}</textarea>
+                        <textarea name="notes" class="form-control form-control-solid @error('notes') is-invalid @enderror" rows="3">{{ old('notes', $pengeluaranBarang->description) }}</textarea>
                          @error('notes')
                             <div class="invalid-feedback d-block">{{ $message }}</div>
                         @enderror
