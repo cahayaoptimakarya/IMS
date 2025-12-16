@@ -91,6 +91,17 @@
                                     <input type="text" id="date_to" class="form-control form-control-solid flatpickr-input ms-2" placeholder="Sampai" style="width:140px;">
                                 </div>
                             </div>
+                            @if (is_null(auth()->user()->warehouse_id))
+                            <div class="mb-10">
+                                <label class="form-label fs-6 fw-bold mb-3">Gudang:</label>
+                                <select id="warehouse_filter" class="form-select form-select-solid" data-control="select2" data-placeholder="Pilih Gudang">
+                                    <option value="">Semua Gudang</option>
+                                    @foreach(($warehouses ?? collect()) as $wh)
+                                        <option value="{{ $wh->id }}">{{ $wh->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endif
                             <div class="d-flex justify-content-end">
                                 <button type="reset" class="btn btn-light btn-active-light-primary me-2" data-kt-menu-dismiss="true">Batal</button>
                                 <button type="button" class="btn btn-primary" id="apply_filter" data-kt-menu-dismiss="true">Terapkan</button>
@@ -156,6 +167,7 @@ $(function(){
                 d.search.value = $('#search_input').val();
                 d.date_from = $('#date_from').val();
                 d.date_to = $('#date_to').val();
+                d.warehouse_id = $('#warehouse_filter').val();
             }
         },
         columns: [
@@ -219,6 +231,15 @@ $(function(){
         flatpickr(this, { dateFormat: 'Y-m-d', allowInput: true, appendTo: document.body, position: 'auto center' });
     });
 
+    const updateFilterInfo = () => {
+        const df = $('#date_from').val() || '-';
+        const dt = $('#date_to').val() || '-';
+        const whSelect = $('#warehouse_filter');
+        const whText = whSelect.length ? (whSelect.find('option:selected').text() || 'Semua Gudang') : null;
+        const warehouseLabel = whSelect.length ? ` | Gudang: ${whText}` : '';
+        $('#filter-info').text(`Tanggal: ${df} s/d ${dt}${warehouseLabel}`);
+    };
+
     // Set default 30-day range
     (function setDefaultRange(){
         const fmt = (d)=>{ const y=d.getFullYear(); const m=('0'+(d.getMonth()+1)).slice(-2); const da=('0'+d.getDate()).slice(-2); return `${y}-${m}-${da}`; };
@@ -226,14 +247,17 @@ $(function(){
         const past = new Date(); past.setDate(today.getDate()-30);
         $('#date_from').val(fmt(past));
         $('#date_to').val(fmt(today));
-        $('#filter-info').text(`Tanggal: ${fmt(past)} s/d ${fmt(today)}`);
+        updateFilterInfo();
         table.draw();
     })();
 
     $('#apply_filter').on('click', function(){
-        const df = $('#date_from').val() || '-';
-        const dt = $('#date_to').val() || '-';
-        $('#filter-info').text(`Tanggal: ${df} s/d ${dt}`);
+        updateFilterInfo();
+        table.draw();
+    });
+
+    $('#warehouse_filter').on('change', function(){
+        updateFilterInfo();
         table.draw();
     });
 

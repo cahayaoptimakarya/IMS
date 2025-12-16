@@ -238,6 +238,32 @@
 
 @push('scripts')
     <script>
+        // Shared date helpers for defect tables (ID locale)
+        const formatDate = (value) => {
+            if (!value) return '';
+            const dt = new Date(value);
+            if (isNaN(dt.getTime())) return value;
+            return dt.toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+        };
+        const formatDateTime = (value) => {
+            if (!value) return '';
+            const dt = new Date(value);
+            if (isNaN(dt.getTime())) return value;
+            return dt.toLocaleString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
+        window.formatDate = formatDate;
+        window.formatDateTime = formatDateTime;
+
         $(document).ready(function() {
             // load status counts
             function loadStatusMetrics() {
@@ -264,7 +290,13 @@
                 },
                 {
                     data: 'date',
-                    name: 'date'
+                    name: 'date',
+                    render: function(data, type) {
+                        if (type === 'sort' || type === 'type') {
+                            return data || '';
+                        }
+                        return formatDate(data);
+                    }
                 },
             ];
             if (showWarehouse) {
@@ -512,6 +544,18 @@
     const completeUrlTpl = `{{ route('admin.manajemenstok.defects.action.complete', ':id') }}`;
     const approveUrlTpl = `{{ route('admin.manajemenstok.defects.approve', ':id') }}`;
     const csrfToken = `{{ csrf_token() }}`;
+    const formatDate = window.formatDate || function(value){
+      if (!value) return '';
+      const dt = new Date(value);
+      if (isNaN(dt.getTime())) return value;
+      return dt.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+    };
+    const formatDateTime = window.formatDateTime || function(value){
+      if (!value) return '';
+      const dt = new Date(value);
+      if (isNaN(dt.getTime())) return value;
+      return dt.toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    };
 
     // Approve defect (dropdown action)
     $(document).on('click', '.btn-approve-defect', function(){
@@ -578,7 +622,7 @@
       $modal.find('.action-highlight').html(headerHtml);
       const rows = [
         {label:'Kode', value: data.code || '-'},
-        {label:'Tanggal', value: data.date || '-'},
+        {label:'Tanggal', value: formatDate(data.date) || '-'},
         {label:'Gudang', value: (data.warehouse && data.warehouse.name) || '-'},
         {label:'Item', value: data.item ? `${data.item.sku||'-'} - ${data.item.nama_barang||'-'}` : '-'},
         {label:'Qty', value: (data.quantity != null ? data.quantity : '-')},
@@ -588,7 +632,7 @@
         {label:'Action Status', value: data.action_status ? `<span class="chip ${actionStatusMap[data.action_status]||'chip-default'}">${(data.action_status||'-').replace(/_/g,' ').replace(/\b\w/g, c=>c.toUpperCase())}</span>` : '<span class="text-muted">-</span>'},
         {label:'Dibuat Oleh', value: data.created_by || '-'},
         {label:'Disetujui Oleh', value: data.approved_by || '-'},
-        {label:'Waktu Approve', value: data.approved_at || '-'},
+        {label:'Waktu Approve', value: formatDateTime(data.approved_at) || '-'},
       ];
       const meta = rows.map(r => `
         <div class="col-md-6 mb-3">

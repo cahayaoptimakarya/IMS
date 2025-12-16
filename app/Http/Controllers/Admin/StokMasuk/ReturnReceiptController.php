@@ -34,6 +34,7 @@ class ReturnReceiptController extends Controller
             $statusFilter = $request->input('status');
             $dateFrom = $request->input('date_from');
             $dateTo = $request->input('date_to');
+            $warehouseFilter = $request->input('warehouse_id');
 
             $forcedWarehouseId = auth()->user()->warehouse_id ?? null;
 
@@ -44,6 +45,9 @@ class ReturnReceiptController extends Controller
                 ->leftJoin('items as i', 'rrd.item_id', '=', 'i.id');
             if ($forcedWarehouseId !== null) {
                 $base->where('warehouse_id', $forcedWarehouseId);
+            }
+            if ($forcedWarehouseId === null && !empty($warehouseFilter)) {
+                $base->where('warehouse_id', $warehouseFilter);
             }
 
             $total = (clone $base)->count();
@@ -117,7 +121,12 @@ class ReturnReceiptController extends Controller
             ]);
         }
 
-        return view('admin.stok_masuk.penerimaan_retur.index');
+        $warehouses = collect();
+        if (is_null(auth()->user()->warehouse_id)) {
+            $warehouses = Warehouse::select('id','name')->orderBy('name')->get();
+        }
+
+        return view('admin.stok_masuk.penerimaan_retur.index', compact('warehouses'));
     }
 
     public function getStatusCounts(Request $request)
