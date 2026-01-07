@@ -7,6 +7,30 @@
     ])
 @endpush
 
+@push('styles')
+<style>
+    .item-row-card {
+        border: 1px dashed #e4e6ef;
+        border-radius: 1rem;
+        padding: 1.25rem;
+        background: #f9f9fb;
+    }
+    .item-row-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+    }
+    .item-row-card .form-control-white {
+        background: #f4f6fa;
+    }
+    @media (max-width: 768px) {
+        .item-row-card {
+            padding: 1rem;
+        }
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="content flex-row-fluid" id="kt_content">
     <form id="opname-form" action="{{ route('admin.manajemenstok.stok-opname.store') }}" method="POST">
@@ -91,21 +115,13 @@
                     <table class="table align-middle table-row-dashed fs-6 gy-4" id="items-table">
                         <thead>
                             <tr class="text-start text-gray-500 fw-bolder fs-7 text-uppercase gs-0">
-                                <th class="min-w-300px">Item</th>
-                                <th class="min-w-120px">Qty Sistem</th>
-                                <th class="min-w-120px">Koli Sistem</th>
-                                <th class="min-w-120px">Qty Fisik</th>
-                                <th class="min-w-120px">Koli Fisik</th>
-                                <th class="min-w-120px">Selisih Qty</th>
-                                <th class="min-w-120px">Selisih Koli</th>
-                                <th class="min-w-200px">Keterangan</th>
-                                <th class="w-50px text-center">Aksi</th>
+                                <th>Item &amp; Stok</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="9" class="pt-4 text-end">
+                                <td class="pt-4 text-end">
                                     <button type="button" class="btn btn-light-primary" id="add-item-btn">
                                         <i class="fas fa-plus me-1"></i> Tambah Item
                                     </button>
@@ -132,22 +148,58 @@ let rowIndex = 0;
 function addRow(){
     const row = `
     <tr data-index="${rowIndex}">
-        <td>
-            <select name="items[${rowIndex}][item_id]" class="form-select form-select-solid item-select" data-control="select2" required></select>
-            <div class="item-meta text-muted small mt-2">
-                <span class="info-tempat">Tempat: -</span>
-                <span class="mx-2">•</span>
-                <span class="info-koli">1 koli = - item</span>
+        <td class="p-0">
+            <div class="item-row-card mb-4">
+                <div class="d-flex flex-wrap gap-4 align-items-start">
+                    <div class="flex-grow-1 min-w-250px">
+                        <label class="form-label fw-bold mb-2">Item</label>
+                        <select name="items[${rowIndex}][item_id]" class="form-select form-select-solid item-select" data-control="select2" required></select>
+                        <div class="item-meta text-muted small mt-2">
+                            <span class="info-tempat">Tempat: -</span>
+                            <span class="mx-2">•</span>
+                            <span class="info-koli">1 koli = - item</span>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 w-100">
+                        <div class="item-row-grid">
+                            <div>
+                                <label class="form-label text-muted fs-8 mb-1">Qty Sistem</label>
+                                <input type="number" step="any" name="items[${rowIndex}][system_quantity]" class="form-control form-control-white text-end sys-qty" value="0" readonly>
+                            </div>
+                            <div>
+                                <label class="form-label text-muted fs-8 mb-1">Koli Sistem</label>
+                                <input type="number" step="any" name="items[${rowIndex}][system_koli]" class="form-control form-control-white text-end sys-koli" value="0" readonly>
+                            </div>
+                            <div>
+                                <label class="form-label text-muted fs-8 mb-1">Qty Fisik</label>
+                                <input type="number" step="any" name="items[${rowIndex}][physical_quantity]" class="form-control form-control-solid text-end phy-qty" value="0">
+                            </div>
+                            <div>
+                                <label class="form-label text-muted fs-8 mb-1">Koli Fisik</label>
+                                <input type="number" step="any" name="items[${rowIndex}][physical_koli]" class="form-control form-control-solid text-end phy-koli" value="0">
+                            </div>
+                            <div>
+                                <label class="form-label text-muted fs-8 mb-1">Selisih Qty</label>
+                                <input type="number" step="any" class="form-control form-control-white text-end disc-qty" value="0" readonly>
+                            </div>
+                            <div>
+                                <label class="form-label text-muted fs-8 mb-1">Selisih Koli</label>
+                                <input type="number" step="any" class="form-control form-control-white text-end disc-koli" value="0" readonly>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ms-auto">
+                        <button type="button" class="btn btn-sm btn-light-danger remove-row">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <label class="form-label text-muted fs-8 mb-1">Keterangan</label>
+                    <input type="text" name="items[${rowIndex}][description]" class="form-control form-control-solid"/>
+                </div>
             </div>
         </td>
-        <td><input type="number" step="any" name="items[${rowIndex}][system_quantity]" class="form-control form-control-white sys-qty" value="0" readonly></td>
-        <td><input type="number" step="any" name="items[${rowIndex}][system_koli]" class="form-control form-control-white sys-koli" value="0" readonly></td>
-        <td><input type="number" step="any" name="items[${rowIndex}][physical_quantity]" class="form-control form-control-solid phy-qty" value="0"></td>
-        <td><input type="number" step="any" name="items[${rowIndex}][physical_koli]" class="form-control form-control-solid phy-koli" value="0"></td>
-        <td><input type="number" step="any" class="form-control form-control-white disc-qty" value="0" readonly></td>
-        <td><input type="number" step="any" class="form-control form-control-white disc-koli" value="0" readonly></td>
-        <td><input type="text" name="items[${rowIndex}][description]" class="form-control form-control-solid"/></td>
-        <td><button type="button" class="btn btn-sm btn-danger remove-row">X</button></td>
     </tr>`;
     $('#items-table tbody').append(row);
 
