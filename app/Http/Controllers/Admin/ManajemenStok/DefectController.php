@@ -291,51 +291,54 @@ class DefectController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $data = $request->validate([
             'date' => 'required|date',
             'warehouse_id' => 'required|exists:warehouses,id',
-            'item_id' => 'required|exists:items,id',
-            'quantity' => 'required|numeric|min:0.01',
-            'koli' => 'nullable|numeric|min:0',
-            'notes' => 'required|string|max:1000',
+            'items' => 'required|array|min:1',
+            'items.*.item_id' => 'required|exists:items,id',
+            'items.*.quantity' => 'required|numeric|min:0.01',
+            'items.*.koli' => 'nullable|numeric|min:0',
+            'items.*.notes' => 'required|string|max:1000',
         ]);
 
         DB::beginTransaction();
         try {
-            $koliVal = $request->koli ?? 0;
+            foreach ($data['items'] as $itemRow) {
+                $koliVal = $itemRow['koli'] ?? 0;
 
-            $defect = Defect::create([
-                'code' => $this->generateUniqueCode(),
-                'date' => $request->date,
-                'warehouse_id' => $request->warehouse_id,
-                'item_id' => $request->item_id,
-                'quantity' => $request->quantity,
-                'koli' => $koliVal,
-                'notes' => $request->notes,
-                'created_by' => Auth::id(),
-                'status' => 'pending',
-            ]);
-
-            // Log user activity (non-blocking if fails)
-            try {
-                $item = Item::select('sku','nama_barang')->find($defect->item_id);
-                $itemText = $item ? (($item->sku ? ($item->sku.' - ') : '') . ($item->nama_barang ?? '')) : ('Item ID: '.$defect->item_id);
-                $desc = sprintf(
-                    'Membuat draft barang rusak: %s | Item: %s | Qty: %s | Koli: %s',
-                    $defect->code,
-                    $itemText,
-                    rtrim(rtrim(number_format((float)$defect->quantity, 2, '.', ''), '0'), '.'),
-                    rtrim(rtrim(number_format((float)($defect->koli ?? 0), 2, '.', ''), '0'), '.')
-                );
-                UserActivity::create([
-                    'user_id' => Auth::id(),
-                    'activity' => 'created',
-                    'menu' => 'Barang Rusak',
-                    'description' => $desc,
-                    'ip_address' => $request->ip(),
-                    'user_agent' => $request->header('User-Agent'),
+                $defect = Defect::create([
+                    'code' => $this->generateUniqueCode(),
+                    'date' => $data['date'],
+                    'warehouse_id' => $data['warehouse_id'],
+                    'item_id' => $itemRow['item_id'],
+                    'quantity' => $itemRow['quantity'],
+                    'koli' => $koliVal,
+                    'notes' => $itemRow['notes'],
+                    'created_by' => Auth::id(),
+                    'status' => 'pending',
                 ]);
-            } catch (\Throwable $e) { /* ignore activity errors */ }
+
+                // Log user activity (non-blocking if fails)
+                try {
+                    $item = Item::select('sku','nama_barang')->find($defect->item_id);
+                    $itemText = $item ? (($item->sku ? ($item->sku.' - ') : '') . ($item->nama_barang ?? '')) : ('Item ID: '.$defect->item_id);
+                    $desc = sprintf(
+                        'Membuat draft barang rusak: %s | Item: %s | Qty: %s | Koli: %s',
+                        $defect->code,
+                        $itemText,
+                        rtrim(rtrim(number_format((float)$defect->quantity, 2, '.', ''), '0'), '.'),
+                        rtrim(rtrim(number_format((float)($defect->koli ?? 0), 2, '.', ''), '0'), '.')
+                    );
+                    UserActivity::create([
+                        'user_id' => Auth::id(),
+                        'activity' => 'created',
+                        'menu' => 'Barang Rusak',
+                        'description' => $desc,
+                        'ip_address' => $request->ip(),
+                        'user_agent' => $request->header('User-Agent'),
+                    ]);
+                } catch (\Throwable $e) { /* ignore activity errors */ }
+            }
 
             DB::commit();
             return redirect()->route('admin.manajemenstok.defects.index')->with('success', 'Barang rusak berhasil dibuat (draft).');

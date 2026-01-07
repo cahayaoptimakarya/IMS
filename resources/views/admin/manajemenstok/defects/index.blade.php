@@ -59,6 +59,26 @@
             color: #EF4444;
         }
 
+        /* Grouped table (per tanggal) */
+        .table-group-row td {
+            background: #f5f8ff;
+            font-weight: 700;
+            color: #1e293b;
+            border-bottom: 1px solid #e4e6ef;
+        }
+        .table-group-row .group-date {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .table-group-row .group-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #3b82f6;
+            display: inline-block;
+        }
+
         @media (max-width: 576px) {
             .status-metrics {
                 justify-content: flex-start;
@@ -181,7 +201,7 @@
                                         <th>Status</th>
                                         <th>Action</th>
                                         <th>Action Status</th>
-                                        <th>Dicatat Oleh</th>
+                                        <th>Alasan Rusak</th>
                                         <th class="text-end">Aksi</th>
                                     </tr>
                                 </thead>
@@ -284,6 +304,7 @@
             }
 
             let showWarehouse = {{ auth()->user()->warehouse_id === null ? 'true' : 'false' }};
+            const columnCount = showWarehouse ? 10 : 9;
             let columns = [{
                     data: 'code',
                     name: 'code'
@@ -367,8 +388,13 @@
                     }
                 },
                 {
-                    data: 'user_name',
-                    name: 'user.name'
+                    data: 'notes',
+                    name: 'notes',
+                    render: function(data){
+                        if (!data) return '-';
+                        const txt = data.toString();
+                        return txt.length > 80 ? txt.substring(0,77) + '...' : txt;
+                    }
                 },
                 {
                     data: null,
@@ -416,6 +442,23 @@
                     [1, 'desc']
                 ],
                 drawCallback: function(){
+                    const api = this.api();
+                    const rows = api.rows({ page: 'current' }).nodes();
+                    const dates = api.column(1, { page: 'current' }).data(); // date column index always 1
+                    let last = null;
+                    dates.each(function(dateVal, i){
+                        const label = formatDate(dateVal) || '-';
+                        if (last !== label) {
+                            $(rows).eq(i).before(`
+                                <tr class="table-group-row">
+                                    <td colspan="${columnCount}">
+                                        <div class="group-date"><span class="group-dot"></span>${label}</div>
+                                    </td>
+                                </tr>
+                            `);
+                            last = label;
+                        }
+                    });
                     if (typeof KTMenu !== 'undefined' && KTMenu.createInstances) {
                         KTMenu.createInstances();
                     }
