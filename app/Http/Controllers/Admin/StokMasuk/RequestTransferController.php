@@ -606,19 +606,13 @@ class RequestTransferController extends Controller
 
     private function generateCode(): string
     {
-        $today = now();
-        $todayString = $today->format('Ymd');
-
-        $latestCode = TransferRequest::whereDate('date', $today)
-            ->orderByDesc('code')
-            ->value('code');
-
-        $nextNumber = 1;
-        if ($latestCode) {
-            $lastNumber = (int) substr($latestCode, strrpos($latestCode, '-') + 1);
-            $nextNumber = $lastNumber + 1;
+        $prefix = 'TR';
+        $date = now()->format('Ymd');
+        $latest = TransferRequest::where('code', 'LIKE', "{$prefix}-{$date}-%")->latest('id')->first();
+        $seq = 1;
+        if ($latest && preg_match('/^' . preg_quote($prefix, '/') . '-' . $date . '-(\d{4})$/', $latest->code, $m)) {
+            $seq = ((int) $m[1]) + 1;
         }
-
-        return 'TR-' . $todayString . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        return sprintf('%s-%s-%04d', $prefix, $date, $seq);
     }
 }
