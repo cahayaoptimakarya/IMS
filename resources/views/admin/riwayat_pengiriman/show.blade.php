@@ -94,8 +94,14 @@
                     </div>
 
                     @php
-                        $totQty = (float) ($shipment->itemDetails->sum('quantity_shipped') ?? 0);
-                        $totKoli = (float) ($shipment->itemDetails->sum('koli_shipped') ?? 0);
+                        $sortedDetails = $shipment->itemDetails
+                            ->sortBy(function ($detail) {
+                                $sku = optional($detail->item)->sku;
+                                return $sku === null ? '~' : $sku;
+                            }, SORT_NATURAL | SORT_FLAG_CASE)
+                            ->values();
+                        $totQty = (float) ($sortedDetails->sum('quantity_shipped') ?? 0);
+                        $totKoli = (float) ($sortedDetails->sum('koli_shipped') ?? 0);
                     @endphp
                     <div class="section-title">Daftar Barang</div>
                     <div class="table-responsive">
@@ -114,7 +120,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($shipment->itemDetails as $i => $d)
+                                @forelse($sortedDetails as $i => $d)
                                     <tr>
                                         <td style="text-align:center;">{{ $i + 1 }}</td>
                                         <td style="white-space:nowrap;">{{ optional($d->item)->sku ?? '-' }}</td>
