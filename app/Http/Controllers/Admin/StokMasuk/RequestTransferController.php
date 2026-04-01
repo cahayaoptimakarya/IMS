@@ -14,11 +14,15 @@ use App\Models\Item;
 use App\Models\Inventory;
 use App\Models\User;
 use App\Notifications\TransferRequestCreated;
+use App\Imports\TransferRequestItemsImport;
+use App\Exports\TransferRequestTemplateExport;
 use Auth;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RequestTransferController extends Controller
 {
@@ -583,6 +587,48 @@ class RequestTransferController extends Controller
             ->get();
 
         return response()->json($items);
+    }
+
+    public function importExcel(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+            'from_warehouse_id' => 'required|exists:warehouses,id',
+        ]);
+
+        try {
+            $import = new TransferRequestItemsImport((int) $validated['from_warehouse_id']);
+            Excel::import($import, $validated['file']);
+
+            if ($import->hasErrors()) {
+                return response()->json([
+                    'message' => 'Ada data yang tidak valid di file.',
+                    'errors' => $import->getErrors(),
+                ], 422);
+            }
+
+            $items = $import->getItems();
+            if (count($items) === 0) {
+                return response()->json([
+                    'message' => 'Tidak ada data valid di file.',
+                    'errors' => [],
+                ], 422);
+            }
+
+            return response()->json([
+                'items' => $items,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Gagal memproses file. Pastikan format file sesuai.',
+            ], 422);
+        }
+    }
+
+    public function downloadTemplateExcel()
+    {
+        $filename = 'Template-Request-Transfer.xlsx';
+        return Excel::download(new TransferRequestTemplateExport(), $filename);
     }
 
     public function getStatusCounts(Request $request)

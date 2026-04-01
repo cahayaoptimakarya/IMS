@@ -110,8 +110,19 @@
                             <input type="text" id="items-search" class="form-control form-control-solid" placeholder="Cari item (nama, SKU, deskripsi)">
                         </div>
                         <div class="d-flex align-items-center" style="gap:.5rem;">
+                            <input type="file" id="import-excel-input" class="d-none" accept=".xlsx,.xls,.csv">
+                            <a href="{{ route('admin.stok-masuk.request-transfer.template-excel') }}"
+                                class="btn btn-light-primary">
+                                <i class="bi bi-download"></i> Download Template
+                            </a>
+                            <button type="button" class="btn btn-light-success" id="btn-import-excel">
+                                <i class="bi bi-file-earmark-excel"></i> Import Excel
+                            </button>
                             <span class="badge bg-light text-dark" id="items-visible-count">0 baris</span>
                         </div>
+                    </div>
+                    <div class="text-muted small mb-3">
+                        Format kolom: <strong>sku</strong> atau <strong>item_id</strong>, <strong>quantity/jumlah</strong>, <strong>koli</strong> (opsional), <strong>description</strong> (opsional).
                     </div>
 
                     <div class="table-responsive">
@@ -274,6 +285,47 @@
                 updateVisibleCount();
             }
 
+            function addRowWithData(item) {
+                addNewRow();
+                const row = $('#items-table tbody tr').last();
+                const select = row.find('.item-select');
+                select.val(item.item_id).trigger('change');
+
+                row.find('.quantity-input').val(formatInt(item.quantity));
+                row.find('.koli-input').val(parseLocaleNumber(item.koli || 0).toFixed(2));
+                row.find('input[name*="[description]"]').val(item.description || '');
+                validateQuantity(row.find('.quantity-input'));
+            }
+
+            function replaceItemsWithImport(items) {
+                $('#items-table tbody').empty();
+                itemIndex = 0;
+                items.forEach(function(item) {
+                    addRowWithData(item);
+                });
+                updateVisibleCount();
+                applyTableFilter();
+            }
+
+            function ensureItemsLoaded(warehouseId, callback) {
+                if (availableItems.length > 0) {
+                    callback();
+                    return;
+                }
+
+                $.ajax({
+                    url: `{{ url('admin/stok-masuk/request-transfer/get-items-by-warehouse') }}/${warehouseId}`,
+                    type: 'GET',
+                    success: function(items) {
+                        availableItems = items;
+                        callback();
+                    },
+                    error: function() {
+                        toastr.error('Gagal mengambil data item dari gudang.', 'Error');
+                    }
+                });
+            }
+
             $('#add-item-btn').on('click', function() {
                 if (!$('#from_warehouse_id').val()) {
                     blockingSwal.fire(
@@ -284,6 +336,98 @@
                     return;
                 }
                 addNewRow();
+            });
+
+            $('#btn-import-excel').on('click', function() {
+                if (!$('#from_warehouse_id').val()) {
+                    blockingSwal.fire(
+                        'Peringatan',
+                        'Silakan pilih Gudang Asal terlebih dahulu sebelum import.',
+                        'warning'
+                    );
+                    return;
+                }
+                $('#import-excel-input').val(null).trigger('click');
+            });
+
+            $('#import-excel-input').on('change', function() {
+                const file = this.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('from_warehouse_id', $('#from_warehouse_id').val());
+
+                blockingSwal.fire({
+                    title: 'Mengimpor...',
+                    text: 'Sedang membaca file Excel',
+                    didOpen: () => Swal.showLoading(),
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                });
+
+                $.ajax({
+                    url: `{{ route('admin.stok-masuk.request-transfer.import-excel') }}`,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    success: function(res) {
+                        blockingSwal.close();
+                        const items = res.items || [];
+                        if (!items.length) {
+                            blockingSwal.fire('Import Gagal', 'Tidak ada data valid di file.', 'error');
+                            return;
+                        }
+                        const applyImport = function() {
+                            const hasExistingRows = $('#items-table tbody tr').length > 0;
+                            if (hasExistingRows) {
+                                blockingSwal.fire({
+                                    icon: 'question',
+                                    title: 'Ganti daftar item?',
+                                    text: 'Import akan mengganti daftar item yang sudah ada.',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Ya, ganti',
+                                    cancelButtonText: 'Batal'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        replaceItemsWithImport(items);
+                                        toastr.success('Import berhasil.');
+                                    }
+                                });
+                            } else {
+                                replaceItemsWithImport(items);
+                                toastr.success('Import berhasil.');
+                            }
+                        };
+
+                        const warehouseId = $('#from_warehouse_id').val();
+                        ensureItemsLoaded(warehouseId, applyImport);
+                    },
+                    error: function(xhr) {
+                        blockingSwal.close();
+                        const response = xhr.responseJSON || {};
+                        const errors = response.errors || [];
+                        let html = '<div class="text-start">';
+                        if (errors.length) {
+                            html += '<ul>';
+                            errors.forEach(function(err) {
+                                const row = err.row ? `Baris ${err.row}: ` : '';
+                                html += `<li>${row}${err.message}</li>`;
+                            });
+                            html += '</ul>';
+                        } else {
+                            html += `<div>${response.message || 'Gagal import file.'}</div>`;
+                        }
+                        html += '</div>';
+                        blockingSwal.fire({
+                            icon: 'error',
+                            title: 'Import Gagal',
+                            html: html
+                        });
+                    }
+                });
             });
 
             $('#items-table').on('click', '.remove-item-btn', function() {
