@@ -347,7 +347,13 @@
 
                     <div class="d-flex justify-content-between mt-8 no-print">
                         <a href="{{ route('admin.stok-masuk.request-transfer.index') }}" class="btn btn-light">Kembali</a>
-                        <button type="button" class="btn btn-success" id="print_button">Print</button>
+                        <div class="d-flex align-items-center" style="gap:.5rem;">
+                            <a href="{{ route('admin.stok-masuk.request-transfer.export-excel', $transferRequest) }}"
+                                class="btn btn-primary">
+                                Export Excel
+                            </a>
+                            <button type="button" class="btn btn-success" id="print_button">Print</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -360,6 +366,5 @@
         $('#print_button').on('click', function () { window.print(); });
     </script>
 @endpush
-
 
 

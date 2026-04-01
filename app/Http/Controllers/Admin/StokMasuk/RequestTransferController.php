@@ -15,6 +15,7 @@ use App\Models\Inventory;
 use App\Models\User;
 use App\Notifications\TransferRequestCreated;
 use App\Imports\TransferRequestItemsImport;
+use App\Exports\TransferRequestDetailExport;
 use App\Exports\TransferRequestTemplateExport;
 use Auth;
 use Carbon\Carbon;
@@ -629,6 +630,14 @@ class RequestTransferController extends Controller
     {
         $filename = 'Template-Request-Transfer.xlsx';
         return Excel::download(new TransferRequestTemplateExport(), $filename);
+    }
+
+    public function exportExcel(TransferRequest $transferRequest)
+    {
+        $transferRequest->loadMissing(['items.item', 'fromWarehouse', 'toWarehouse', 'requester']);
+        $code = $transferRequest->code ?: ('request-transfer-' . $transferRequest->id);
+        $filename = 'Request-Transfer-' . $code . '.xlsx';
+        return Excel::download(new TransferRequestDetailExport($transferRequest), $filename);
     }
 
     public function getStatusCounts(Request $request)
