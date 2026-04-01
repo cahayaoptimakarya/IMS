@@ -122,7 +122,7 @@
                         </div>
                     </div>
                     <div class="text-muted small mb-3">
-                        Format kolom: <strong>sku</strong> atau <strong>item_id</strong>, <strong>quantity/jumlah</strong>, <strong>koli</strong> (opsional), <strong>description</strong> (opsional).
+                        Format kolom: <strong>sku</strong>, <strong>koli</strong>, <strong>description</strong> (opsional).
                     </div>
 
                     <div class="table-responsive">

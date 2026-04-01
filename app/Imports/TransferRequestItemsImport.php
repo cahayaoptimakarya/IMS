@@ -28,22 +28,26 @@ class TransferRequestItemsImport implements ToCollection, WithHeadingRow, SkipsE
             $rowNumber++;
 
             $sku = $this->cleanString($row['sku'] ?? null);
-            $itemId = $this->cleanString($row['item_id'] ?? null);
-            $name = $this->cleanString($row['nama_barang'] ?? null);
-
-            $quantityRaw = $row['quantity'] ?? $row['qty'] ?? $row['jumlah'] ?? null;
             $koliRaw = $row['koli'] ?? $row['kol'] ?? null;
             $description = $this->cleanString($row['description'] ?? $row['deskripsi'] ?? $row['keterangan'] ?? null);
 
-            if ($this->isRowEmpty([$sku, $itemId, $name, $quantityRaw, $koliRaw, $description])) {
+            if ($this->isRowEmpty([$sku, $koliRaw, $description])) {
                 continue;
             }
 
-            $item = $this->resolveItem($itemId, $sku, $name);
+            if (!$sku) {
+                $this->errors[] = [
+                    'row' => $rowNumber,
+                    'message' => 'Kolom sku wajib diisi.',
+                ];
+                continue;
+            }
+
+            $item = $this->resolveItem($sku);
             if (!$item) {
                 $this->errors[] = [
                     'row' => $rowNumber,
-                    'message' => 'Item tidak ditemukan. Gunakan kolom item_id atau sku yang valid.',
+                    'message' => 'Item tidak ditemukan. Pastikan sku valid.',
                 ];
                 continue;
             }
@@ -56,31 +60,28 @@ class TransferRequestItemsImport implements ToCollection, WithHeadingRow, SkipsE
                 continue;
             }
 
-            if ($quantityRaw === null || trim((string) $quantityRaw) === '') {
+            if ($koliRaw === null || trim((string) $koliRaw) === '') {
                 $this->errors[] = [
                     'row' => $rowNumber,
-                    'message' => 'Kolom quantity/jumlah wajib diisi.',
+                    'message' => 'Kolom koli wajib diisi.',
                 ];
                 continue;
             }
 
-            $quantity = $this->parseNumber($quantityRaw);
-            if ($quantity <= 0) {
+            $koli = $this->parseNumber($koliRaw);
+            if ($koli <= 0) {
                 $this->errors[] = [
                     'row' => $rowNumber,
-                    'message' => 'Quantity harus lebih dari 0.',
+                    'message' => 'Koli harus lebih dari 0.',
                 ];
                 continue;
             }
 
-            $koli = $koliRaw === null || trim((string) $koliRaw) === '' ? 0 : $this->parseNumber($koliRaw);
-            if ($koli < 0) {
-                $this->errors[] = [
-                    'row' => $rowNumber,
-                    'message' => 'Koli tidak boleh negatif.',
-                ];
-                continue;
+            $koliPerUnit = (float) ($item->koli ?? 1);
+            if ($koliPerUnit <= 0) {
+                $koliPerUnit = 1;
             }
+            $quantity = $koli * $koliPerUnit;
 
             $key = (string) $item->id;
             if (!isset($this->items[$key])) {
@@ -118,27 +119,9 @@ class TransferRequestItemsImport implements ToCollection, WithHeadingRow, SkipsE
         return count($this->errors) > 0;
     }
 
-    private function resolveItem(?string $itemId, ?string $sku, ?string $name): ?Item
+    private function resolveItem(string $sku): ?Item
     {
-        if ($itemId !== null && $itemId !== '') {
-            $item = Item::find($itemId);
-            if ($item) {
-                return $item;
-            }
-        }
-
-        if ($sku !== null && $sku !== '') {
-            $item = Item::where('sku', $sku)->first();
-            if ($item) {
-                return $item;
-            }
-        }
-
-        if ($name !== null && $name !== '') {
-            return Item::where('nama_barang', $name)->first();
-        }
-
-        return null;
+        return Item::where('sku', $sku)->first();
     }
 
     private function itemExistsInWarehouse(int $itemId, int $warehouseId): bool

@@ -17,8 +17,6 @@ class TransferRequestTemplateExport implements FromArray, WithHeadings, ShouldAu
     {
         return [
             'sku',
-            'item_id',
-            'quantity',
             'koli',
             'description',
         ];
