@@ -15,7 +15,9 @@ use App\Models\Inventory;
 use App\Models\User;
 use App\Notifications\TransferRequestCreated;
 use Auth;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 class RequestTransferController extends Controller
@@ -317,14 +319,14 @@ class RequestTransferController extends Controller
     {
         $warehouses = Warehouse::all();
         $items = Item::all();
-        $code = $this->generateCode();
+        $dateForCode = old('date', date('Y-m-d'));
+        $code = $this->generateCode($dateForCode);
         return view('admin.stok_masuk.request_transfer.create', compact('warehouses', 'items', 'code'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'code' => 'required|unique:transfer_requests,code',
             'from_warehouse_id' => 'required|exists:warehouses,id',
             'to_warehouse_id' => 'required|exists:warehouses,id|different:from_warehouse_id',
             'date' => 'required|date',
@@ -337,40 +339,64 @@ class RequestTransferController extends Controller
         ]);
 
         try {
-            DB::beginTransaction();
+            $transferRequest = null;
+            $maxAttempts = 5;
 
-            $transferRequest = TransferRequest::create([
-                'code' => $request->code,
-                'from_warehouse_id' => $request->from_warehouse_id,
-                'to_warehouse_id' => $request->to_warehouse_id,
-                'date' => $request->date,
-                'description' => $request->description,
-                'status' => 'pending',
-                'requested_by' => auth()->id(),
-            ]);
+            for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+                try {
+                    DB::beginTransaction();
 
-            foreach ($request->items as $item) {
-                TransferRequestItem::create([
-                    'transfer_request_id' => $transferRequest->id,
-                    'item_id' => $item['item_id'],
-                    'quantity' => $item['quantity'],
-                    'koli' => $item['koli'] ?? 0,
-                    'ship_remaining_quantity' => $item['quantity'],
-                    'ship_remaining_koli' => $item['koli'] ?? 0,
-                    'description' => $item['description'],
-                ]);
+                    $code = $this->generateCode($request->date, true);
+
+                    $transferRequest = TransferRequest::create([
+                        'code' => $code,
+                        'from_warehouse_id' => $request->from_warehouse_id,
+                        'to_warehouse_id' => $request->to_warehouse_id,
+                        'date' => $request->date,
+                        'description' => $request->description,
+                        'status' => 'pending',
+                        'requested_by' => auth()->id(),
+                    ]);
+
+                    foreach ($request->items as $item) {
+                        TransferRequestItem::create([
+                            'transfer_request_id' => $transferRequest->id,
+                            'item_id' => $item['item_id'],
+                            'quantity' => $item['quantity'],
+                            'koli' => $item['koli'] ?? 0,
+                            'ship_remaining_quantity' => $item['quantity'],
+                            'ship_remaining_koli' => $item['koli'] ?? 0,
+                            'description' => $item['description'],
+                        ]);
+                    }
+
+                    UserActivity::create([
+                        'user_id' => Auth::id(),
+                        'activity' => 'created',
+                        'menu' => 'Request Transfer',
+                        'description' => 'Membuat Request Transfer pada kode : ' . $transferRequest->code,
+                        'ip_address' => $request->ip(),
+                        'user_agent' => $request->header('User-Agent'),
+                    ]);
+
+                    DB::commit();
+                    break;
+                } catch (QueryException $e) {
+                    DB::rollBack();
+                    if ($this->isDuplicateCodeError($e) && $attempt < $maxAttempts) {
+                        usleep(100 * 1000);
+                        continue;
+                    }
+                    throw $e;
+                } catch (\Throwable $e) {
+                    DB::rollBack();
+                    throw $e;
+                }
             }
 
-            UserActivity::create([
-                'user_id' => Auth::id(),
-                'activity' => 'created',
-                'menu' => 'Request Transfer',
-                'description' => 'Membuat Request Transfer pada kode : ' . $transferRequest->code,
-                'ip_address' => $request->ip(),
-                'user_agent' => $request->header('User-Agent'),
-            ]);
-
-            DB::commit();
+            if (!$transferRequest) {
+                throw new \RuntimeException('Gagal membuat kode Request Transfer yang unik.');
+            }
 
             // Notify users at source warehouse (gudang diminta) about new transfer request
             try {
@@ -604,15 +630,38 @@ class RequestTransferController extends Controller
         return response()->json($result);
     }
 
-    private function generateCode(): string
+    private function generateCode(string $date, bool $lockForUpdate = false): string
     {
         $prefix = 'TR';
-        $date = now()->format('Ymd');
-        $latest = TransferRequest::where('code', 'LIKE', "{$prefix}-{$date}-%")->latest('id')->first();
+        try {
+            $dateKey = Carbon::parse($date)->format('Ymd');
+        } catch (\Throwable $e) {
+            $dateKey = now()->format('Ymd');
+        }
+
+        $query = TransferRequest::where('code', 'LIKE', "{$prefix}-{$dateKey}-%")
+            ->orderBy('code', 'desc');
+        if ($lockForUpdate) {
+            $query->lockForUpdate();
+        }
+        $latest = $query->first();
         $seq = 1;
-        if ($latest && preg_match('/^' . preg_quote($prefix, '/') . '-' . $date . '-(\d{4})$/', $latest->code, $m)) {
+        if ($latest && preg_match('/^' . preg_quote($prefix, '/') . '-' . $dateKey . '-(\d{4})$/', $latest->code, $m)) {
             $seq = ((int) $m[1]) + 1;
         }
-        return sprintf('%s-%s-%04d', $prefix, $date, $seq);
+        return sprintf('%s-%s-%04d', $prefix, $dateKey, $seq);
+    }
+
+    private function isDuplicateCodeError(QueryException $e): bool
+    {
+        $sqlState = $e->errorInfo[0] ?? null;
+        $driverCode = $e->errorInfo[1] ?? null;
+        if ($sqlState === '23000' && in_array($driverCode, [1062, 23505], true)) {
+            return true;
+        }
+        if ($sqlState === '23505') {
+            return true;
+        }
+        return str_contains($e->getMessage(), 'transfer_requests_code_unique');
     }
 }
