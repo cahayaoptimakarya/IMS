@@ -110,9 +110,9 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::get('request-transfer/modal/in-transit', [RequestTransferController::class, 'modalInTransitItems'])->name('request-transfer.modal.in-transit');
         Route::get('request-transfer/modal/packing', [RequestTransferController::class, 'modalPackingItems'])->name('request-transfer.modal.packing');
         Route::get('request-transfer/modal/not-shipped', [RequestTransferController::class, 'modalNotShippedItems'])->name('request-transfer.modal.not-shipped');
-        Route::resource('request-transfer', RequestTransferController::class)->parameter('request-transfer', 'transferRequest');
         Route::post('request-transfer/import-excel', [RequestTransferController::class, 'importExcel'])->name('request-transfer.import-excel');
         Route::get('request-transfer/template-excel', [RequestTransferController::class, 'downloadTemplateExcel'])->name('request-transfer.template-excel');
+        Route::resource('request-transfer', RequestTransferController::class)->parameter('request-transfer', 'transferRequest');
         Route::post('request-transfer/calculate-item-values', [RequestTransferController::class, 'calculateItemValues'])->name('request-transfer.calculate-item-values');
         Route::get('request-transfer/get-items-by-warehouse/{warehouse_id}', [RequestTransferController::class, 'getItemsByWarehouse'])->name('request-transfer.get-items-by-warehouse');
     });
