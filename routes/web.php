@@ -113,6 +113,8 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::post('request-transfer/import-excel', [RequestTransferController::class, 'importExcel'])->name('request-transfer.import-excel');
         Route::get('request-transfer/template-excel', [RequestTransferController::class, 'downloadTemplateExcel'])->name('request-transfer.template-excel');
         Route::get('request-transfer/{transferRequest}/export-excel', [RequestTransferController::class, 'exportExcel'])->name('request-transfer.export-excel');
+        Route::get('request-transfer/{transferRequest}/adjust-remaining', [RequestTransferController::class, 'adjustRemaining'])->name('request-transfer.adjust-remaining');
+        Route::put('request-transfer/{transferRequest}/adjust-remaining', [RequestTransferController::class, 'updateRemainingAdjustment'])->name('request-transfer.update-remaining-adjustment');
         Route::resource('request-transfer', RequestTransferController::class)->parameter('request-transfer', 'transferRequest');
         Route::post('request-transfer/calculate-item-values', [RequestTransferController::class, 'calculateItemValues'])->name('request-transfer.calculate-item-values');
         Route::get('request-transfer/get-items-by-warehouse/{warehouse_id}', [RequestTransferController::class, 'getItemsByWarehouse'])->name('request-transfer.get-items-by-warehouse');

@@ -17,6 +17,7 @@ use App\Notifications\TransferRequestCreated;
 use App\Imports\TransferRequestItemsImport;
 use App\Exports\TransferRequestDetailExport;
 use App\Exports\TransferRequestTemplateExport;
+use App\Support\MenuPermissionResolver;
 use Auth;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -495,6 +496,132 @@ class RequestTransferController extends Controller
         return view('admin.stok_masuk.request_transfer.edit', compact('transferRequest', 'warehouses', 'items'));
     }
 
+    public function adjustRemaining(TransferRequest $transferRequest)
+    {
+        if (!app(MenuPermissionResolver::class)->userCan('approve')) {
+            abort(403, 'Anda tidak memiliki akses untuk penyesuaian sisa request transfer.');
+        }
+
+        if (!in_array($transferRequest->status, ['approved', 'on_progress'], true)) {
+            return redirect()
+                ->route('admin.stok-masuk.request-transfer.show', $transferRequest)
+                ->with('error', 'Penyesuaian sisa hanya tersedia untuk request transfer berstatus approved atau on_progress.');
+        }
+
+        $transferRequest->load(['fromWarehouse', 'toWarehouse', 'requester', 'items.item']);
+        $shipmentTotals = $this->shipmentTotalsForTransferRequest($transferRequest);
+
+        return view('admin.stok_masuk.request_transfer.adjust_remaining', compact('transferRequest', 'shipmentTotals'));
+    }
+
+    public function updateRemainingAdjustment(Request $request, TransferRequest $transferRequest)
+    {
+        if (!app(MenuPermissionResolver::class)->userCan('approve')) {
+            abort(403, 'Anda tidak memiliki akses untuk penyesuaian sisa request transfer.');
+        }
+
+        if (!in_array($transferRequest->status, ['approved', 'on_progress'], true)) {
+            return redirect()
+                ->route('admin.stok-masuk.request-transfer.show', $transferRequest)
+                ->with('error', 'Penyesuaian sisa hanya tersedia untuk request transfer berstatus approved atau on_progress.');
+        }
+
+        $validated = $request->validate([
+            'adjustment_note' => ['required', 'string', 'max:1000'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.remaining_quantity' => ['required', 'numeric', 'min:0'],
+            'items.*.remaining_koli' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        try {
+            DB::transaction(function () use ($validated, $transferRequest, $request) {
+                $items = TransferRequestItem::query()
+                    ->where('transfer_request_id', $transferRequest->id)
+                    ->with('item')
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                $shipmentTotals = $this->shipmentTotalsForTransferRequest($transferRequest);
+                $changes = [];
+
+                foreach ($validated['items'] as $itemId => $payload) {
+                    $tri = $items->get((int) $itemId);
+                    if (!$tri) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'items' => 'Item penyesuaian tidak valid untuk request transfer ini.',
+                        ]);
+                    }
+
+                    $currentRemainingQty = round((float) ($tri->ship_remaining_quantity ?? 0), 2);
+                    $currentRemainingKoli = round((float) ($tri->ship_remaining_koli ?? 0), 2);
+                    $newRemainingQty = round((float) ($payload['remaining_quantity'] ?? 0), 2);
+                    $newRemainingKoli = round((float) ($payload['remaining_koli'] ?? 0), 2);
+
+                    if ($newRemainingQty > $currentRemainingQty || $newRemainingKoli > $currentRemainingKoli) {
+                        $itemName = $tri->item->nama_barang ?? $tri->item->name ?? ('ID ' . $tri->item_id);
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'items.' . $itemId . '.remaining_quantity' => 'Sisa item ' . $itemName . ' hanya boleh dikurangi, bukan ditambah.',
+                        ]);
+                    }
+
+                    $shippedQty = round((float) ($shipmentTotals[$tri->id]['quantity'] ?? 0), 2);
+                    $shippedKoli = round((float) ($shipmentTotals[$tri->id]['koli'] ?? 0), 2);
+                    $newRequestQty = $shippedQty + $newRemainingQty;
+                    $newRequestKoli = $shippedKoli + $newRemainingKoli;
+
+                    if (
+                        $newRemainingQty !== $currentRemainingQty
+                        || $newRemainingKoli !== $currentRemainingKoli
+                    ) {
+                        $changes[] = sprintf(
+                            '%s: sisa qty %s -> %s, sisa koli %s -> %s',
+                            $tri->item->sku ?? ('item#' . $tri->item_id),
+                            number_format($currentRemainingQty, 2, '.', ''),
+                            number_format($newRemainingQty, 2, '.', ''),
+                            number_format($currentRemainingKoli, 2, '.', ''),
+                            number_format($newRemainingKoli, 2, '.', '')
+                        );
+                    }
+
+                    $tri->quantity = $newRequestQty;
+                    $tri->koli = $newRequestKoli;
+                    $tri->ship_remaining_quantity = $newRemainingQty;
+                    $tri->ship_remaining_koli = $newRemainingKoli;
+                    if ($newRemainingQty <= 0 && $newRemainingKoli <= 0) {
+                        $tri->status = $shippedQty > 0 || $shippedKoli > 0 ? 'on_progress' : 'cancel';
+                    }
+                    $tri->save();
+                }
+
+                $this->refreshTransferRequestStatusAfterAdjustment($transferRequest);
+
+                UserActivity::create([
+                    'user_id' => Auth::id(),
+                    'activity' => 'adjusted',
+                    'menu' => 'Request Transfer',
+                    'description' => 'Menyesuaikan sisa Request Transfer ' . $transferRequest->code
+                        . '. Catatan: ' . $validated['adjustment_note']
+                        . (!empty($changes) ? '. Perubahan: ' . implode('; ', $changes) : '. Tidak ada perubahan qty.'),
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->header('User-Agent'),
+                ]);
+            });
+
+            return redirect()
+                ->route('admin.stok-masuk.request-transfer.show', $transferRequest)
+                ->with('success', 'Sisa request transfer berhasil disesuaikan.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('error', 'Gagal menyesuaikan sisa request transfer: ' . $e->getMessage());
+        }
+    }
+
     public function update(Request $request, TransferRequest $transferRequest)
     {
         $request->validate([
@@ -718,5 +845,72 @@ class RequestTransferController extends Controller
             return true;
         }
         return str_contains($e->getMessage(), 'transfer_requests_code_unique');
+    }
+
+    private function shipmentTotalsForTransferRequest(TransferRequest $transferRequest): array
+    {
+        return DB::table('shipment_item_details as sid')
+            ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
+            ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+            ->where('tri.transfer_request_id', $transferRequest->id)
+            ->select(
+                'tri.id as transfer_request_item_id',
+                DB::raw('COALESCE(SUM(sid.quantity_shipped),0) as quantity'),
+                DB::raw('COALESCE(SUM(sid.koli_shipped),0) as koli')
+            )
+            ->groupBy('tri.id')
+            ->get()
+            ->keyBy('transfer_request_item_id')
+            ->map(fn ($row) => [
+                'quantity' => (float) $row->quantity,
+                'koli' => (float) $row->koli,
+            ])
+            ->all();
+    }
+
+    private function refreshTransferRequestStatusAfterAdjustment(TransferRequest $transferRequest): void
+    {
+        $items = $transferRequest->items()->get([
+            'quantity',
+            'koli',
+            'received_quantity',
+            'received_koli',
+            'ship_remaining_quantity',
+            'ship_remaining_koli',
+        ]);
+
+        $hasRemaining = $items->contains(function ($item) {
+            return (float) ($item->ship_remaining_quantity ?? 0) > 0
+                || (float) ($item->ship_remaining_koli ?? 0) > 0;
+        });
+
+        $shipmentIds = DB::table('shipment_item_details as sid')
+            ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
+            ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+            ->where('tri.transfer_request_id', $transferRequest->id)
+            ->pluck('sid.shipment_id')
+            ->unique()
+            ->values();
+
+        $hasShipments = $shipmentIds->isNotEmpty();
+        $hasOpenShipments = $hasShipments && Shipment::query()
+            ->whereIn('id', $shipmentIds)
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', '!=', 'selesai');
+            })
+            ->exists();
+
+        if (!$hasRemaining && !$hasOpenShipments) {
+            $transferRequest->status = 'completed';
+            $transferRequest->completed_at = $transferRequest->completed_at ?: now()->toDateString();
+        } elseif ($hasShipments || $transferRequest->status === 'on_progress') {
+            $transferRequest->status = 'on_progress';
+            $transferRequest->completed_at = null;
+        } else {
+            $transferRequest->status = 'approved';
+            $transferRequest->completed_at = null;
+        }
+
+        $transferRequest->save();
     }
 }

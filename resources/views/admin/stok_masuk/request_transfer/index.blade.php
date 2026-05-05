@@ -450,6 +450,7 @@
                         render: function(data, type, row) {
                             let showUrl = "{{ route('admin.stok-masuk.request-transfer.show', ':id') }}".replace(':id', row.id);
                             let editUrl = "{{ route('admin.stok-masuk.request-transfer.edit', ':id') }}".replace(':id', row.id);
+                            let adjustUrl = "{{ route('admin.stok-masuk.request-transfer.adjust-remaining', ':id') }}".replace(':id', row.id);
                             let destroyUrl = "{{ route('admin.stok-masuk.request-transfer.destroy', ':id') }}".replace(':id', row.id);
                             let csrfToken = "{{ csrf_token() }}";
                             let actionsHtml = `
@@ -484,6 +485,13 @@
                                             </form>
                                         </div>`;
                                 }
+                            }
+
+                            if ((row.status === 'approved' || row.status === 'on_progress') && canApprove) {
+                                actionsHtml += `
+                                    <div class="menu-item px-3">
+                                        <a href="${adjustUrl}" class="menu-link px-3">Penyesuaian Sisa</a>
+                                    </div>`;
                             }
 
                             actionsHtml += `</div>`;

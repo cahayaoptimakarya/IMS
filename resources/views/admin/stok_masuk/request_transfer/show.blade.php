@@ -348,6 +348,16 @@
                     <div class="d-flex justify-content-between mt-8 no-print">
                         <a href="{{ route('admin.stok-masuk.request-transfer.index') }}" class="btn btn-light">Kembali</a>
                         <div class="d-flex align-items-center" style="gap:.5rem;">
+                            @php
+                                $permissionResolver = app(\App\Support\MenuPermissionResolver::class);
+                                $canAdjustRemaining = $permissionResolver->userCan('approve') && in_array($transferRequest->status, ['approved', 'on_progress'], true);
+                            @endphp
+                            @if($canAdjustRemaining)
+                                <a href="{{ route('admin.stok-masuk.request-transfer.adjust-remaining', $transferRequest) }}"
+                                    class="btn btn-warning">
+                                    Penyesuaian Sisa
+                                </a>
+                            @endif
                             <a href="{{ route('admin.stok-masuk.request-transfer.export-excel', $transferRequest) }}"
                                 class="btn btn-primary">
                                 Export Excel
@@ -366,5 +376,4 @@
         $('#print_button').on('click', function () { window.print(); });
     </script>
 @endpush
-
 
