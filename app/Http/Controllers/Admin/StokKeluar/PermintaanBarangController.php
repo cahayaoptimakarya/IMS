@@ -494,7 +494,7 @@ class PermintaanBarangController extends Controller
         }
 
         $itemsToShip = array_filter($validated['items'], function ($item) {
-            return ($item['quantity'] > 0 || $item['koli'] > 0);
+            return ((float) ($item['quantity'] ?? 0) > 0 || (float) ($item['koli'] ?? 0) > 0);
         });
 
         if (empty($itemsToShip)) {
@@ -505,22 +505,62 @@ class PermintaanBarangController extends Controller
             $shipmentId = null;
             $shipmentCode = null;
             DB::transaction(function () use (&$shipmentId, &$shipmentCode, $validated, $transferRequest, $itemsToShip, $request) {
-                // 1. Validasi Stok dan Kuantitas
-                foreach ($itemsToShip as $id => $itemData) {
-                    $transferRequestItem = TransferRequestItem::findOrFail($id);
-                    $quantityToShip = $itemData['quantity'] ?? 0;
-                    $koliToShip = $itemData['koli'] ?? 0;
+                $itemIds = collect(array_keys($itemsToShip))
+                    ->map(fn ($id) => (int) $id)
+                    ->filter()
+                    ->unique()
+                    ->values();
 
-                    if ($quantityToShip > $transferRequestItem->ship_remaining_quantity || $koliToShip > $transferRequestItem->ship_remaining_koli) {
-                        throw ValidationException::withMessages(['items' => 'Kuantitas kirim untuk item ' . $transferRequestItem->item->name . ' melebihi sisa yang diminta.']);
+                $transferRequestItems = TransferRequestItem::query()
+                    ->where('transfer_request_id', $transferRequest->id)
+                    ->whereIn('id', $itemIds)
+                    ->with('item')
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                if ($transferRequestItems->count() !== $itemIds->count()) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Item pengiriman tidak valid untuk permintaan ini.',
+                    ]);
+                }
+
+                $inventoryRows = Inventory::query()
+                    ->where('warehouse_id', $transferRequest->from_warehouse_id)
+                    ->whereIn('item_id', $transferRequestItems->pluck('item_id')->unique()->values())
+                    ->orderBy('item_id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('item_id');
+
+                // 1. Validasi Stok dan Kuantitas pada row yang sudah dikunci.
+                foreach ($itemsToShip as $id => $itemData) {
+                    $transferRequestItem = $transferRequestItems->get((int) $id);
+                    $quantityToShip = (float) ($itemData['quantity'] ?? 0);
+                    $koliToShip = (float) ($itemData['koli'] ?? 0);
+                    $itemName = $transferRequestItem->item->nama_barang
+                        ?? $transferRequestItem->item->name
+                        ?? ('ID ' . $transferRequestItem->item_id);
+
+                    if (
+                        $quantityToShip > (float) ($transferRequestItem->ship_remaining_quantity ?? 0)
+                        || $koliToShip > (float) ($transferRequestItem->ship_remaining_koli ?? 0)
+                    ) {
+                        throw ValidationException::withMessages([
+                            'items' => 'Kuantitas kirim untuk item ' . $itemName . ' melebihi sisa yang diminta.',
+                        ]);
                     }
 
-                    $inventory = Inventory::where('warehouse_id', $transferRequest->from_warehouse_id)
-                        ->where('item_id', $transferRequestItem->item_id)
-                        ->first();
-
-                    if (!$inventory || $inventory->quantity < $quantityToShip) {
-                        throw ValidationException::withMessages(['items' => 'Stok untuk item ' . $transferRequestItem->item->name . ' tidak mencukupi di gudang asal.']);
+                    $inventory = $inventoryRows->get($transferRequestItem->item_id);
+                    if (
+                        !$inventory
+                        || (float) ($inventory->quantity ?? 0) < $quantityToShip
+                        || (float) ($inventory->koli ?? 0) < $koliToShip
+                    ) {
+                        throw ValidationException::withMessages([
+                            'items' => 'Stok untuk item ' . $itemName . ' tidak mencukupi di gudang asal.',
+                        ]);
                     }
                 }
 
@@ -579,15 +619,31 @@ class PermintaanBarangController extends Controller
 
                 // 3. Proses setiap item
                 foreach ($itemsToShip as $id => $itemData) {
-                    $transferRequestItem = TransferRequestItem::findOrFail($id);
-                    $quantityToShip = $itemData['quantity'] ?? 0;
-                    $koliToShip = $itemData['koli'] ?? 0;
+                    $transferRequestItem = $transferRequestItems->get((int) $id);
+                    $quantityToShip = (float) ($itemData['quantity'] ?? 0);
+                    $koliToShip = (float) ($itemData['koli'] ?? 0);
+
+                    $existingDetail = ShipmentItemDetail::query()
+                        ->where('shipment_id', $shipment->id)
+                        ->where('reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                        ->where('reference_id', $transferRequestItem->id)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($existingDetail) {
+                        $itemName = $transferRequestItem->item->nama_barang
+                            ?? $transferRequestItem->item->name
+                            ?? ('ID ' . $transferRequestItem->item_id);
+                        throw ValidationException::withMessages([
+                            'items' => 'Item ' . $itemName . ' dari request ini sudah ada di shipment ' . $shipment->code . '. Gunakan menu edit pengiriman jika perlu mengubah qty.',
+                        ]);
+                    }
 
                     // Buat Shipment Item Detail
                     $shipmentDetail = ShipmentItemDetail::create([
                         'shipment_id' => $shipment->id,
                         'reference_id' => $transferRequestItem->id,
-                        'reference_type' => 'transfer_request_items',
+                        'reference_type' => ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM,
                         'item_id' => $transferRequestItem->item_id,
                         'quantity_shipped' => $quantityToShip,
                         'koli_shipped' => $koliToShip,
@@ -595,9 +651,7 @@ class PermintaanBarangController extends Controller
                     ]);
 
                     // Kurangi stok dari gudang asal
-                    $fromInventory = Inventory::where('warehouse_id', $transferRequest->from_warehouse_id)
-                        ->where('item_id', $transferRequestItem->item_id)
-                        ->first();
+                    $fromInventory = $inventoryRows->get($transferRequestItem->item_id);
 
                     $stockBefore = $fromInventory->quantity;
                     $fromInventory->quantity -= $quantityToShip;

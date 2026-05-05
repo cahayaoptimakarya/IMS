@@ -915,8 +915,12 @@
             // Removed stepper controls; numeric input only
 
 
+            let kirimBarangSaving = false;
             $(form).on('submit', function(e) {
                 e.preventDefault();
+                if (kirimBarangSaving) {
+                    return;
+                }
                 $('.is-invalid').removeClass('is-invalid');
                 $('.invalid-feedback').text('');
 
@@ -933,6 +937,9 @@
                     }
                 }).then(function(result) {
                     if (result.value) {
+                        kirimBarangSaving = true;
+                        const submitButton = $(form).find('[type="submit"]');
+                        submitButton.prop('disabled', true);
                         let formData = new FormData(form);
                         $.ajax({
                             url: $(form).attr('action'),
@@ -945,8 +952,12 @@
                                 toastr.success(`Data pengiriman berhasil disimpan.`);
                                 loadDataTable();
                                 form.reset();
+                                kirimBarangSaving = false;
+                                submitButton.prop('disabled', false);
                             },
                             error: function(xhr) {
+                                kirimBarangSaving = false;
+                                submitButton.prop('disabled', false);
                                 if (xhr.status === 422) {
                                     var errors = xhr.responseJSON.errors;
                                     $.each(errors, function(key, value) {

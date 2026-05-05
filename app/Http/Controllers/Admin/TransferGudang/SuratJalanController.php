@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin\TransferGudang;
 
 use App\Http\Controllers\Controller;
+use App\Models\Shipment;
+use App\Models\ShipmentItemDetail;
 use App\Models\TransferRequest;
 use Illuminate\Http\Request;
 
@@ -10,12 +12,19 @@ class SuratJalanController extends Controller
 {
     public function show(TransferRequest $transferRequest)
     {
-        // Ambil shipment terbaru untuk Transfer Request ini dan muat detail transfer (shipment_transfer_details)
         $transferRequest->load(['fromWarehouse', 'toWarehouse']);
+        $transferRequestItemIds = $transferRequest->items()->pluck('id');
 
-        $shipment = $transferRequest->shipments()
+        // Ambil shipment terbaru yang benar-benar memiliki detail dari Transfer Request ini.
+        $shipment = Shipment::query()
+            ->where('reference_type', Shipment::REFERENCE_TYPE_TRANSFER_REQUEST)
+            ->whereHas('itemDetails', function ($q) use ($transferRequestItemIds) {
+                $q->where('reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
+                    ->whereIn('reference_id', $transferRequestItemIds);
+            })
             ->with(['itemDetails.item'])
             ->latest('shipping_date')
+            ->latest('id')
             ->first();
 
         if (!$shipment) {

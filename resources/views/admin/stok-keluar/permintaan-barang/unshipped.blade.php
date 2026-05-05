@@ -335,7 +335,7 @@
     let modalEl = document.getElementById('bulkPackModal');
     let bsModal = null;
     let rows = [];
-    let firstTrId = null; let fromToKey = null;
+    let firstTrId = null; let fromToKey = null; let saving = false;
     function show(){ if (!bsModal) bsModal = new bootstrap.Modal(modalEl); bsModal.show(); }
     function warn(msg){ if (window.toastr) toastr.error(msg); else alert(msg); }
     function open(_trId, _trCode, $selectedRows){
@@ -547,6 +547,7 @@
     });
 
     $(document).on('click','#bp_save', function(){
+      if (saving) return;
       const shipSel = $('#bp_shipment').val();
       if (!shipSel) return warn('Pilih shipment (packing) atau buat baru.');
       if (!$('#bp_items_table tbody tr').length) return warn('Tidak ada SKU di packing massal.');
@@ -569,12 +570,21 @@
       });
       if (!any) return warn('Isi qty/koli untuk minimal satu item.');
 
+      function lockSaveButton(){
+        saving = true;
+        $('#bp_save').prop('disabled', true).text('Menyimpan...');
+      }
+      function unlockSaveButton(){
+        saving = false;
+        $('#bp_save').prop('disabled', false).text('Simpan');
+      }
       function submitWithShipmentId(shipmentId, headerData){
+        lockSaveButton();
         const reqs=[]; Object.entries(itemsByTr).forEach(([trId, items])=>{
           const payload = Object.assign({ shipment_id: shipmentId, items }, headerData||{});
           reqs.push($.ajax({ url: `{{ url('admin/stok-keluar/permintaan-barang') }}/${trId}/create-shipment`, type:'POST', headers:{'X-CSRF-TOKEN': csrf }, data: payload }));
         });
-        $.when.apply($, reqs).done(function(){ Swal.fire('Berhasil','Packing massal tersimpan.','success').then(()=>{ location.reload(); }); }).fail(function(xhr){ let msg='Gagal menyimpan.'; if (xhr?.responseJSON?.message) msg=xhr.responseJSON.message; Swal.fire('Error', msg, 'error'); });
+        $.when.apply($, reqs).done(function(){ Swal.fire('Berhasil','Packing massal tersimpan.','success').then(()=>{ location.reload(); }); }).fail(function(xhr){ unlockSaveButton(); let msg='Gagal menyimpan.'; if (xhr?.responseJSON?.message) msg=xhr.responseJSON.message; Swal.fire('Error', msg, 'error'); });
       }
 
       const runSave = function(){
@@ -586,6 +596,7 @@
           const firstItems = itemsByTr[firstTrId] || {};
           if (Object.keys(firstItems).length===0) return warn('Isi qty/koli pada salah satu item dari TR pertama.');
           const payloadFirst = Object.assign({ shipment_id: null, items: firstItems }, header);
+          lockSaveButton();
           $.ajax({ url: `{{ url('admin/stok-keluar/permintaan-barang') }}/${firstTrId}/create-shipment`, type: 'POST', headers:{'X-CSRF-TOKEN': csrf}, data: payloadFirst })
             .done(function(resp){
               // Prefer shipment_id returned by backend to avoid ambiguity by date
@@ -600,12 +611,12 @@
               if (reuseId){ return proceedWithId(reuseId); }
               // Fallback: Fetch packing shipments and pick the newest by created order if available
               $.get(`{{ url('admin/stok-keluar/permintaan-barang') }}/${firstTrId}/packing-shipments`, function(list){
-                if (!Array.isArray(list) || list.length===0) { return Swal.fire('Error','Tidak dapat menemukan shipment baru.','error'); }
+                if (!Array.isArray(list) || list.length===0) { unlockSaveButton(); return Swal.fire('Error','Tidak dapat menemukan shipment baru.','error'); }
                 const chosen = list[0];
                 proceedWithId(chosen.id);
-              }).fail(function(){ Swal.fire('Error','Gagal mengambil data shipment.','error'); });
+              }).fail(function(){ unlockSaveButton(); Swal.fire('Error','Gagal mengambil data shipment.','error'); });
             })
-            .fail(function(xhr){ let msg='Gagal membuat shipment baru.'; if (xhr?.responseJSON?.message) msg=xhr.responseJSON.message; Swal.fire('Error', msg, 'error'); });
+            .fail(function(xhr){ unlockSaveButton(); let msg='Gagal membuat shipment baru.'; if (xhr?.responseJSON?.message) msg=xhr.responseJSON.message; Swal.fire('Error', msg, 'error'); });
         } else {
           // Existing shipment id
           const opt = $('#bp_shipment option:selected');
@@ -734,6 +745,7 @@
     }
 
     let ctx = {};
+    let pmSaving = false;
     $(document).on('click','.btn-pack', function(){
       ctx = {
         trId: $(this).data('tr-id'),
@@ -840,6 +852,7 @@
     });
 
     $('#pm_save').on('click', function(){
+      if (pmSaving) return;
       let qty = parseInt($('#pm_qty').val()||0);
       let koli = parseFloat($('#pm_koli').val()||0);
       if (qty > ctx.remQty){ return warn('Qty tidak boleh melebihi sisa kirim ('+ctx.remQty+').'); }
@@ -890,6 +903,8 @@
             payload.items[ctx.triId] = { item_id: ctx.itemId, quantity: qty, koli: koli };
 
             // POST to create-shipment (append to packing or create new)
+            pmSaving = true;
+            $('#pm_save').prop('disabled', true).text('Menyimpan...');
             $.ajax({
               url: "{{ url('admin/stok-keluar/permintaan-barang') }}/"+ctx.trId+"/create-shipment",
               type: 'POST',
@@ -900,6 +915,8 @@
                 else { alert('Berhasil'); location.reload(); }
               },
               error: function(xhr){
+                pmSaving = false;
+                $('#pm_save').prop('disabled', false).text('Simpan');
                 let msg = 'Gagal menyimpan.';
                 if (xhr && xhr.responseJSON && xhr.responseJSON.message) msg = xhr.responseJSON.message;
                 if (window.Swal){ Swal.fire('Error', msg, 'error'); } else { alert(msg); }
