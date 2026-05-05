@@ -51,7 +51,6 @@
 
 @section('content')
     @php
-        $totalCurrentQty = (float) $transferRequest->items->sum('quantity');
         $totalShippedQty = $transferRequest->items->sum(fn ($item) => (float) ($shipmentTotals[$item->id]['quantity'] ?? 0));
         $totalRemainingQty = (float) $transferRequest->items->sum('ship_remaining_quantity');
         $totalRemainingKoli = (float) $transferRequest->items->sum('ship_remaining_koli');
@@ -78,11 +77,11 @@
 
                 <div class="summary-grid">
                     <div class="summary-box">
-                        <div class="summary-label">Request Qty Saat Ini</div>
-                        <div class="summary-value">{{ number_format($totalCurrentQty, 0, ',', '.') }}</div>
+                        <div class="summary-label">Item Masih Sisa</div>
+                        <div class="summary-value">{{ number_format($transferRequest->items->count(), 0, ',', '.') }}</div>
                     </div>
                     <div class="summary-box">
-                        <div class="summary-label">Sudah Dikirim</div>
+                        <div class="summary-label">Sudah Dikirim Dari Item Ini</div>
                         <div class="summary-value">{{ number_format($totalShippedQty, 0, ',', '.') }}</div>
                     </div>
                     <div class="summary-box">
@@ -101,10 +100,10 @@
                 @method('PUT')
 
                 <div class="flow-note">
-                    Ubah angka di <strong>Sisa Baru</strong>. Sistem akan menghitung <strong>Request Baru = Sudah Dikirim + Sisa Baru</strong>. Mutasi dan surat jalan yang sudah ada tidak berubah.
+                    Hanya item yang masih memiliki sisa belum dikirim yang ditampilkan di halaman ini. Ubah angka di <strong>Sisa Baru</strong>; sistem akan menghitung <strong>Request Baru = Sudah Dikirim + Sisa Baru</strong>. Mutasi dan surat jalan yang sudah ada tidak berubah.
                 </div>
 
-                @foreach($transferRequest->items as $item)
+                @forelse($transferRequest->items as $item)
                     @php
                         $shippedQty = (float) ($shipmentTotals[$item->id]['quantity'] ?? 0);
                         $shippedKoli = (float) ($shipmentTotals[$item->id]['koli'] ?? 0);
@@ -189,20 +188,29 @@
                             </div>
                         </div>
                     </div>
-                @endforeach
-
-                <div class="card mb-5">
-                    <div class="card-body">
-                        <label class="form-label required">Catatan Penyesuaian</label>
-                        <textarea name="adjustment_note" rows="3" class="form-control form-control-solid @error('adjustment_note') is-invalid @enderror" required placeholder="Contoh: sisa tidak dikirim karena dibatalkan oleh cabang / digabung ke request berikutnya">{{ old('adjustment_note') }}</textarea>
-                        @error('adjustment_note')
-                            <div class="invalid-feedback d-block">{{ $message }}</div>
-                        @enderror
-                        @if($errors->has('items'))
-                            <div class="alert alert-danger mt-4">{{ $errors->first('items') }}</div>
-                        @endif
+                @empty
+                    <div class="card mb-5">
+                        <div class="card-body text-center py-12">
+                            <div class="fw-bolder fs-4 mb-2">Tidak ada sisa item belum dikirim</div>
+                            <div class="text-muted">Semua item pada request ini sudah tidak memiliki sisa pengiriman yang bisa disesuaikan.</div>
+                        </div>
                     </div>
-                </div>
+                @endforelse
+
+                @if($transferRequest->items->count() > 0)
+                    <div class="card mb-5">
+                        <div class="card-body">
+                            <label class="form-label required">Catatan Penyesuaian</label>
+                            <textarea name="adjustment_note" rows="3" class="form-control form-control-solid @error('adjustment_note') is-invalid @enderror" required placeholder="Contoh: sisa tidak dikirim karena dibatalkan oleh cabang / digabung ke request berikutnya">{{ old('adjustment_note') }}</textarea>
+                            @error('adjustment_note')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                            @if($errors->has('items'))
+                                <div class="alert alert-danger mt-4">{{ $errors->first('items') }}</div>
+                            @endif
+                        </div>
+                    </div>
+                @endif
 
                 <div class="sticky-actions d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
@@ -211,7 +219,9 @@
                     </div>
                     <div class="d-flex gap-3">
                         <a href="{{ route('admin.stok-masuk.request-transfer.show', $transferRequest) }}" class="btn btn-light">Batal</a>
-                        <button type="submit" class="btn btn-primary">Simpan Penyesuaian</button>
+                        @if($transferRequest->items->count() > 0)
+                            <button type="submit" class="btn btn-primary">Simpan Penyesuaian</button>
+                        @endif
                     </div>
                 </div>
             </form>

@@ -509,6 +509,10 @@ class RequestTransferController extends Controller
         }
 
         $transferRequest->load(['fromWarehouse', 'toWarehouse', 'requester', 'items.item']);
+        $transferRequest->setRelation('items', $transferRequest->items->filter(function ($item) {
+            return (float) ($item->ship_remaining_quantity ?? 0) > 0
+                || (float) ($item->ship_remaining_koli ?? 0) > 0;
+        })->values());
         $shipmentTotals = $this->shipmentTotalsForTransferRequest($transferRequest);
 
         return view('admin.stok_masuk.request_transfer.adjust_remaining', compact('transferRequest', 'shipmentTotals'));
