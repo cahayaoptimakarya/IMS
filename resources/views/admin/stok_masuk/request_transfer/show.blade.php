@@ -350,7 +350,7 @@
                         <div class="d-flex align-items-center" style="gap:.5rem;">
                             @php
                                 $permissionResolver = app(\App\Support\MenuPermissionResolver::class);
-                                $canAdjustRemaining = $permissionResolver->userCan('approve') && in_array($transferRequest->status, ['approved', 'on_progress'], true);
+                                $canAdjustRemaining = $permissionResolver->userCan('approve') && in_array($transferRequest->status, ['approved', 'on_progress', 'completed'], true);
                             @endphp
                             @if($canAdjustRemaining)
                                 <a href="{{ route('admin.stok-masuk.request-transfer.adjust-remaining', $transferRequest) }}"
@@ -376,4 +376,3 @@
         $('#print_button').on('click', function () { window.print(); });
     </script>
 @endpush
-

@@ -502,10 +502,10 @@ class RequestTransferController extends Controller
             abort(403, 'Anda tidak memiliki akses untuk penyesuaian sisa request transfer.');
         }
 
-        if (!in_array($transferRequest->status, ['approved', 'on_progress'], true)) {
+        if (!in_array($transferRequest->status, ['approved', 'on_progress', 'completed'], true)) {
             return redirect()
                 ->route('admin.stok-masuk.request-transfer.show', $transferRequest)
-                ->with('error', 'Penyesuaian sisa hanya tersedia untuk request transfer berstatus approved atau on_progress.');
+                ->with('error', 'Penyesuaian sisa hanya tersedia untuk request transfer berstatus approved, on_progress, atau completed.');
         }
 
         $transferRequest->load(['fromWarehouse', 'toWarehouse', 'requester', 'items.item']);
@@ -520,10 +520,10 @@ class RequestTransferController extends Controller
             abort(403, 'Anda tidak memiliki akses untuk penyesuaian sisa request transfer.');
         }
 
-        if (!in_array($transferRequest->status, ['approved', 'on_progress'], true)) {
+        if (!in_array($transferRequest->status, ['approved', 'on_progress', 'completed'], true)) {
             return redirect()
                 ->route('admin.stok-masuk.request-transfer.show', $transferRequest)
-                ->with('error', 'Penyesuaian sisa hanya tersedia untuk request transfer berstatus approved atau on_progress.');
+                ->with('error', 'Penyesuaian sisa hanya tersedia untuk request transfer berstatus approved, on_progress, atau completed.');
         }
 
         $validated = $request->validate([
@@ -559,13 +559,6 @@ class RequestTransferController extends Controller
                     $newRemainingQty = round((float) ($payload['remaining_quantity'] ?? 0), 2);
                     $newRemainingKoli = round((float) ($payload['remaining_koli'] ?? 0), 2);
 
-                    if ($newRemainingQty > $currentRemainingQty || $newRemainingKoli > $currentRemainingKoli) {
-                        $itemName = $tri->item->nama_barang ?? $tri->item->name ?? ('ID ' . $tri->item_id);
-                        throw \Illuminate\Validation\ValidationException::withMessages([
-                            'items.' . $itemId . '.remaining_quantity' => 'Sisa item ' . $itemName . ' hanya boleh dikurangi, bukan ditambah.',
-                        ]);
-                    }
-
                     $shippedQty = round((float) ($shipmentTotals[$tri->id]['quantity'] ?? 0), 2);
                     $shippedKoli = round((float) ($shipmentTotals[$tri->id]['koli'] ?? 0), 2);
                     $newRequestQty = $shippedQty + $newRemainingQty;
@@ -591,6 +584,8 @@ class RequestTransferController extends Controller
                     $tri->ship_remaining_koli = $newRemainingKoli;
                     if ($newRemainingQty <= 0 && $newRemainingKoli <= 0) {
                         $tri->status = $shippedQty > 0 || $shippedKoli > 0 ? 'on_progress' : 'cancel';
+                    } else {
+                        $tri->status = $shippedQty > 0 || $shippedKoli > 0 ? 'on_progress' : 'pending';
                     }
                     $tri->save();
                 }

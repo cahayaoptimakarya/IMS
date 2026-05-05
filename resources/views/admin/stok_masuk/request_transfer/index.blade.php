@@ -487,7 +487,7 @@
                                 }
                             }
 
-                            if ((row.status === 'approved' || row.status === 'on_progress') && canApprove) {
+                            if ((row.status === 'approved' || row.status === 'on_progress' || row.status === 'completed') && canApprove) {
                                 actionsHtml += `
                                     <div class="menu-item px-3">
                                         <a href="${adjustUrl}" class="menu-link px-3">Penyesuaian Sisa</a>
