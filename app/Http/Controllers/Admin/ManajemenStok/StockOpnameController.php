@@ -377,6 +377,10 @@ class StockOpnameController extends Controller
                     $deltaKoli = $targetKoli - $beforeKoli;
 
                     if ($deltaQty != 0 || $deltaKoli != 0) {
+                        $movementType = $deltaQty > 0 || ($deltaQty == 0 && $deltaKoli > 0)
+                            ? 'stock_in'
+                            : 'stock_out';
+
                         StockMovement::create([
                             'warehouse_id' => $stok_opname->warehouse_id,
                             'item_id' => $soItem->item_id,
@@ -385,7 +389,7 @@ class StockOpnameController extends Controller
                             'koli' => $deltaKoli,
                             'stock_before' => $beforeQty,
                             'stock_after' => $targetQty,
-                            'type' => $deltaQty > 0 ? 'stock_in' : ($deltaQty < 0 ? 'stock_out' : 'stock_opname'),
+                            'type' => $movementType,
                             'description' => 'Penyesuaian Stock Opname: ' . $stok_opname->code,
                             'user_id' => Auth::id(),
                             'reference_id' => $soItem->id,
