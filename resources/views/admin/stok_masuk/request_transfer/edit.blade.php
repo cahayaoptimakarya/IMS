@@ -126,7 +126,7 @@
                     <div class="mt-10">
                         <button type="submit" class="btn btn-primary">Update</button>
                         <a href="{{ route('admin.stok-masuk.request-transfer.index') }}"
-                            class="btn btn-light">Batal</a>
+                            class="btn btn-light js-cancel-transfer-request">Batal</a>
                     </div>
                 </form>
             </div>
@@ -170,6 +170,29 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            $('.js-cancel-transfer-request').on('click', function(event) {
+                event.preventDefault();
+                const cancelUrl = this.href;
+
+                Swal.fire({
+                    title: 'Batalkan perubahan?',
+                    text: 'Perubahan pada Request Transfer ini belum disimpan dan akan hilang.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, batalkan',
+                    cancelButtonText: 'Tidak, lanjutkan pengeditan',
+                    buttonsStyling: false,
+                    customClass: {
+                        confirmButton: 'btn fw-bold btn-danger',
+                        cancelButton: 'btn fw-bold btn-active-light-primary'
+                    }
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        window.location.assign(cancelUrl);
+                    }
+                });
+            });
+
             $("#date").flatpickr({
                 dateFormat: "Y-m-d",
                 defaultDate: "{{ old('date', (new DateTime($transferRequest->date))->format('Y-m-d')) }}"
