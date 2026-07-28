@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\Masterdata\UserController;
 use App\Http\Controllers\Admin\Masterdata\WarehouseController;
 use App\Http\Controllers\Admin\Masterdata\AssemblyRecipeController;
 use App\Http\Controllers\Admin\Masterdata\EmployeeVehicleController;
+use App\Http\Controllers\Admin\Masterdata\StockApiAllowedIpController;
 use App\Http\Controllers\Admin\StokKeluar\PengeluaranBarangController;
 use App\Http\Controllers\Admin\StokKeluar\PermintaanBarangController;
 use App\Http\Controllers\Admin\StokMasuk\PengadaanController;
@@ -55,6 +56,10 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         // Put data route BEFORE resource to avoid binding 'data' as {item}
         Route::get('items/data', [ItemController::class, 'data'])->name('items.data');
         Route::resource('items', ItemController::class);
+        Route::get('stock-api-access', [StockApiAllowedIpController::class, 'index'])->name('stock-api-access.index');
+        Route::post('stock-api-access', [StockApiAllowedIpController::class, 'store'])->name('stock-api-access.store');
+        Route::put('stock-api-access/{stockApiAllowedIp}', [StockApiAllowedIpController::class, 'update'])->name('stock-api-access.update');
+        Route::delete('stock-api-access/{stockApiAllowedIp}', [StockApiAllowedIpController::class, 'destroy'])->name('stock-api-access.destroy');
     Route::post('items/import', [ItemController::class, 'import'])->name('items.import');
         // Import kategori item by CSV (SKU;Kategori)
         Route::get('import-kategori-item', [ItemCategoryImportController::class, 'index'])->name('item-categories-import.index');

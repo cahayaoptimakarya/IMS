@@ -107,6 +107,11 @@ class MenuSeeder extends Seeder
             ]
         );
 
+        Menu::updateOrCreate(
+            ['name' => 'Akses API Stok'],
+            ['url' => '/admin/masterdata/stock-api-access', 'icon' => 'fas fa-shield-alt', 'parent_id' => $masterdata->id, 'order' => 8.5]
+        );
+
         $assemblyRecipeMenu = Menu::updateOrCreate(
             ['name' => 'Resep Perakitan'],
             [
