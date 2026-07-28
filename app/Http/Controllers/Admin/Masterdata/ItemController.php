@@ -59,6 +59,7 @@ class ItemController extends Controller
             'low_stock_threshold' => 'nullable|integer|min:0',
             'lead_time_po_days' => 'nullable|integer|min:0',
             'lead_time_safety_days' => 'nullable|integer|min:0',
+            'is_active' => 'nullable|boolean',
         ]);
 
         DB::beginTransaction();
@@ -69,6 +70,7 @@ class ItemController extends Controller
             // Default lead times if not provided
             $data['lead_time_po_days'] = $request->input('lead_time_po_days', 7);
             $data['lead_time_safety_days'] = $request->input('lead_time_safety_days', 1);
+            $data['is_active'] = $request->boolean('is_active', true);
 
             $item = Item::create($data);
 
@@ -129,6 +131,7 @@ class ItemController extends Controller
             'low_stock_threshold' => 'nullable|integer|min:0',
             'lead_time_po_days' => 'nullable|integer|min:0',
             'lead_time_safety_days' => 'nullable|integer|min:0',
+            'is_active' => 'nullable|boolean',
         ]);
 
         DB::beginTransaction();
@@ -144,6 +147,7 @@ class ItemController extends Controller
             if (!$request->has('lead_time_safety_days')) {
                 $payload['lead_time_safety_days'] = $item->lead_time_safety_days;
             }
+            $payload['is_active'] = $request->boolean('is_active', $item->is_active);
             $item->update($payload);
 
             UserActivity::create([
@@ -284,6 +288,7 @@ class ItemController extends Controller
                     'item_category_id' => $item_category_id,
                     'uom_id' => $uom_id,
                     'tempat' => $tempat,
+                    'is_active' => true,
                 ]);
 
                 $created++;
@@ -386,6 +391,7 @@ class ItemController extends Controller
         $length = (int) $request->input('length', 10);
         $searchValue = $request->input('search.value');
         $categoryId = $request->input('category_id');
+        $status = $request->input('status');
 
         // Base query with relations
         $baseQuery = Item::query()->with(['uom', 'itemCategory']);
@@ -396,6 +402,9 @@ class ItemController extends Controller
         // Filtering
         if ($categoryId && $categoryId !== 'semua') {
             $baseQuery->where('item_category_id', $categoryId);
+        }
+        if (in_array($status, ['active', 'inactive'], true)) {
+            $baseQuery->where('is_active', $status === 'active');
         }
         if ($searchValue) {
             $baseQuery->where(function ($q) use ($searchValue) {
@@ -413,13 +422,14 @@ class ItemController extends Controller
         $orderDir = $request->input('order.0.dir', 'asc');
 
         // Map DataTables column index to database columns
-        // 0: No (ignored), 1: Item/SKU, 2: low_stock_threshold, 3: koli, 4: uom, 5: deskripsi, 6: actions (ignored)
+        // 0: No (ignored), 1: Item/SKU, 2: status, 3: low_stock_threshold, 4: koli, 5: uom, 6: deskripsi, 7: actions (ignored)
         $orderableColumns = [
             1 => 'nama_barang',
-            2 => 'low_stock_threshold',
-            3 => 'koli',
-            4 => 'uom_id', // fallback; custom sort by relation name not applied here
-            5 => 'deskripsi',
+            2 => 'is_active',
+            3 => 'low_stock_threshold',
+            4 => 'koli',
+            5 => 'uom_id', // fallback; custom sort by relation name not applied here
+            6 => 'deskripsi',
         ];
         if (isset($orderableColumns[$orderColumnIndex])) {
             $baseQuery->orderBy($orderableColumns[$orderColumnIndex], $orderDir === 'desc' ? 'desc' : 'asc');
@@ -445,6 +455,7 @@ class ItemController extends Controller
                     'sku' => $item->sku,
                     'nama_barang' => $item->nama_barang,
                 ],
+                'is_active' => (bool) $item->is_active,
                 'low_stock_threshold' => $item->low_stock_threshold,
                 'koli' => $item->koli,
                 'uom' => optional($item->uom)->name,

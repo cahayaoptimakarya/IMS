@@ -27,6 +27,12 @@
                     <p class="form-control-static">{{ $item->nama_barang }}</p>
                 </div>
                 <div class="mb-3">
+                    <label class="form-label fw-bold">Status:</label>
+                    <p class="form-control-static">
+                        <span class="badge badge-light-{{ $item->is_active ? 'success' : 'secondary' }}">{{ $item->is_active ? 'Aktif' : 'Nonaktif' }}</span>
+                    </p>
+                </div>
+                <div class="mb-3">
                     <label class="form-label fw-bold">Deskripsi:</label>
                     <p class="form-control-static">{{ $item->deskripsi }}</p>
                 </div>

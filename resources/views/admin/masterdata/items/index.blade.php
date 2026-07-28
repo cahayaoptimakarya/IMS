@@ -93,6 +93,13 @@
                             @endforeach
                         </select>
                     </div>
+                    <div class="d-flex align-items-center position-relative my-1 ms-3">
+                        <select id="status_filter" class="form-select form-select-solid" data-control="select2" data-placeholder="Filter Status">
+                            <option value="">Semua Status</option>
+                            <option value="active">Aktif</option>
+                            <option value="inactive">Nonaktif</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="card-toolbar">
                     <!--begin::Toolbar-->
@@ -166,6 +173,7 @@
                                 <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
                                     <th class="sorting">No</th>
                                     <th class="min-w-250px sorting">Item / SKU</th>
+                                    <th class="min-w-100px sorting">Status</th>
                                     <th class="min-w-125px sorting">Minimal Stok Menipis</th>
                                     <th class="min-w-125px sorting">Koli</th>
                                     <th class="min-w-125px sorting">UOM</th>
@@ -233,6 +241,7 @@
                         d.search = d.search || {};
                         d.search.value = $('#search_input').val();
                         d.category_id = $('#category_filter').val();
+                        d.status = $('#status_filter').val();
                     }
                 },
                 order: [
@@ -254,6 +263,15 @@
                                 + '<span class="item-sku-badge">' + escapeHtml(sku) + '</span>'
                                 + '<span class="item-name" title="' + escapeHtml(nama) + '">' + escapeHtml(nama) + '</span>'
                                 + '</div>';
+                        }
+                    },
+                    {
+                        data: 'is_active',
+                        name: 'is_active',
+                        render: function(value) {
+                            return value
+                                ? '<span class="badge badge-light-success">Aktif</span>'
+                                : '<span class="badge badge-light-secondary">Nonaktif</span>';
                         }
                     },
                     {
@@ -329,8 +347,8 @@
                     }
                 },
                 columnDefs: [
-                    { targets: [2,3], className: 'text-end' },
-                    { targets: [6], orderable: false, className: 'text-center' }
+                    { targets: [3,4], className: 'text-end' },
+                    { targets: [7], orderable: false, className: 'text-center' }
                 ]
             });
 
@@ -347,6 +365,9 @@
             $('#search_input').on('keyup', debounce(function() {
                 table.draw();
             }, 500));
+            $('#category_filter, #status_filter').on('change', function() {
+                table.draw();
+            });
 
             if (canDelete) {
                 $('#table-on-page').on('submit', '.form-delete', function(e) {

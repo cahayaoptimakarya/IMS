@@ -38,7 +38,9 @@ class InventoryController extends Controller
             $query = Inventory::query()
                 ->join('items', 'inventories.item_id', '=', 'items.id')
                 ->leftJoin('warehouses as w', 'inventories.warehouse_id', '=', 'w.id')
-                ->leftJoin('uoms as u', 'items.uom_id', '=', 'u.id');
+                ->leftJoin('uoms as u', 'items.uom_id', '=', 'u.id')
+                // Item nonaktif tetap memiliki saldo dan riwayat, tetapi tidak ditampilkan di Master Stok.
+                ->where('items.is_active', true);
 
             // Scope to user's warehouse by default if set and no explicit filter
             if (auth()->user() && auth()->user()->warehouse_id && ($warehouseFilter === null || $warehouseFilter === '')) {
@@ -211,7 +213,9 @@ class InventoryController extends Controller
         $query = Inventory::query()
             ->join('items', 'inventories.item_id', '=', 'items.id')
             ->leftJoin('warehouses as w', 'inventories.warehouse_id', '=', 'w.id')
-            ->leftJoin('uoms as u', 'items.uom_id', '=', 'u.id');
+            ->leftJoin('uoms as u', 'items.uom_id', '=', 'u.id')
+            // Samakan data ekspor dengan tabel Master Stok.
+            ->where('items.is_active', true);
 
         if (auth()->user() && auth()->user()->warehouse_id && ($warehouseFilter === null || $warehouseFilter === '')) {
             $query->where('inventories.warehouse_id', auth()->user()->warehouse_id);

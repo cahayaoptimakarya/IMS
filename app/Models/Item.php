@@ -21,7 +21,15 @@ class Item extends Model
         'low_stock_threshold',
         'lead_time_po_days',
         'lead_time_safety_days',
+        'is_active',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
 
 
     public function uom()

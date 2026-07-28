@@ -77,6 +77,15 @@
                             </div>
 
                             <div class="fv-row mb-7">
+                                <label for="is_active" class="form-label required">Status Item</label>
+                                <select class="form-select form-select-solid" id="is_active" name="is_active">
+                                    <option value="1" {{ old('is_active', '1') == '1' ? 'selected' : '' }}>Aktif</option>
+                                    <option value="0" {{ old('is_active') === '0' ? 'selected' : '' }}>Nonaktif</option>
+                                </select>
+                                <div class="form-text">Status hanya menandai master item dan tidak mengubah saldo stok.</div>
+                            </div>
+
+                            <div class="fv-row mb-7">
                                 <label for="koli" class="form-label required">Koli</label>
                                 <input type="number" class="form-control form-control-solid" value="{{ old('koli') }}" id="koli" name="koli" min="0" step="1" required>
                             </div>
