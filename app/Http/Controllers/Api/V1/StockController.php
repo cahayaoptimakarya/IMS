@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\StockApiSyncRecord;
+use App\Models\Warehouse;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +18,7 @@ class StockController extends Controller
         [$filters, $error] = $this->filters($request);
         if ($error) return $error;
         $serverTime = now('Asia/Jakarta');
-        $query = $filters['as_of'] ? $this->historicalQuery($filters['as_of']) : StockApiSyncRecord::query();
+        $query = $filters['as_of'] ? $this->historicalQuery($filters['as_of'], $filters['source_warehouse_id']) : StockApiSyncRecord::query();
         if (! $filters['as_of']) {
             if ($filters['updated_since']) $query->where('source_updated_at', '>=', $filters['updated_since']);
             $query->where('source_updated_at', '<=', $filters['updated_until'] ?? $serverTime);
@@ -38,16 +39,16 @@ class StockController extends Controller
         ]);
     }
 
-    private function historicalQuery(CarbonImmutable $asOf): Builder
+    private function historicalQuery(CarbonImmutable $asOf, int $warehouseId): Builder
     {
         // `quantity` is not consistently signed in legacy adjustment rows. The
         // before/after balance is the authoritative signed movement.
         $after = DB::table('stock_movements')->select('item_id')
             ->selectRaw('SUM(COALESCE(stock_after, 0) - COALESCE(stock_before, 0)) as net_movement')
             ->selectRaw('MAX(date) as last_movement_at')
-            ->where('date', '>', $asOf->toDateString())->groupBy('item_id');
+            ->where('warehouse_id', $warehouseId)->where('date', '>', $asOf->toDateString())->groupBy('item_id');
         $through = DB::table('stock_movements')->select('item_id')->selectRaw('MAX(date) as last_movement_at')
-            ->where('date', '<=', $asOf->toDateString())->groupBy('item_id');
+            ->where('warehouse_id', $warehouseId)->where('date', '<=', $asOf->toDateString())->groupBy('item_id');
 
         return DB::table('stock_api_sync_records as sr')
             ->leftJoinSub($after, 'after_date', 'after_date.item_id', '=', 'sr.item_id')
@@ -69,7 +70,9 @@ class StockController extends Controller
         $asOf = $this->parseAsOfDate($request->input('as_of'));
         if ($asOf === false) return [[], $this->error('as_of harus berupa tanggal YYYY-MM-DD yang valid (WIB).')];
         if ($asOf && ($since || $until)) return [[], $this->error('as_of tidak dapat dipakai bersama updated_since atau updated_until.')];
-        return [['page' => $page, 'per_page' => $perPage, 'updated_since' => $since, 'updated_until' => $until, 'as_of' => $asOf], null];
+        $warehouseId = (int) Warehouse::where('name', config('stock_api.source_warehouse_name'))->value('id');
+        if ($warehouseId <= 0) return [[], $this->configurationError('Gudang sumber API tidak ditemukan.')];
+        return [['page' => $page, 'per_page' => $perPage, 'updated_since' => $since, 'updated_until' => $until, 'as_of' => $asOf, 'source_warehouse_id' => $warehouseId], null];
     }
 
     private function parseIsoTimestamp(mixed $value): CarbonImmutable|false|null
@@ -91,5 +94,9 @@ class StockController extends Controller
     private function error(string $message): JsonResponse
     {
         return response()->json(['success' => false, 'error' => ['code' => 'INVALID_PARAMETER', 'message' => $message]], 400);
+    }
+    private function configurationError(string $message): JsonResponse
+    {
+        return response()->json(['success' => false, 'error' => ['code' => 'API_CONFIGURATION_ERROR', 'message' => $message]], 503);
     }
 }
