@@ -3,6 +3,7 @@
 @section('title', 'Akses API Stok')
 
 @section('content')
+<div class="content flex-row-fluid" id="kt_content">
 <div class="card mb-4"><div class="card-body">
     <h4><i class="fas fa-shield-alt me-2"></i>Akses API Stok</h4>
     <p class="mb-0 text-muted">Hanya IP aktif dalam daftar ini yang dapat memakai Bearer token API. Jika daftar kosong, API ditolak untuk semua IP.</p>
@@ -32,4 +33,5 @@
     </tr>@empty<tr><td colspan="5" class="text-center text-muted">Belum ada IP aktif; API belum dapat diakses.</td></tr>@endforelse
     </tbody>
 </table></div></div>
+</div>
 @endsection
