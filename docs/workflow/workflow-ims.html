@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Workflow Sistem IMS</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    font-family: "Segoe UI", "Inter", system-ui, -apple-system, Arial, sans-serif;
+    color:#16202B; background:#E9ECF1;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    font-size:9.6pt; line-height:1.5;
+  }
+  :root{
+    --ink:#16202B; --mut:#5C6B7A; --soft:#8593A3; --line:#DEE4EB; --line2:#EEF1F5;
+    --brand:#123B6D;
+    --c1:#1B5FA8; --c1t:#EAF2FA; --c1d:#0E3F76;
+    --c2:#0E7167; --c2t:#E5F3F1; --c2d:#08514A;
+    --c3:#A85B09; --c3t:#FCF1E2; --c3d:#7A4206;
+    --ok:#15803D; --okt:#E8F5EC; --dg:#B3261E; --dgt:#FBECEB;
+  }
+  .page{ width:210mm; height:297mm; background:#fff; position:relative;
+    padding:15mm 15mm 14mm; overflow:hidden; margin:0 auto;
+    page-break-after:always; break-after:page; }
+  .page:last-child{ page-break-after:auto; break-after:auto; }
+  @media screen { .page{ margin:8mm auto; box-shadow:0 2px 14px rgba(20,30,45,.18);} }
+
+  .rhead{ display:flex; justify-content:space-between; align-items:baseline;
+    border-bottom:1px solid var(--line); padding-bottom:4px; margin-bottom:6mm; }
+  .rhead .rh-l{ font-size:7.6pt; font-weight:700; letter-spacing:.11em; text-transform:uppercase; color:var(--brand); }
+  .rhead .rh-r{ font-size:7.4pt; letter-spacing:.06em; text-transform:uppercase; color:var(--soft); }
+  .rfoot{ position:absolute; left:15mm; right:15mm; bottom:8mm;
+    display:flex; justify-content:space-between; align-items:center;
+    border-top:1px solid var(--line2); padding-top:4px; font-size:7.3pt; color:var(--soft); }
+  .rfoot b{ color:var(--mut); font-weight:600; }
+  .pnum{ font-variant-numeric:tabular-nums; font-weight:700; color:var(--mut); }
+
+  h1,h2,h3,h4{ margin:0; font-weight:700; }
+  .chapno{ font-size:8pt; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+  h2.ch{ font-size:19pt; line-height:1.15; letter-spacing:-.01em; margin:2px 0 4px; }
+  h3{ font-size:11.2pt; margin:0 0 5px; }
+  p{ margin:0 0 6px; }
+  .lead{ color:var(--mut); font-size:9.8pt; line-height:1.5; }
+  .small{ font-size:8.4pt; } .xs{ font-size:7.8pt; }
+  ul,ol{ margin:0 0 6px; padding-left:15px; } li{ margin-bottom:2.5px; }
+  code,.mono{ font-family:"Cascadia Mono","Consolas",monospace; font-size:8.1pt;
+    background:#F2F5F8; border:1px solid var(--line2); border-radius:3px; padding:0 3px; color:#1F3A56; }
+
+  .sect{ display:flex; align-items:center; gap:8px; margin:0 0 7px; }
+  .sect .bar{ width:3.5px; height:15px; border-radius:2px; background:var(--brand); }
+  .sect h3{ margin:0; }
+  .sect.c1 .bar{background:var(--c1)} .sect.c2 .bar{background:var(--c2)} .sect.c3 .bar{background:var(--c3)}
+
+  table.tb{ width:100%; border-collapse:collapse; font-size:8.2pt; }
+  table.tb th{ text-align:left; font-size:7.1pt; font-weight:800; letter-spacing:.09em;
+    text-transform:uppercase; color:#fff; background:var(--brand); padding:5px 7px; }
+  table.tb.c1 th{background:var(--c1d)} table.tb.c2 th{background:var(--c2d)} table.tb.c3 th{background:var(--c3d)}
+  table.tb td{ padding:4.5px 7px; border-bottom:1px solid var(--line2); vertical-align:top; line-height:1.38; }
+  table.tb tr:nth-child(even) td{ background:#FAFBFD; }
+
+  .pill{ display:inline-block; font-size:7.2pt; font-weight:700; border-radius:20px;
+    padding:1px 7px; white-space:nowrap; border:1px solid transparent; }
+  .p-g{ background:var(--okt); color:#0F6330; border-color:#C9E6D3; }
+  .p-b{ background:var(--c1t); color:var(--c1d); border-color:#CFE0F1; }
+  .p-a{ background:var(--c3t); color:var(--c3d); border-color:#F0DCC1; }
+  .p-r{ background:var(--dgt); color:#8E1D17; border-color:#F1CFCC; }
+  .p-n{ background:#F1F4F7; color:#46545F; border-color:#E1E7ED; }
+  .chip{ font-size:7.2pt; color:#41505F; background:#F4F6F9; border:1px solid var(--line);
+    border-radius:3px; padding:1px 5px; white-space:nowrap; display:inline-block; }
+
+  .call{ border:1px solid var(--line); border-radius:5px; padding:7px 9px; background:#FCFDFE; }
+  .call .ct{ font-size:8.5pt; font-weight:800; margin-bottom:3px; display:flex; gap:6px; align-items:center; }
+  .call .ct .dot{ width:6px; height:6px; border-radius:50%; background:var(--c1); flex:none; }
+  .call p,.call ul{ font-size:8.2pt; color:#3A4A59; margin-bottom:0; }
+  .call.warn{ background:#FEFAF3; border-color:#F0DCC1; } .call.warn .ct .dot{ background:var(--c3); }
+  .call.key{ background:var(--c1t); border-color:#CFE0F1; }
+  .call.ok{ background:var(--okt); border-color:#C9E6D3; } .call.ok .ct .dot{ background:var(--ok); }
+  .call.gr{ background:var(--c2t); border-color:#C6E2DE; } .call.gr .ct .dot{ background:var(--c2); }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .mb4{margin-bottom:4px}.mb6{margin-bottom:6px}.mb8{margin-bottom:8px}.mb10{margin-bottom:10px}
+  .mb14{margin-bottom:14px}.mt6{margin-top:6px}.mt8{margin-top:8px}.mt10{margin-top:10px}
+
+  /* ---------- flowchart SVG ---------- */
+  svg.fc{ width:100%; height:auto; display:block; }
+  .fc text{ font-family:"Segoe UI",Arial,sans-serif; fill:#1D2A38; text-anchor:middle; }
+  .fc .lh{ fill:#fff; font-size:13px; font-weight:700; letter-spacing:.05em; }
+  .fc .laneA{ fill:#1B5FA8 } .fc .laneB{ fill:#0E3F76 } .fc .laneC{ fill:#5C6B7A }
+  .fc .laneG{ fill:#0E7167 } .fc .laneH{ fill:#0B5F56 }
+  .fc .lane-b{ fill:#FDFEFF; stroke:#E4EAF0; stroke-width:1 }
+  .fc .nb{ fill:#fff; stroke:#B9C7D5; stroke-width:1.4 }
+  .fc .term{ fill:#EDF2F7; stroke:#A6BACE; stroke-width:1.4 }
+  .fc .doc{ fill:#F5F8FB; stroke:#C4D2DE; stroke-width:1.4 }
+  .fc .out{ fill:#FBEDEC; stroke:#DDA6A1; stroke-width:1.4 }
+  .fc .inn{ fill:#E8F5EC; stroke:#93C6A8; stroke-width:1.4 }
+  .fc .sj{ fill:#FFF6E1; stroke:#DFB964; stroke-width:1.6 }
+  .fc .dia{ fill:#FFF7E8; stroke:#DDB273; stroke-width:1.4 }
+  .fc .endg{ fill:#E8F5EC; stroke:#93C6A8; stroke-width:1.4 }
+  .fc .t1{ font-size:12.4px; font-weight:700 }
+  .fc .t2{ font-size:10.8px; fill:#5C6B7A }
+  .fc .tin{ font-size:11.6px; font-weight:800; fill:#116639 }
+  .fc .tout{ font-size:11.6px; font-weight:800; fill:#9E2019 }
+  .fc .tsj{ font-size:12px; font-weight:800; fill:#8A5A08; letter-spacing:.04em }
+  .fc .lbl{ font-size:10.6px; font-weight:700; fill:#A0530A; text-anchor:start }
+  .fc .cap{ font-size:10.4px; fill:#7C8A98; text-anchor:start }
+  .fc .ar{ fill:none; stroke:#8496A6; stroke-width:1.5 }
+  .fc .arl{ fill:none; stroke:#C79A57; stroke-width:1.5; stroke-dasharray:5 3 }
+  .fc .grp{ fill:#FFFDF8; stroke:#E7D2AC; stroke-width:1.2; stroke-dasharray:5 4 }
+  .fc .grl{ font-size:10.4px; font-weight:800; fill:#A85B09; text-anchor:start; letter-spacing:.06em }
+
+  /* legend shapes */
+  .lgd{ display:grid; grid-template-columns:repeat(3,1fr); gap:7px 10px; }
+  .lgi{ display:flex; align-items:center; gap:7px; font-size:7.9pt; color:#3A4A59; }
+  .lgs{ width:34px; height:19px; flex:none; border:1.4px solid #B9C7D5; background:#fff; border-radius:4px; }
+  .lgs.term{ border-radius:10px; background:#EDF2F7; border-color:#A6BACE; }
+  .lgs.dia{ background:#FFF7E8; border-color:#DDB273; border-radius:2px; transform:rotate(45deg) scale(.72); }
+  .lgs.doc{ background:#F5F8FB; border-color:#C4D2DE; }
+  .lgs.inn{ background:#E8F5EC; border-color:#93C6A8; }
+  .lgs.out{ background:#FBEDEC; border-color:#DDA6A1; }
+  .lgs.sj{ background:#FFF6E1; border-color:#DFB964; }
+  .lgs.ar{ border:none; background:none; position:relative; }
+  .lgs.ar::before{ content:""; position:absolute; left:0; top:9px; width:26px; height:1.5px; background:#8496A6; }
+  .lgs.ar::after{ content:""; position:absolute; left:24px; top:4px; border:5px solid transparent; border-left-color:#8496A6; }
+
+  /* document mock */
+  .doccard{ border:1px solid #CBD5E0; border-radius:5px; overflow:hidden; background:#fff; }
+  .doccard .dhead{ background:#F7F9FB; border-bottom:1px solid var(--line); padding:6px 8px;
+    display:flex; justify-content:space-between; align-items:flex-start; }
+  .doccard .dtitle{ font-size:11.5pt; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+  .doccard .dbody{ padding:7px 8px; }
+  .dbox{ border:1px solid var(--line); border-radius:4px; padding:5px 7px; }
+  .dbox .dl{ font-size:6.8pt; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--soft); margin-bottom:2px; }
+  .dbox .dv{ font-size:8pt; color:#33424F; line-height:1.4; }
+  .sig{ border-top:1px dashed #C3CDD8; margin-top:13px; padding-top:3px; text-align:center; font-size:7.2pt; color:var(--soft); }
+
+  /* formula */
+  .fx{ background:#FFFDF9; border:1px solid #F0DCC1; border-radius:5px; padding:9px 11px; }
+  .fx .fl{ font-size:7pt; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--c3); margin-bottom:4px; }
+  .fx .eq{ font-family:"Cambria","Georgia",serif; font-size:11.2pt; color:#3A2A12; line-height:1.65; }
+  .fx .eq em{ font-style:italic; }
+  .fx .eq .op{ color:var(--c3); font-weight:700; padding:0 2px; }
+  .fx .note{ font-size:7.7pt; color:#7A6446; margin-top:4px; }
+
+  /* cover */
+  .cover{ padding:0; background:#0E2E56; color:#fff; }
+  .cover .cw{ position:absolute; inset:0; padding:24mm 18mm 16mm; display:flex; flex-direction:column; }
+  .cover .kicker{ font-size:8.4pt; font-weight:800; letter-spacing:.24em; text-transform:uppercase; color:#7FB0E4; }
+  .cover h1{ font-size:33pt; line-height:1.06; letter-spacing:-.02em; margin:10px 0 0; font-weight:800; }
+  .cover h1 span{ display:block; color:#8FC0EC; font-weight:400; }
+  .cover .rule{ width:52mm; height:3px; background:#3E86D0; margin:12px 0 13px; border-radius:2px; }
+  .cover .cdesc{ font-size:10.4pt; line-height:1.6; color:#C6D9EE; max-width:132mm; }
+  .cover .clist{ margin-top:auto; display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px; }
+  .cover .cc{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.16); border-radius:6px; padding:10px 11px; }
+  .cover .cc .ccn{ font-size:7.3pt; font-weight:800; letter-spacing:.14em; color:#82B4E6; }
+  .cover .cc .cct{ font-size:9.8pt; font-weight:700; margin:3px 0; line-height:1.25; }
+  .cover .cc .ccd{ font-size:7.7pt; color:#B9CFE6; line-height:1.4; }
+  .cover .cmeta{ margin-top:13px; padding-top:9px; border-top:1px solid rgba(255,255,255,.18);
+    display:flex; justify-content:space-between; font-size:8pt; color:#9DBBD8; }
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<div class="page cover">
+  <div class="cw">
+    <div class="kicker">Inventory Management System</div>
+    <h1>Workflow<span>Sistem IMS</span></h1>
+    <div class="rule"></div>
+    <div class="cdesc">
+      Diagram alur kerja operasional: perpindahan barang antar gudang beserta surat jalan,
+      pengadaan sampai penerimaan barang, dan perhitungan <em>reorder point</em>.
+      Setiap flowchart memetakan pelaku, keputusan, dokumen yang terbit,
+      dan titik di mana stok berubah.
+    </div>
+    <div class="clist">
+      <div class="cc"><div class="ccn">BAB 01</div><div class="cct">Transfer Antar Gudang</div>
+        <div class="ccd">Request Transfer &rarr; Approval &rarr; Surat Jalan &rarr; Pengiriman &rarr; Penerimaan &rarr; Stok bertambah</div></div>
+      <div class="cc"><div class="ccn">BAB 02</div><div class="cct">Pengadaan &amp; Penerimaan</div>
+        <div class="ccd">Stock In Order &rarr; Penerimaan Barang atau Distribusi &rarr; Stok bertambah</div></div>
+      <div class="cc"><div class="ccn">BAB 03</div><div class="cct">Reorder Point</div>
+        <div class="ccd">Pemakaian nyata &rarr; Safety stock &rarr; ROP &rarr; Sinyal pemesanan ulang</div></div>
+    </div>
+    <div class="cmeta"><div>Dokumen internal &middot; Operasional Gudang</div><div>Versi 1.0 &middot; 1 September 2026</div></div>
+  </div>
+</div>
+
+<!-- ================= P2 : ISI + LEGENDA + PETA ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Workflow Sistem IMS</div><div class="rh-r">Panduan Membaca</div></div>
+
+  <h2 class="ch">Cara Membaca Dokumen Ini</h2>
+  <p class="lead mb8">Setiap bab dibuka dengan satu <b>flowchart penuh halaman</b>, lalu diikuti tabel
+  pendukung yang merinci aturan, status, dan dampaknya terhadap stok.</p>
+
+  <div class="sect"><div class="bar"></div><h3>Arti bentuk pada flowchart</h3></div>
+  <div class="lgd mb10">
+    <div class="lgi"><span class="lgs term"></span><span><b>Terminator</b> &mdash; titik mulai atau selesai</span></div>
+    <div class="lgi"><span class="lgs"></span><span><b>Proses</b> &mdash; tindakan yang dikerjakan pengguna</span></div>
+    <div class="lgi"><span class="lgs dia"></span><span><b>Keputusan</b> &mdash; percabangan Ya / Tidak</span></div>
+    <div class="lgi"><span class="lgs doc"></span><span><b>Dokumen / status</b> &mdash; hasil otomatis sistem</span></div>
+    <div class="lgi"><span class="lgs out"></span><span><b>Stok berkurang</b> di gudang asal</span></div>
+    <div class="lgi"><span class="lgs inn"></span><span><b>Stok bertambah</b> di gudang tujuan</span></div>
+    <div class="lgi"><span class="lgs sj"></span><span><b>Surat Jalan</b> terbit dan siap dicetak</span></div>
+    <div class="lgi"><span class="lgs ar"></span><span><b>Alur</b> &mdash; arah proses berjalan</span></div>
+    <div class="lgi"><span class="lgs" style="background:#FDFEFF;border-color:#E4EAF0"></span><span><b>Kolom berjudul</b> &mdash; siapa pelakunya</span></div>
+  </div>
+
+  <div class="sect"><div class="bar"></div><h3>Peta proses: tulang punggung yang dipakai bersama</h3></div>
+
+  <svg class="fc mb8" viewBox="0 0 744 176" role="img" aria-label="Peta proses IMS">
+    <defs><marker id="ah0" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#8496A6"/></marker></defs>
+    <rect class="nb term" x="4" y="34" width="128" height="52" rx="14"/>
+    <text class="t1" x="68" y="56">Permintaan</text><text class="t2" x="68" y="72">Transfer / Pengadaan</text>
+    <path class="ar" d="M132,60 H166" marker-end="url(#ah0)"/>
+    <polygon class="dia" points="216,26 278,60 216,94 154,60"/>
+    <text class="t1" x="216" y="57" style="font-size:11.5px">Disetujui?</text>
+    <text class="t2" x="216" y="72" style="font-size:10px">approval</text>
+    <path class="ar" d="M278,60 H312" marker-end="url(#ah0)"/>
+    <text class="lbl" x="284" y="52">Ya</text>
+    <path class="ar" d="M216,94 V128 H150" marker-end="url(#ah0)"/>
+    <text class="lbl" x="222" y="114">Tidak</text>
+    <rect class="nb term" x="18" y="108" width="132" height="40" rx="12"/>
+    <text class="t1" x="84" y="126" style="font-size:11.5px">Ditolak</text>
+    <text class="t2" x="84" y="140" style="font-size:10px">proses berhenti</text>
+
+    <rect class="nb sj" x="312" y="34" width="132" height="52" rx="6"/>
+    <text class="tsj" x="378" y="55">SURAT JALAN</text><text class="t2" x="378" y="71">+ data pengiriman</text>
+    <path class="ar" d="M444,60 H478" marker-end="url(#ah0)"/>
+    <rect class="nb doc" x="478" y="34" width="122" height="52" rx="6"/>
+    <text class="t1" x="539" y="56">Penerimaan</text><text class="t2" x="539" y="72">Goods Receipt</text>
+    <path class="ar" d="M600,60 H634" marker-end="url(#ah0)"/>
+    <rect class="nb inn" x="634" y="34" width="106" height="52" rx="6"/>
+    <text class="tin" x="687" y="56">STOK NAIK</text><text class="t2" x="687" y="72">+ kartu stok</text>
+
+    <path class="arl" d="M687,86 V140 H470" marker-end="url(#ah0)"/>
+    <text class="cap" x="470" y="160" style="fill:#A0530A">memicu perhitungan ulang Reorder Point (Bab 3)</text>
+    <text class="cap" x="4" y="20">TULANG PUNGGUNG SEMUA ALUR &mdash; berlaku untuk Bab 1 maupun Bab 2</text>
+  </svg>
+
+  <div class="sect"><div class="bar"></div><h3>Entitas inti yang dipakai bersama</h3></div>
+  <table class="tb mb10">
+    <thead><tr><th style="width:24%">Entitas</th><th style="width:22%">Tabel</th><th>Peran dalam alur</th></tr></thead>
+    <tbody>
+      <tr><td><b>Transfer Request</b></td><td class="mono">transfer_requests</td><td>Permintaan barang dari gudang tujuan kepada gudang asal &mdash; induk Bab 1.</td></tr>
+      <tr><td><b>Stock In Order</b></td><td class="mono">stock_in_orders</td><td>Dokumen pengadaan (import / produksi / lainnya) &mdash; induk Bab 2.</td></tr>
+      <tr><td><b>Shipment</b></td><td class="mono">shipments</td><td>Satu kali keberangkatan barang; menjadi dasar cetak <b>Surat Jalan</b>.</td></tr>
+      <tr><td><b>Goods Receipt</b></td><td class="mono">goods_receipts</td><td>Dokumen penerimaan di gudang tujuan; saat diselesaikan, stok bertambah.</td></tr>
+      <tr><td><b>Inventory</b></td><td class="mono">inventories</td><td>Stok tersedia per kombinasi barang &amp; gudang, dalam qty dan koli.</td></tr>
+      <tr><td><b>Stock Movement</b></td><td class="mono">stock_movements</td><td>Buku besar pergerakan stok; sumber angka pemakaian untuk Bab 3.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="call warn mb10">
+    <div class="ct"><span class="dot"></span>Dua momen yang menentukan stok</div>
+    <p>Di seluruh sistem IMS, stok fisik hanya berubah pada dua momen: <b>saat pengiriman dibuat</b>
+    (stok gudang asal berkurang) dan <b>saat penerimaan barang diselesaikan</b> (stok gudang tujuan bertambah).
+    Setiap perubahan selalu meninggalkan jejak pada Kartu Stok.</p>
+  </div>
+
+  <div class="sect"><div class="bar"></div><h3>Isi dokumen</h3></div>
+  <table class="tb">
+    <thead><tr><th style="width:15%">Bagian</th><th>Isi</th><th style="width:13%">Halaman</th></tr></thead>
+    <tbody>
+      <tr><td><b>Bab 1</b></td><td>Transfer antar gudang &mdash; flowchart utama, rincian langkah, anatomi Surat Jalan, matriks status, pengiriman parsial &amp; penyesuaian sisa</td><td>3 &ndash; 6</td></tr>
+      <tr><td><b>Bab 2</b></td><td>Pengadaan sampai penerimaan barang &mdash; flowchart utama, dua jalur penyelesaian, perbandingan, matriks status</td><td>7 &ndash; 8</td></tr>
+      <tr><td><b>Bab 3</b></td><td>Reorder point &mdash; flowchart siklus, rumus dan parameter, contoh perhitungan, pembacaan layar</td><td>9 &ndash; 11</td></tr>
+      <tr><td><b>Lampiran</b></td><td>Format kode dokumen, peta menu terhadap alur, glosarium</td><td>12</td></tr>
+    </tbody>
+  </table>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Versi 1.0</div><div class="pnum">2</div></div>
+</div>
+
+<!-- ================= P3 : FLOWCHART BAB 1 ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Bab 1 &mdash; Transfer Antar Gudang</div><div class="rh-r">Flowchart Utama</div></div>
+
+  <div class="chapno" style="color:var(--c1)">Bab Satu</div>
+  <h2 class="ch" style="font-size:16pt">Transfer Barang Gudang A &rarr; Gudang B</h2>
+  <p class="small" style="color:var(--mut); margin-bottom:5px">Dari permintaan sampai stok Gudang B bertambah.
+  Kolom menunjukkan pelaku; kotak hijau dan merah menandai satu-satunya dua titik di mana stok berubah.</p>
+
+  <svg class="fc" viewBox="0 0 744 906" role="img" aria-label="Flowchart transfer antar gudang">
+    <defs><marker id="ah1" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#8496A6"/></marker>
+      <marker id="ah1l" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#C79A57"/></marker></defs>
+
+    <!-- lanes -->
+    <rect class="lane-b" x="0" y="34" width="236" height="866"/>
+    <rect class="lane-b" x="254" y="34" width="236" height="866"/>
+    <rect class="lane-b" x="508" y="34" width="236" height="866"/>
+    <rect class="laneA" x="0" y="0" width="236" height="34" rx="4"/>
+    <rect class="laneB" x="254" y="0" width="236" height="34" rx="4"/>
+    <rect class="laneC" x="508" y="0" width="236" height="34" rx="4"/>
+    <text class="lh" x="118" y="22">GUDANG B &middot; PEMINTA</text>
+    <text class="lh" x="372" y="22">GUDANG A &middot; PENGIRIM</text>
+    <text class="lh" x="626" y="22">SISTEM &middot; DOKUMEN &amp; STOK</text>
+
+    <!-- n1 -->
+    <rect class="term" x="28" y="52" width="180" height="34" rx="17"/>
+    <text class="t1" x="118" y="74">Butuh barang dari Gudang A</text>
+    <path class="ar" d="M118,86 V110" marker-end="url(#ah1)"/>
+    <!-- n2 -->
+    <rect class="nb" x="18" y="110" width="200" height="52" rx="6"/>
+    <text class="t1" x="118" y="132">Buat Request Transfer</text>
+    <text class="t2" x="118" y="148">isi barang, qty, dan koli</text>
+    <!-- n3 -->
+    <path class="ar" d="M218,136 H528" marker-end="url(#ah1)"/>
+    <rect class="doc" x="528" y="110" width="196" height="52" rx="6"/>
+    <text class="t1" x="626" y="132">TR-YYYYMMDD-0001</text>
+    <text class="t2" x="626" y="148">status: pending &middot; stok tetap</text>
+    <!-- n2 -> n4 -->
+    <path class="ar" d="M118,162 V176 H372 V190" marker-end="url(#ah1)"/>
+    <rect class="nb" x="272" y="190" width="200" height="52" rx="6"/>
+    <text class="t1" x="372" y="212">Tinjau permintaan</text>
+    <text class="t2" x="372" y="228">cek ketersediaan stok</text>
+    <path class="ar" d="M372,242 V254" marker-end="url(#ah1)"/>
+    <!-- n5 decision -->
+    <polygon class="dia" points="372,254 467,296 372,338 277,296"/>
+    <text class="t1" x="372" y="301">Setujui?</text>
+    <!-- rejected -->
+    <path class="ar" d="M467,296 H536" marker-end="url(#ah1)"/>
+    <text class="lbl" x="480" y="288">Tidak</text>
+    <rect class="term" x="536" y="272" width="180" height="48" rx="16"/>
+    <text class="t1" x="626" y="292" style="fill:#9E2019">Status: rejected</text>
+    <text class="t2" x="626" y="308">proses berhenti</text>
+    <!-- approved -->
+    <path class="ar" d="M372,338 V380" marker-end="url(#ah1)"/>
+    <text class="lbl" x="380" y="360">Ya &rarr; approved</text>
+    <rect class="nb" x="272" y="380" width="200" height="60" rx="6"/>
+    <text class="t1" x="372" y="401">Buat Pengiriman</text>
+    <text class="t2" x="372" y="416">kendaraan &middot; pengemudi</text>
+    <text class="t2" x="372" y="431">qty &amp; koli yang dimuat</text>
+    <!-- n8 stok keluar -->
+    <path class="ar" d="M472,410 H500 V388 H524" marker-end="url(#ah1)"/>
+    <rect class="out" x="524" y="356" width="204" height="64" rx="6"/>
+    <text class="tout" x="626" y="378">STOK GUDANG A BERKURANG</text>
+    <text class="t2" x="626" y="394">SHIP-YYYYMMDD-0001 &middot; packing</text>
+    <text class="t2" x="626" y="410">pergerakan stok_out dicatat</text>
+    <!-- surat jalan -->
+    <path class="ar" d="M626,420 V432" marker-end="url(#ah1)"/>
+    <rect class="sj" x="524" y="432" width="204" height="46" rx="6"/>
+    <text class="tsj" x="626" y="452">SURAT JALAN TERBIT</text>
+    <text class="t2" x="626" y="468">kendaraan &middot; pengemudi &middot; daftar barang</text>
+    <!-- n9 -->
+    <path class="ar" d="M372,440 V478" marker-end="url(#ah1)"/>
+    <rect class="nb" x="272" y="478" width="200" height="52" rx="6"/>
+    <text class="t1" x="372" y="500">Cetak &amp; berangkatkan</text>
+    <text class="t2" x="372" y="516">serahkan surat jalan ke pengemudi</text>
+    <path class="ar" d="M472,504 H502 V514 H536" marker-end="url(#ah1)"/>
+    <rect class="doc" x="536" y="494" width="180" height="40" rx="6"/>
+    <text class="t1" x="626" y="519">Shipment: dalam perjalanan</text>
+    <!-- n11 -->
+    <path class="ar" d="M372,530 V540 H118 V548" marker-end="url(#ah1)"/>
+    <rect class="nb" x="18" y="548" width="200" height="56" rx="6"/>
+    <text class="t1" x="118" y="570">Buat Penerimaan Barang</text>
+    <text class="t2" x="118" y="585">tipe transfer</text>
+    <text class="t2" x="118" y="599">isi qty &amp; koli yang diterima</text>
+    <path class="ar" d="M218,576 H528" marker-end="url(#ah1)"/>
+    <rect class="doc" x="528" y="552" width="196" height="48" rx="6"/>
+    <text class="t1" x="626" y="572">Goods Receipt: draft</text>
+    <text class="t2" x="626" y="588">stok belum berubah</text>
+    <!-- n13 -->
+    <path class="ar" d="M118,604 V634" marker-end="url(#ah1)"/>
+    <rect class="nb" x="18" y="634" width="200" height="52" rx="6"/>
+    <text class="t1" x="118" y="656">Selesaikan penerimaan</text>
+    <text class="t2" x="118" y="672">oleh pemegang hak approve</text>
+    <path class="ar" d="M218,660 H524" marker-end="url(#ah1)"/>
+    <rect class="inn" x="524" y="628" width="204" height="64" rx="6"/>
+    <text class="tin" x="626" y="650">STOK GUDANG B BERTAMBAH</text>
+    <text class="t2" x="626" y="666">pergerakan stock_in dicatat</text>
+    <text class="t2" x="626" y="682">Goods Receipt: completed</text>
+    <!-- n15 decision -->
+    <path class="ar" d="M118,686 V708" marker-end="url(#ah1)"/>
+    <polygon class="dia" points="118,708 213,750 118,792 23,750"/>
+    <text class="t1" x="118" y="748" style="font-size:11.6px">Masih ada</text>
+    <text class="t1" x="118" y="762" style="font-size:11.6px">sisa kirim?</text>
+    <!-- loop back -->
+    <path class="arl" d="M213,750 H245 V400 H272" marker-end="url(#ah1l)"/>
+    <text class="lbl" x="216" y="742">Ya</text>
+    <text class="cap" x="266" y="694" style="fill:#A0530A">Ya &mdash; buat pengiriman dan</text>
+    <text class="cap" x="266" y="709" style="fill:#A0530A">surat jalan berikutnya untuk sisa</text>
+    <!-- end -->
+    <path class="ar" d="M118,792 V812 H626 V846" marker-end="url(#ah1)"/>
+    <text class="lbl" x="126" y="806">Tidak</text>
+    <rect class="endg" x="528" y="846" width="196" height="46" rx="16"/>
+    <text class="t1" x="626" y="866" style="fill:#116639">Request Transfer: completed</text>
+    <text class="t2" x="626" y="882">Shipment: selesai</text>
+  </svg>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Bab 1 Transfer Antar Gudang</div><div class="pnum">3</div></div>
+</div>
+
+<!-- ================= P4 : BAB 1 RINCIAN ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Bab 1 &mdash; Transfer Antar Gudang</div><div class="rh-r">Rincian Langkah</div></div>
+
+  <div class="sect c1"><div class="bar"></div><h3>Rincian setiap kotak pada flowchart</h3></div>
+  <table class="tb c1 mb10">
+    <thead><tr><th style="width:6%">No</th><th style="width:19%">Langkah</th><th style="width:16%">Pelaku &amp; menu</th><th>Yang terjadi di sistem</th></tr></thead>
+    <tbody>
+      <tr><td><b>1</b></td><td>Buat Request Transfer</td><td>Gudang B<br><span class="xs" style="color:var(--mut)">Stok Masuk &rsaquo; Request Transfer</span></td>
+        <td>Dokumen <span class="mono">TR-YYYYMMDD-0001</span> dibuat dengan status <span class="pill p-n">pending</span>. Sisa kirim tiap baris disamakan dengan qty yang diminta. Notifikasi dikirim ke pengguna Gudang A. Baris barang dapat diunggah dari template Excel.</td></tr>
+      <tr><td><b>2</b></td><td>Tinjau &amp; putuskan</td><td>Gudang A<br><span class="xs" style="color:var(--mut)">Stok Keluar &rsaquo; Permintaan Barang</span></td>
+        <td>Persetujuan hanya mungkin saat status masih <i>pending</i>. Penolakan masih mungkin saat <i>pending</i> maupun <i>approved</i>. Penyetuju dan waktunya dicatat, lalu notifikasi dikirim ke Gudang B.</td></tr>
+      <tr><td><b>3</b></td><td>Buat pengiriman &mdash; surat jalan terbit</td><td>Gudang A<br><span class="xs" style="color:var(--mut)">Permintaan Barang &rsaquo; Kirim</span></td>
+        <td>Shipment <span class="mono">SHIP-YYYYMMDD-0001</span> dibuat berstatus <span class="pill p-a">packing</span>. <b>Stok Gudang A langsung berkurang</b> dan pergerakan <span class="mono">stock_out</span> dicatat. Sisa kirim berkurang; Request Transfer menjadi <span class="pill p-b">on_progress</span>.</td></tr>
+      <tr><td><b>4</b></td><td>Berangkatkan</td><td>Gudang A<br><span class="xs" style="color:var(--mut)">Laporan &rsaquo; Riwayat Pengiriman</span></td>
+        <td>Shipment berpindah dari <i>packing</i> ke <span class="pill p-b">dalam perjalanan</span>. Selama masih <i>packing</i>, pengiriman masih bisa diedit atau dibatalkan.</td></tr>
+      <tr><td><b>5</b></td><td>Catat penerimaan</td><td>Gudang B<br><span class="xs" style="color:var(--mut)">Stok Masuk &rsaquo; Penerimaan Barang</span></td>
+        <td>Goods Receipt dibuat berstatus <span class="pill p-n">draft</span>. Qty diterima dibatasi maksimal sisa yang dikirim. <b>Stok belum berubah</b> pada tahap ini.</td></tr>
+      <tr><td><b>6</b></td><td>Selesaikan penerimaan</td><td>Approver Gudang B<br><span class="xs" style="color:var(--mut)">hak akses <span class="mono">approve</span></span></td>
+        <td><b>Stok Gudang B bertambah</b> dan pergerakan <span class="mono">stock_in</span> dicatat. Goods Receipt menjadi <span class="pill p-g">completed</span>; Shipment menjadi <i>selesai</i> bila seluruh muatan sudah diterima; Request Transfer menjadi <span class="pill p-g">completed</span> bila semua baris terpenuhi.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sect c1"><div class="bar"></div><h3>Pemeriksaan otomatis saat pengiriman dibuat</h3></div>
+  <table class="tb c1 mb10">
+    <thead><tr><th style="width:28%">Pemeriksaan</th><th>Aturan yang diterapkan</th></tr></thead>
+    <tbody>
+      <tr><td><b>Status dokumen</b></td><td>Pengiriman hanya bisa dibuat bila permintaan berstatus <i>approved</i> atau <i>on_progress</i>.</td></tr>
+      <tr><td><b>Batas sisa kirim</b></td><td>Qty dan koli yang dimuat tidak boleh melebihi sisa kirim baris tersebut.</td></tr>
+      <tr><td><b>Kecukupan stok</b></td><td>Stok Gudang A harus mencukupi untuk qty maupun koli; bila tidak, seluruh proses dibatalkan.</td></tr>
+      <tr><td><b>Baris ganda</b></td><td>Satu baris permintaan tidak boleh masuk dua kali ke pengiriman yang sama.</td></tr>
+      <tr><td><b>Kunci baris data</b></td><td>Baris permintaan dan baris stok dikunci selama transaksi, agar dua petugas tidak mengirim stok yang sama bersamaan.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sect c1"><div class="bar"></div><h3>Perjalanan stok satu baris barang</h3></div>
+  <table class="tb c1 mb10">
+    <thead><tr><th style="width:28%">Momen</th><th style="width:18%">Stok Gudang A</th><th style="width:18%">Stok Gudang B</th><th>Catatan pergerakan</th></tr></thead>
+    <tbody>
+      <tr><td>Request dibuat &amp; disetujui</td><td>tetap</td><td>tetap</td><td>&mdash;</td></tr>
+      <tr><td><b>Pengiriman dibuat</b></td><td><b style="color:var(--dg)">berkurang</b></td><td>tetap</td><td><span class="mono">stock_out</span> &middot; &ldquo;Pengiriman permintaan transfer TR-&hellip;&rdquo;</td></tr>
+      <tr><td>Barang dalam perjalanan</td><td>tetap</td><td>tetap</td><td>Terpantau sebagai barang dalam perjalanan</td></tr>
+      <tr><td>Penerimaan dibuat (draft)</td><td>tetap</td><td>tetap</td><td>&mdash;</td></tr>
+      <tr><td><b>Penerimaan diselesaikan</b></td><td>tetap</td><td><b style="color:var(--ok)">bertambah</b></td><td><span class="mono">stock_in</span> &middot; &ldquo;Penerimaan barang &hellip;&rdquo;</td></tr>
+    </tbody>
+  </table>
+
+  <div class="call warn">
+    <div class="ct"><span class="dot"></span>Barang dalam perjalanan</div>
+    <p>Di antara kotak merah dan kotak hijau pada flowchart, barang tidak dihitung sebagai stok gudang manapun.
+    Jumlahnya dipantau lewat panel <b>dalam perjalanan</b> di layar Request Transfer, dihitung sebagai selisih
+    antara yang sudah dikirim dan yang sudah diterima.</p>
+  </div>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Bab 1 Transfer Antar Gudang</div><div class="pnum">4</div></div>
+</div>
+
+<!-- ================= P5 : SURAT JALAN ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Bab 1 &mdash; Transfer Antar Gudang</div><div class="rh-r">Surat Jalan &amp; Status</div></div>
+
+  <h2 class="ch" style="font-size:16pt">Surat Jalan</h2>
+  <p class="lead mb8">Surat jalan terbit otomatis pada langkah 3 &mdash; bersamaan dengan pembuatan pengiriman,
+  tanpa langkah pembuatan terpisah. Isinya diambil langsung dari data pengiriman.</p>
+
+  <div class="grid2 mb8">
+    <div class="doccard">
+      <div class="dhead">
+        <div>
+          <div class="dtitle">Surat Jalan</div>
+          <div class="xs" style="color:var(--mut); margin-top:3px">Kode: SHIP-20260901-0001</div>
+          <div class="xs" style="color:var(--mut)">Tanggal Kirim: 01 Sep 2026</div>
+        </div>
+        <div class="xs" style="text-align:right"><b>Status:</b><br>Dalam perjalanan</div>
+      </div>
+      <div class="dbody">
+        <div class="grid2 mb6">
+          <div class="dbox"><div class="dl">Pengirim</div><div class="dv">Gudang A</div></div>
+          <div class="dbox"><div class="dl">Penerima</div><div class="dv">Gudang B</div></div>
+        </div>
+        <div class="grid2 mb6">
+          <div class="dbox"><div class="dl">Informasi Kendaraan</div>
+            <div class="dv">Jenis&nbsp;: Truk CDD<br>Plat&nbsp;&nbsp;&nbsp;: B 9012 XYZ</div></div>
+          <div class="dbox"><div class="dl">Informasi Pengemudi</div>
+            <div class="dv">Nama&nbsp;&nbsp;: Budi S.<br>Kontak: 0812&ndash;0000&ndash;0000</div></div>
+        </div>
+        <div class="dbox">
+          <div class="dl">Daftar Barang</div>
+          <table style="width:100%; border-collapse:collapse; font-size:7.5pt">
+            <tr style="color:var(--soft); font-size:6.8pt; text-transform:uppercase; letter-spacing:.06em">
+              <td style="padding:2px 0">No</td><td>Nama Barang</td><td>SKU</td>
+              <td style="text-align:right">Qty</td><td style="text-align:right">Koli</td></tr>
+            <tr style="border-top:1px dashed #DDE3EA"><td style="padding:3px 0">1</td><td>Contoh Barang A</td><td class="mono" style="font-size:6.9pt">SKU-0001</td><td style="text-align:right">240</td><td style="text-align:right">10</td></tr>
+            <tr style="border-top:1px dashed #DDE3EA"><td style="padding:3px 0">2</td><td>Contoh Barang B</td><td class="mono" style="font-size:6.9pt">SKU-0002</td><td style="text-align:right">120</td><td style="text-align:right">5</td></tr>
+            <tr style="border-top:1px solid #CBD5E0; font-weight:700"><td style="padding:3px 0" colspan="3">Total</td><td style="text-align:right">360</td><td style="text-align:right">15</td></tr>
+          </table>
+        </div>
+        <div class="grid3"><div class="sig">Pengirim</div><div class="sig">Pengemudi</div><div class="sig">Penerima</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sect c1"><div class="bar"></div><h3>Isi dan asal datanya</h3></div>
+      <table class="tb c1 mb6">
+        <thead><tr><th style="width:46%">Bagian</th><th>Diambil dari</th></tr></thead>
+        <tbody>
+          <tr><td>Kode &amp; tanggal kirim</td><td>Header pengiriman</td></tr>
+          <tr><td>Status pengiriman</td><td>Status shipment saat dicetak</td></tr>
+          <tr><td>Gudang pengirim &amp; penerima</td><td>Gudang asal dan tujuan permintaan</td></tr>
+          <tr><td>Jenis kendaraan, plat nomor</td><td>Form pembuatan pengiriman</td></tr>
+          <tr><td>Nama &amp; kontak pengemudi</td><td>Form pembuatan pengiriman</td></tr>
+          <tr><td>Daftar barang, qty, koli</td><td>Baris barang pada pengiriman itu</td></tr>
+          <tr><td>Total qty &amp; koli</td><td>Dijumlah otomatis oleh sistem</td></tr>
+          <tr><td>Kolom tanda tangan</td><td>Disediakan pada versi cetak</td></tr>
+        </tbody>
+      </table>
+      <div class="call warn">
+        <div class="ct"><span class="dot"></span>Hal penting</div>
+        <ul>
+          <li>Surat jalan menampilkan barang pada <b>pengiriman terbaru</b> untuk permintaan tersebut.</li>
+          <li>Pengiriman parsial menghasilkan surat jalan sendiri-sendiri dengan kode berbeda.</li>
+          <li>Selama masih <i>packing</i> isinya masih bisa berubah &mdash; cetak final setelah muatan dikunci.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="sect c1"><div class="bar"></div><h3>Matriks status tiga dokumen</h3></div>
+  <table class="tb c1">
+    <thead><tr><th style="width:18%">Dokumen</th><th style="width:22%">Status</th><th style="width:30%">Artinya</th><th>Berpindah ketika</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="5"><b>Request<br>Transfer</b></td><td><span class="pill p-n">pending</span></td><td>Menunggu keputusan Gudang A</td><td>Dokumen baru dibuat</td></tr>
+      <tr><td><span class="pill p-b">approved</span></td><td>Disetujui, siap dikirim</td><td>Gudang A menekan Setujui</td></tr>
+      <tr><td><span class="pill p-b">on_progress</span></td><td>Sebagian atau seluruhnya sudah dikirim</td><td>Pengiriman pertama dibuat</td></tr>
+      <tr><td><span class="pill p-g">completed</span></td><td>Seluruh baris sudah diterima</td><td>Penerimaan terakhir diselesaikan</td></tr>
+      <tr><td><span class="pill p-r">rejected</span></td><td>Permintaan ditolak</td><td>Ditolak saat pending atau approved</td></tr>
+      <tr><td rowspan="3"><b>Shipment</b></td><td><span class="pill p-a">packing</span></td><td>Sedang dimuat, belum berangkat</td><td>Pengiriman dibuat</td></tr>
+      <tr><td><span class="pill p-b">dalam perjalanan</span></td><td>Barang sudah berangkat</td><td>Ditandai kirim di Riwayat Pengiriman</td></tr>
+      <tr><td><span class="pill p-g">selesai</span></td><td>Seluruh muatan sudah diterima</td><td>Total diterima mencapai total dikirim</td></tr>
+      <tr><td rowspan="2"><b>Goods<br>Receipt</b></td><td><span class="pill p-n">draft</span></td><td>Dicatat, belum menambah stok</td><td>Dokumen penerimaan disimpan</td></tr>
+      <tr><td><span class="pill p-g">completed</span></td><td>Stok gudang tujuan sudah bertambah</td><td>Diselesaikan pemegang hak approve</td></tr>
+    </tbody>
+  </table>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Bab 1 Transfer Antar Gudang</div><div class="pnum">5</div></div>
+</div>
+
+<!-- ================= P6 : PARSIAL ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Bab 1 &mdash; Transfer Antar Gudang</div><div class="rh-r">Pengiriman Parsial</div></div>
+
+  <h2 class="ch" style="font-size:16pt">Pengiriman Parsial &amp; Sisa Kirim</h2>
+  <p class="lead mb8">Satu permintaan jarang terkirim sekaligus. Sistem menanganinya lewat <b>sisa kirim</b>
+  pada setiap baris permintaan &mdash; inilah perulangan pada flowchart utama.</p>
+
+  <svg class="fc mb8" viewBox="0 0 744 268" role="img" aria-label="Flowchart pengiriman parsial">
+    <defs><marker id="ah2" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#8496A6"/></marker>
+      <marker id="ah2l" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#C79A57"/></marker></defs>
+
+    <rect class="term" x="8" y="46" width="150" height="44" rx="16"/>
+    <text class="t1" x="83" y="66">Permintaan</text><text class="t2" x="83" y="82">disetujui</text>
+    <path class="ar" d="M158,68 H196" marker-end="url(#ah2)"/>
+    <rect class="nb" x="196" y="42" width="176" height="52" rx="6"/>
+    <text class="t1" x="284" y="63">Muat sebagian</text><text class="t2" x="284" y="79">sesuai stok tersedia</text>
+    <path class="ar" d="M372,68 H410" marker-end="url(#ah2)"/>
+    <rect class="out" x="410" y="42" width="160" height="52" rx="6"/>
+    <text class="tout" x="490" y="63">Stok A &minus; qty</text><text class="t2" x="490" y="79">sisa kirim berkurang</text>
+    <path class="ar" d="M570,68 H608" marker-end="url(#ah2)"/>
+    <rect class="inn" x="608" y="42" width="128" height="52" rx="6"/>
+    <text class="tin" x="672" y="63">Stok B + qty</text><text class="t2" x="672" y="79">saat diterima</text>
+
+    <path class="ar" d="M672,94 V122 H400" marker-end="url(#ah2)"/>
+    <polygon class="dia" points="284,100 400,144 284,188 168,144"/>
+    <text class="t1" x="284" y="141" style="font-size:11.6px">Sisa kirim</text>
+    <text class="t1" x="284" y="156" style="font-size:11.6px">masih &gt; 0 ?</text>
+
+    <path class="arl" d="M284,100 V76 H372" marker-end="url(#ah2l)"/>
+    <text class="lbl" x="292" y="112">Ya &mdash; buat pengiriman &amp; surat jalan berikutnya</text>
+
+    <path class="ar" d="M284,188 V216 H430" marker-end="url(#ah2)"/>
+    <text class="lbl" x="292" y="208">Tidak</text>
+    <rect class="endg" x="430" y="194" width="240" height="46" rx="16"/>
+    <text class="t1" x="550" y="214" style="fill:#116639">Request Transfer: completed</text>
+    <text class="t2" x="550" y="230">seluruh baris terpenuhi</text>
+
+    <text class="cap" x="8" y="26">SETIAP PUTARAN MENGHASILKAN SATU SURAT JALAN BARU</text>
+  </svg>
+
+  <div class="sect c1"><div class="bar"></div><h3>Contoh: 1.000 pcs diminta, dikirim dua kali</h3></div>
+  <table class="tb c1 mb8">
+    <thead><tr><th style="width:26%">Kejadian</th><th style="width:12%">Dikirim</th><th style="width:12%">Sisa kirim</th><th style="width:12%">Diterima</th><th style="width:18%">Status permintaan</th><th>Stok</th></tr></thead>
+    <tbody>
+      <tr><td>Permintaan dibuat</td><td>0</td><td>1.000</td><td>0</td><td><span class="pill p-n">pending</span></td><td>belum berubah</td></tr>
+      <tr><td>Disetujui Gudang A</td><td>0</td><td>1.000</td><td>0</td><td><span class="pill p-b">approved</span></td><td>belum berubah</td></tr>
+      <tr><td>Pengiriman ke-1: 600</td><td>600</td><td>400</td><td>0</td><td><span class="pill p-b">on_progress</span></td><td>A &minus;600</td></tr>
+      <tr><td>Penerimaan ke-1: 600</td><td>600</td><td>400</td><td>600</td><td><span class="pill p-b">on_progress</span></td><td>B +600</td></tr>
+      <tr><td>Pengiriman ke-2: 400</td><td>1.000</td><td>0</td><td>600</td><td><span class="pill p-b">on_progress</span></td><td>A &minus;400</td></tr>
+      <tr><td>Penerimaan ke-2: 400</td><td>1.000</td><td>0</td><td>1.000</td><td><span class="pill p-g">completed</span></td><td>B +400</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sect c1"><div class="bar"></div><h3>Penyesuaian sisa kirim &mdash; menutup permintaan yang menggantung</h3></div>
+  <table class="tb c1 mb8">
+    <thead><tr><th style="width:24%">Aspek</th><th>Ketentuan</th></tr></thead>
+    <tbody>
+      <tr><td><b>Kapan dipakai</b></td><td>Ketika sisa dipastikan tidak akan dikirim &mdash; kebutuhan berubah atau stok tidak akan tersedia.</td></tr>
+      <tr><td><b>Siapa yang boleh</b></td><td>Pengguna dengan hak akses <span class="mono">approve</span> pada menu Request Transfer.</td></tr>
+      <tr><td><b>Status yang diizinkan</b></td><td><i>approved</i>, <i>on_progress</i>, atau <i>completed</i>.</td></tr>
+      <tr><td><b>Wajib diisi</b></td><td>Catatan penyesuaian, tersimpan pada log aktivitas pengguna.</td></tr>
+      <tr><td><b>Yang terjadi</b></td><td>Qty permintaan ditulis ulang menjadi <i>jumlah yang sudah dikirim + sisa baru</i>, lalu status permintaan dihitung ulang otomatis.</td></tr>
+      <tr><td><b>Yang tidak berubah</b></td><td>Penyesuaian ini <b>tidak menyentuh stok</b>; hanya merapikan dokumen permintaan.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="grid2">
+    <div class="call warn">
+      <div class="ct"><span class="dot"></span>Batas perubahan dokumen</div>
+      <ul>
+        <li>Request Transfer hanya bisa diubah atau dihapus selama <i>pending</i>.</li>
+        <li>Pengiriman hanya bisa dibatalkan selama <i>packing</i>.</li>
+        <li>Setelah berangkat, koreksi lewat qty pada dokumen penerimaan.</li>
+      </ul>
+    </div>
+    <div class="call">
+      <div class="ct"><span class="dot"></span>Jejak audit</div>
+      <ul>
+        <li>Pembuatan, persetujuan, pengiriman, dan penyesuaian tercatat pada log aktivitas.</li>
+        <li>Perubahan stok tercatat di Kartu Stok lengkap dengan stok sebelum dan sesudah.</li>
+        <li>Rekap tersedia pada Laporan Transfer Gudang dan Riwayat Pengiriman.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Bab 1 Transfer Antar Gudang</div><div class="pnum">6</div></div>
+</div>
+
+<!-- ================= P7 : FLOWCHART BAB 2 ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Bab 2 &mdash; Pengadaan</div><div class="rh-r">Flowchart Utama</div></div>
+
+  <div class="chapno" style="color:var(--c2)">Bab Dua</div>
+  <h2 class="ch" style="font-size:16pt">Pengadaan sampai Penerimaan Barang</h2>
+  <p class="small" style="color:var(--mut); margin-bottom:5px">Satu dokumen pengadaan dapat diselesaikan
+  lewat dua jalur. Keduanya bermuara pada hal yang sama: sisa pesanan berkurang dan stok gudang tujuan bertambah.</p>
+
+  <svg class="fc" viewBox="0 0 744 880" role="img" aria-label="Flowchart pengadaan sampai penerimaan barang">
+    <defs><marker id="ah3" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#8496A6"/></marker>
+      <marker id="ah3l" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#C79A57"/></marker></defs>
+
+    <rect class="lane-b" x="0" y="34" width="236" height="840"/>
+    <rect class="lane-b" x="254" y="34" width="236" height="840"/>
+    <rect class="lane-b" x="508" y="34" width="236" height="840"/>
+    <rect class="laneH" x="0" y="0" width="236" height="34" rx="4"/>
+    <rect class="laneG" x="254" y="0" width="236" height="34" rx="4"/>
+    <rect class="laneG" x="508" y="0" width="236" height="34" rx="4"/>
+    <text class="lh" x="118" y="22">ADMIN PENGADAAN</text>
+    <text class="lh" x="372" y="22">JALUR A &middot; PENERIMAAN BARANG</text>
+    <text class="lh" x="626" y="22">JALUR B &middot; DISTRIBUSI</text>
+
+    <rect class="term" x="28" y="52" width="180" height="34" rx="17"/>
+    <text class="t1" x="118" y="74">Kebutuhan pengadaan</text>
+    <path class="ar" d="M118,86 V110" marker-end="url(#ah3)"/>
+
+    <rect class="nb" x="18" y="110" width="200" height="56" rx="6"/>
+    <text class="t1" x="118" y="131">Buat dokumen Pengadaan</text>
+    <text class="t2" x="118" y="146">tipe &middot; gudang tujuan</text>
+    <text class="t2" x="118" y="160">daftar barang, qty, koli</text>
+    <path class="ar" d="M118,166 V182" marker-end="url(#ah3)"/>
+
+    <rect class="doc" x="18" y="182" width="200" height="46" rx="6"/>
+    <text class="t1" x="118" y="203">Status: requested</text>
+    <text class="t2" x="118" y="219">sisa = qty dipesan</text>
+    <path class="ar" d="M118,228 V254" marker-end="url(#ah3)"/>
+
+    <polygon class="dia" points="118,254 216,300 118,346 20,300"/>
+    <text class="t1" x="118" y="295" style="font-size:11.6px">Barang masuk</text>
+    <text class="t1" x="118" y="310" style="font-size:11.6px">lewat jalur mana?</text>
+
+    <!-- catatan pemakaian tiap jalur -->
+    <rect class="grp" x="272" y="238" width="200" height="72" rx="8"/>
+    <text class="grl" x="284" y="256">KAPAN DIPAKAI</text>
+    <text class="t2" x="372" y="274">Barang tiba fisik di satu</text>
+    <text class="t2" x="372" y="289">gudang dan data pengangkutan</text>
+    <text class="t2" x="372" y="304">perlu ikut tercatat</text>
+    <rect class="grp" x="526" y="238" width="200" height="72" rx="8"/>
+    <text class="grl" x="538" y="256">KAPAN DIPAKAI</text>
+    <text class="t2" x="626" y="274">Satu pembelian atau batch</text>
+    <text class="t2" x="626" y="289">produksi dibagi ke beberapa</text>
+    <text class="t2" x="626" y="304">gudang sekaligus</text>
+
+    <!-- fork bar -->
+    <path class="ar" d="M118,346 V364 H626" />
+    <path class="ar" d="M372,364 V390" marker-end="url(#ah3)"/>
+    <path class="ar" d="M626,364 V390" marker-end="url(#ah3)"/>
+    <text class="lbl" x="278" y="380">Barang tiba fisik</text>
+    <text class="lbl" x="534" y="380">Dibagi ke beberapa gudang</text>
+
+    <!-- Jalur A -->
+    <rect class="nb" x="272" y="390" width="200" height="66" rx="6"/>
+    <text class="t1" x="372" y="411">Catat Penerimaan Barang</text>
+    <text class="t2" x="372" y="426">tipe pengadaan</text>
+    <text class="t2" x="372" y="440">isi kendaraan &amp; qty diterima</text>
+    <path class="ar" d="M372,456 V478" marker-end="url(#ah3)"/>
+    <rect class="doc" x="272" y="478" width="200" height="46" rx="6"/>
+    <text class="t1" x="372" y="499">Pengiriman dibuat otomatis</text>
+    <text class="t2" x="372" y="515">Goods Receipt: draft</text>
+    <path class="ar" d="M372,524 V546" marker-end="url(#ah3)"/>
+    <rect class="nb" x="272" y="546" width="200" height="52" rx="6"/>
+    <text class="t1" x="372" y="568">Selesaikan penerimaan</text>
+    <text class="t2" x="372" y="584">hak akses approve</text>
+    <path class="ar" d="M372,598 V622" marker-end="url(#ah3)"/>
+    <rect class="inn" x="272" y="622" width="200" height="60" rx="6"/>
+    <text class="tin" x="372" y="644">STOK TUJUAN BERTAMBAH</text>
+    <text class="t2" x="372" y="660">stock_in dicatat</text>
+    <text class="t2" x="372" y="675">sisa pesanan berkurang</text>
+
+    <!-- Jalur B -->
+    <rect class="nb" x="526" y="390" width="200" height="66" rx="6"/>
+    <text class="t1" x="626" y="411">Susun baris distribusi</text>
+    <text class="t2" x="626" y="426">gudang tujuan &middot; qty &middot; koli</text>
+    <text class="t2" x="626" y="440">boleh beberapa gudang</text>
+    <path class="ar" d="M626,456 V478" marker-end="url(#ah3)"/>
+    <rect class="doc" x="526" y="478" width="200" height="46" rx="6"/>
+    <text class="t1" x="626" y="499">Baris distribusi: draft</text>
+    <text class="t2" x="626" y="515">divalidasi terhadap sisa</text>
+    <path class="ar" d="M626,524 V546" marker-end="url(#ah3)"/>
+    <rect class="nb" x="526" y="546" width="200" height="52" rx="6"/>
+    <text class="t1" x="626" y="568">Setujui baris distribusi</text>
+    <text class="t2" x="626" y="584">sisa dicek ulang saat ini</text>
+    <path class="ar" d="M626,598 V622" marker-end="url(#ah3)"/>
+    <rect class="inn" x="526" y="622" width="200" height="60" rx="6"/>
+    <text class="tin" x="626" y="644">STOK TUJUAN BERTAMBAH</text>
+    <text class="t2" x="626" y="660">stock_in dicatat</text>
+    <text class="t2" x="626" y="675">sisa pesanan berkurang</text>
+
+    <!-- merge -->
+    <path class="ar" d="M372,682 V704"/>
+    <path class="ar" d="M626,682 V704"/>
+    <path class="ar" d="M626,704 H118 V722" marker-end="url(#ah3)"/>
+    <polygon class="dia" points="118,722 216,762 118,802 20,762"/>
+    <text class="t1" x="118" y="758" style="font-size:11.6px">Sisa pesanan</text>
+    <text class="t1" x="118" y="773" style="font-size:11.6px">sudah nol?</text>
+
+    <path class="arl" d="M20,762 H7 V240 H118 V254" marker-end="url(#ah3l)"/>
+    <text class="lbl" x="26" y="754">Tidak</text>
+    <text class="cap" x="26" y="632" style="fill:#A0530A">Tidak &mdash; tunggu kedatangan</text>
+    <text class="cap" x="26" y="647" style="fill:#A0530A">berikutnya, status on_shipping</text>
+
+    <path class="ar" d="M118,802 V826" marker-end="url(#ah3)"/>
+    <text class="lbl" x="126" y="818">Ya</text>
+    <rect class="endg" x="28" y="826" width="180" height="42" rx="16"/>
+    <text class="t1" x="118" y="852" style="fill:#116639">Pengadaan: completed</text>
+  </svg>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Bab 2 Pengadaan</div><div class="pnum">7</div></div>
+</div>
+
+<!-- ================= P8 : BAB 2 RINCIAN ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Bab 2 &mdash; Pengadaan</div><div class="rh-r">Rincian &amp; Status</div></div>
+
+  <div class="sect c2"><div class="bar"></div><h3>Isi dokumen pengadaan</h3></div>
+  <table class="tb c2 mb10">
+    <thead><tr><th style="width:26%">Kolom</th><th>Keterangan</th></tr></thead>
+    <tbody>
+      <tr><td><b>Tanggal</b></td><td>Tanggal dokumen pengadaan dibuat.</td></tr>
+      <tr><td><b>Estimasi tanggal terima</b></td><td>Perkiraan kedatangan barang, dipakai untuk pemantauan.</td></tr>
+      <tr><td><b>Gudang tujuan</b></td><td>Gudang yang akan menerima barang.</td></tr>
+      <tr><td><b>Tipe</b></td><td><span class="pill p-n">import</span> <span class="pill p-n">produksi</span> <span class="pill p-n">lainnya</span> &mdash; menentukan asal barang.</td></tr>
+      <tr><td><b>Dari gudang</b></td><td>Wajib untuk semua tipe kecuali <i>import</i>, karena barang impor tidak berasal dari gudang internal.</td></tr>
+      <tr><td><b>Daftar barang</b></td><td>Item, qty, dan koli. Satu item tidak boleh muncul dua kali dalam satu dokumen.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sect c2"><div class="bar"></div><h3>Kapan memakai jalur A, kapan jalur B</h3></div>
+  <table class="tb c2 mb10">
+    <thead><tr><th style="width:22%">Aspek</th><th style="width:39%">Jalur A &mdash; Penerimaan Barang</th><th>Jalur B &mdash; Distribusi</th></tr></thead>
+    <tbody>
+      <tr><td><b>Situasi</b></td><td>Barang tiba fisik di satu gudang tujuan dan perlu dicatat lengkap dengan data pengangkutannya.</td><td>Satu pembelian atau batch produksi dibagi ke beberapa gudang sekaligus.</td></tr>
+      <tr><td><b>Menu</b></td><td>Stok Masuk &rsaquo; Penerimaan Barang, tipe <i>pengadaan</i></td><td>Stok Masuk &rsaquo; Pengadaan &rsaquo; Distribusi</td></tr>
+      <tr><td><b>Data pengiriman</b></td><td>Dibentuk otomatis dari informasi kendaraan dan pengemudi yang diisi penerima.</td><td>Tidak dibuat &mdash; distribusi langsung menambah stok gudang tujuan.</td></tr>
+      <tr><td><b>Persetujuan</b></td><td>Dokumen penerimaan diselesaikan oleh pemegang hak <span class="mono">approve</span>.</td><td>Setiap baris distribusi disetujui satu per satu.</td></tr>
+      <tr><td><b>Batas jumlah</b></td><td>Maksimal sisa pesanan pada baris pengadaan.</td><td>Maksimal sisa pesanan, dicek dua kali: saat disimpan dan saat disetujui.</td></tr>
+      <tr><td><b>Hasil akhir</b></td><td colspan="2" style="background:var(--okt)"><b>Sama:</b> stok gudang tujuan bertambah, pergerakan <span class="mono">stock_in</span> tercatat, sisa pesanan berkurang.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sect c2"><div class="bar"></div><h3>Matriks status dokumen pengadaan</h3></div>
+  <table class="tb c2 mb10">
+    <thead><tr><th style="width:18%">Dokumen</th><th style="width:20%">Status</th><th style="width:30%">Artinya</th><th>Berpindah ketika</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="4"><b>Pengadaan</b><br><span class="xs" style="color:var(--mut)">Stock In Order</span></td>
+        <td><span class="pill p-n">requested</span></td><td>Sudah dipesan, barang belum masuk</td><td>Dokumen dibuat</td></tr>
+      <tr><td><span class="pill p-b">on_shipping</span></td><td>Sebagian sudah diterima atau didistribusikan</td><td>Penerimaan / distribusi pertama disetujui</td></tr>
+      <tr><td><span class="pill p-g">completed</span></td><td>Seluruh pesanan terpenuhi</td><td>Sisa seluruh baris mencapai nol</td></tr>
+      <tr><td><span class="pill p-r">rejected</span></td><td>Pengadaan dibatalkan</td><td>Dokumen ditolak</td></tr>
+      <tr><td rowspan="3"><b>Baris item</b></td>
+        <td><span class="pill p-n">pending</span></td><td>Belum ada yang masuk</td><td>Baris dibuat</td></tr>
+      <tr><td><span class="pill p-b">on_progress</span></td><td>Sebagian sudah masuk</td><td>Sisa berkurang tetapi belum nol</td></tr>
+      <tr><td><span class="pill p-g">completed</span></td><td>Baris terpenuhi seluruhnya</td><td>Sisa qty dan koli mencapai nol</td></tr>
+      <tr><td rowspan="2"><b>Distribusi</b></td>
+        <td><span class="pill p-n">draft</span></td><td>Rencana, menunggu persetujuan</td><td>Baris distribusi disimpan</td></tr>
+      <tr><td><span class="pill p-g">completed</span></td><td>Disetujui, stok sudah masuk</td><td>Baris distribusi disetujui</td></tr>
+    </tbody>
+  </table>
+
+  <div class="grid2">
+    <div class="call warn">
+      <div class="ct"><span class="dot"></span>Pengaman ganda pada sisa</div>
+      <p>Sisa diperiksa dua kali: ketika rencana distribusi disimpan, dan sekali lagi ketika baris disetujui.
+      Ini mencegah stok tercatat berlebih bila beberapa rencana dibuat lebih dulu lalu disetujui belakangan.</p>
+    </div>
+    <div class="call gr">
+      <div class="ct"><span class="dot"></span>Kedatangan bertahap</div>
+      <p>Bila barang datang beberapa kali, buat satu dokumen penerimaan per kedatangan. Sisa berkurang bertahap
+      dan status bertahan di <i>on_shipping</i> sampai seluruh sisa nol &mdash; inilah perulangan pada flowchart.</p>
+    </div>
+  </div>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Bab 2 Pengadaan</div><div class="pnum">8</div></div>
+</div>
+
+<!-- ================= P9 : FLOWCHART BAB 3 ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Bab 3 &mdash; Reorder Point</div><div class="rh-r">Flowchart Siklus</div></div>
+
+  <div class="chapno" style="color:var(--c3)">Bab Tiga</div>
+  <h2 class="ch" style="font-size:16pt">Siklus Reorder Point</h2>
+  <p class="small" style="color:var(--mut); margin-bottom:5px">Reorder point dihitung ulang otomatis
+  setiap kali stok bergerak, lalu dibandingkan dengan stok tersedia untuk memutuskan perlu tidaknya pemesanan ulang.</p>
+
+  <svg class="fc" viewBox="0 0 760 892" role="img" aria-label="Flowchart siklus reorder point">
+    <defs><marker id="ah4" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#8496A6"/></marker>
+      <marker id="ah4l" markerWidth="9" markerHeight="9" refX="7.5" refY="3.2" orient="auto">
+      <path d="M0,0 L7.5,3.2 L0,6.4 z" fill="#C79A57"/></marker></defs>
+
+    <rect class="term" x="190" y="40" width="380" height="44" rx="20"/>
+    <text class="t1" x="380" y="60">Pergerakan stok tercatat</text>
+    <text class="t2" x="380" y="76">stock_out &middot; transfer_out &middot; stock_in</text>
+    <path class="ar" d="M380,84 V112" marker-end="url(#ah4)"/>
+
+    <rect class="nb" x="190" y="112" width="380" height="50" rx="6"/>
+    <text class="t1" x="380" y="134">Sistem menghitung ulang ROP</text>
+    <text class="t2" x="380" y="150">untuk kombinasi barang &times; gudang tersebut</text>
+    <path class="ar" d="M380,162 V184" marker-end="url(#ah4)"/>
+
+    <rect class="grp" x="24" y="184" width="712" height="118" rx="8"/>
+    <text class="grl" x="36" y="200">PERHITUNGAN OTOMATIS</text>
+    <rect class="nb" x="40" y="212" width="216" height="76" rx="6"/>
+    <text class="t1" x="148" y="234" style="font-size:11.6px">1 &middot; Tentukan periode</text>
+    <text class="t2" x="148" y="251">30 / 60 / 90 hari</text>
+    <text class="t2" x="148" y="267">menurut usia data pergerakan</text>
+    <path class="ar" d="M256,250 H272" marker-end="url(#ah4)"/>
+    <rect class="nb" x="272" y="212" width="216" height="76" rx="6"/>
+    <text class="t1" x="380" y="234" style="font-size:11.6px">2 &middot; Rata-rata &amp; safety</text>
+    <text class="t2" x="380" y="251">total keluar &divide; hari periode</text>
+    <text class="t2" x="380" y="267">safety = rata-rata &times; lead safety</text>
+    <path class="ar" d="M488,250 H504" marker-end="url(#ah4)"/>
+    <rect class="nb" x="504" y="212" width="216" height="76" rx="6"/>
+    <text class="t1" x="612" y="234" style="font-size:11.6px">3 &middot; Titik pesan ulang</text>
+    <text class="t2" x="612" y="251">ROP = (rata-rata &times; lead PO)</text>
+    <text class="t2" x="612" y="267">+ safety stock</text>
+    <path class="ar" d="M380,302 V326" marker-end="url(#ah4)"/>
+
+    <polygon class="dia" points="380,326 480,368 380,410 280,368"/>
+    <text class="t1" x="380" y="365" style="font-size:11.6px">On-hand</text>
+    <text class="t1" x="380" y="380" style="font-size:11.6px">&lt; ROP ?</text>
+    <path class="ar" d="M280,368 H212" marker-end="url(#ah4)"/>
+    <text class="lbl" x="224" y="360">Tidak</text>
+    <rect class="endg" x="30" y="344" width="182" height="48" rx="18"/>
+    <text class="t1" x="121" y="364" style="fill:#116639">Status AMAN</text>
+    <text class="t2" x="121" y="380">cukup dipantau</text>
+
+    <path class="ar" d="M380,410 V442" marker-end="url(#ah4)"/>
+    <text class="lbl" x="390" y="430">Ya &mdash; status REORDER</text>
+
+    <polygon class="dia" points="380,442 494,484 380,526 266,484"/>
+    <text class="t1" x="380" y="481" style="font-size:11.6px">Sudah ada barang</text>
+    <text class="t1" x="380" y="496" style="font-size:11.6px">dalam pesanan?</text>
+    <path class="ar" d="M494,484 H548" marker-end="url(#ah4)"/>
+    <text class="lbl" x="504" y="476">Ya</text>
+    <rect class="term" x="548" y="460" width="182" height="48" rx="18"/>
+    <text class="t1" x="639" y="480">Pantau kedatangan</text>
+    <text class="t2" x="639" y="496">tidak perlu pesan lagi</text>
+
+    <path class="ar" d="M380,526 V558" marker-end="url(#ah4)"/>
+    <text class="lbl" x="390" y="546">Tidak</text>
+
+    <polygon class="dia" points="380,558 494,600 380,642 266,600"/>
+    <text class="t1" x="380" y="597" style="font-size:11.6px">Stok tersedia</text>
+    <text class="t1" x="380" y="612" style="font-size:11.6px">di gudang lain?</text>
+    <path class="ar" d="M494,600 H548" marker-end="url(#ah4)"/>
+    <text class="lbl" x="504" y="592">Ya</text>
+    <rect class="nb" x="548" y="576" width="182" height="48" rx="6"/>
+    <text class="t1" x="639" y="596" style="fill:#0E3F76">BAB 1</text>
+    <text class="t2" x="639" y="612">Buat Request Transfer</text>
+
+    <path class="ar" d="M380,642 V684" marker-end="url(#ah4)"/>
+    <text class="lbl" x="390" y="664">Tidak</text>
+    <rect class="nb" x="280" y="684" width="200" height="52" rx="6"/>
+    <text class="t1" x="380" y="706" style="fill:#08514A">BAB 2</text>
+    <text class="t2" x="380" y="722">Buat dokumen Pengadaan</text>
+
+    <path class="ar" d="M639,624 V752 H380 V772" marker-end="url(#ah4)"/>
+    <path class="ar" d="M380,736 V772" marker-end="url(#ah4)"/>
+    <rect class="inn" x="190" y="772" width="380" height="50" rx="6"/>
+    <text class="tin" x="380" y="794">BARANG MASUK &mdash; STOK BERTAMBAH</text>
+    <text class="t2" x="380" y="810">penerimaan diselesaikan atau distribusi disetujui</text>
+
+    <path class="arl" d="M380,822 V856 H738 V62 H570" marker-end="url(#ah4l)"/>
+    <text class="cap" x="392" y="850" style="fill:#A0530A">siklus berulang &mdash; ROP dihitung ulang setiap stok bergerak</text>
+  </svg>
+
+  <div class="call warn mt6">
+    <div class="ct"><span class="dot"></span>Kotak &ldquo;sudah ada barang dalam pesanan?&rdquo; mencegah pemesanan dobel</div>
+    <p>Sebuah barang bisa berstatus <i>reorder</i> padahal pengadaannya sudah berjalan. Sistem menjumlahkan
+    sisa pesanan berstatus <i>requested</i> dan <i>on_shipping</i> untuk gudang itu.</p>
+  </div>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Bab 3 Reorder Point</div><div class="pnum">9</div></div>
+</div>
+
+<!-- ================= P10 : RUMUS ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Bab 3 &mdash; Reorder Point</div><div class="rh-r">Rumus &amp; Parameter</div></div>
+
+  <h2 class="ch" style="font-size:16pt">Rumus Perhitungan</h2>
+  <p class="lead mb8">Reorder point adalah <b>batas stok minimum</b> yang menandakan pemesanan ulang harus
+  dimulai sekarang, dihitung terpisah untuk setiap kombinasi barang dan gudang.</p>
+
+  <div class="fx mb10">
+    <div class="fl">Langkah 1 &mdash; Rata-rata pemakaian harian</div>
+    <div class="eq"><em>Rata-rata keluar per hari</em> <span class="op">=</span>
+      Total barang keluar dalam periode <span class="op">&divide;</span> Jumlah hari periode</div>
+    <div class="fl mt10">Langkah 2 &mdash; Safety stock</div>
+    <div class="eq"><em>Safety stock</em> <span class="op">=</span>
+      Rata-rata keluar per hari <span class="op">&times;</span> Lead time safety (hari)</div>
+    <div class="fl mt10">Langkah 3 &mdash; Titik pesan ulang</div>
+    <div class="eq"><em>ROP (qty)</em> <span class="op">=</span>
+      (Rata-rata keluar per hari <span class="op">&times;</span> Lead time PO) <span class="op">+</span> Safety stock<br>
+      <em>ROP (koli)</em> <span class="op">=</span> ROP (qty) <span class="op">&divide;</span> Isi per koli</div>
+    <div class="note">Barang keluar dihitung dari pergerakan stok bertipe <span class="mono">stock_out</span> dan
+    <span class="mono">transfer_out</span> pada gudang yang bersangkutan.</div>
+  </div>
+
+  <div class="sect c3"><div class="bar"></div><h3>Penentuan panjang periode perhitungan</h3></div>
+  <p class="small mb6">Periode tidak tetap. Panjangnya menyesuaikan usia data pergerakan barang tersebut di
+  gudang itu, dihitung sejak pergerakan pertama kali tercatat.</p>
+  <table class="tb c3 mb10">
+    <thead><tr><th style="width:30%">Usia data pergerakan</th><th style="width:22%">Periode dipakai</th><th>Alasan</th></tr></thead>
+    <tbody>
+      <tr><td>Belum ada pergerakan</td><td><b>30 hari</b></td><td>Barang baru; dasar perhitungan paling pendek agar tidak menghasilkan angka menyesatkan.</td></tr>
+      <tr><td>Kurang dari 30 hari</td><td><b>30 hari</b></td><td>Riwayat masih sangat pendek.</td></tr>
+      <tr><td>30 sampai 59 hari</td><td><b>60 hari</b></td><td>Riwayat mulai cukup untuk meredam lonjakan harian.</td></tr>
+      <tr><td>60 hari atau lebih</td><td><b>90 hari</b></td><td>Riwayat panjang; rata-rata paling stabil terhadap musiman jangka pendek.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sect c3"><div class="bar"></div><h3>Parameter per barang</h3></div>
+  <table class="tb c3 mb10">
+    <thead><tr><th style="width:30%">Parameter</th><th style="width:16%">Nilai bawaan</th><th>Pengaruhnya</th></tr></thead>
+    <tbody>
+      <tr><td><b>Lead time PO</b> <span class="xs" style="color:var(--mut)">(hari)</span></td><td>7 hari</td><td>Perkiraan lama barang tiba sejak pemesanan. Semakin lama, semakin tinggi ROP.</td></tr>
+      <tr><td><b>Lead time safety</b> <span class="xs" style="color:var(--mut)">(hari)</span></td><td>1 hari</td><td>Cadangan waktu untuk keterlambatan dan lonjakan permintaan. Menentukan besar safety stock.</td></tr>
+      <tr><td><b>Isi per koli</b></td><td>1</td><td>Konversi ROP dari satuan qty ke satuan koli agar langsung terpakai di lapangan.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="call warn">
+    <div class="ct"><span class="dot"></span>Membaca status</div>
+    <p>Sebuah baris ditandai <span class="pill p-r">reorder</span> ketika <b>stok on-hand lebih kecil dari ROP</b>,
+    dan <span class="pill p-g">aman</span> bila sebaliknya. Kolom <b>Selisih</b> berisi ROP dikurangi on-hand &mdash;
+    angka positif adalah besarnya kekurangan yang perlu ditutup.</p>
+  </div>
+
+  <div class="call mt8">
+    <div class="ct"><span class="dot" style="background:var(--c3)"></span>ROP bukan angka yang diketik manual</div>
+    <p>Nilai ROP tidak dapat diisi langsung. Yang dapat diatur adalah <b>parameter</b> pada master barang
+    &mdash; lead time PO, lead time safety, dan isi per koli. Sisanya dihitung sistem dari pemakaian nyata,
+    sehingga angka ROP selalu konsisten antar barang dan antar gudang, dan otomatis menyesuaikan ketika
+    pola pemakaian berubah.</p>
+  </div>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Bab 3 Reorder Point</div><div class="pnum">10</div></div>
+</div>
+
+<!-- ================= P11 : CONTOH ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Bab 3 &mdash; Reorder Point</div><div class="rh-r">Contoh &amp; Layar</div></div>
+
+  <div class="sect c3"><div class="bar"></div><h3>Contoh perhitungan</h3></div>
+  <p class="small mb6">Barang <b>Contoh Barang A</b> di <b>Gudang Nanggewer</b>, riwayat pergerakan sudah lebih
+  dari 60 hari sehingga periode yang dipakai adalah 90 hari.</p>
+
+  <div class="grid2 mb10">
+    <table class="tb c3">
+      <thead><tr><th style="width:58%">Data masukan</th><th style="text-align:right">Nilai</th></tr></thead>
+      <tbody>
+        <tr><td>Total keluar selama 90 hari</td><td style="text-align:right"><b>5.400</b> pcs</td></tr>
+        <tr><td>Jumlah hari periode</td><td style="text-align:right"><b>90</b> hari</td></tr>
+        <tr><td>Lead time PO</td><td style="text-align:right"><b>7</b> hari</td></tr>
+        <tr><td>Lead time safety</td><td style="text-align:right"><b>1</b> hari</td></tr>
+        <tr><td>Isi per koli</td><td style="text-align:right"><b>24</b> pcs</td></tr>
+        <tr><td>Stok on-hand saat ini</td><td style="text-align:right"><b>360</b> pcs</td></tr>
+      </tbody>
+    </table>
+    <div class="fx">
+      <div class="fl">Perhitungan</div>
+      <div class="eq" style="font-size:9.6pt; line-height:1.8">
+        Rata-rata keluar <span class="op">=</span> 5.400 <span class="op">&divide;</span> 90 <span class="op">=</span> <b>60</b> pcs/hari<br>
+        Safety stock <span class="op">=</span> 60 <span class="op">&times;</span> 1 <span class="op">=</span> <b>60</b> pcs<br>
+        ROP qty <span class="op">=</span> (60 <span class="op">&times;</span> 7) <span class="op">+</span> 60 <span class="op">=</span> <b>480</b> pcs<br>
+        ROP koli <span class="op">=</span> 480 <span class="op">&divide;</span> 24 <span class="op">=</span> <b>20</b> koli
+      </div>
+      <div class="note" style="margin-top:7px; padding-top:6px; border-top:1px solid #F0DCC1">
+        <b>Selisih</b> = 480 &minus; 360 = <b>120 pcs</b> &rarr; status <span class="pill p-r">reorder</span><br>
+        Pemesanan ulang minimal 120 pcs perlu dimulai sekarang agar stok tidak habis sebelum barang berikutnya tiba.
+      </div>
+    </div>
+  </div>
+
+  <div class="sect c3"><div class="bar"></div><h3>Membaca layar Reorder Point</h3></div>
+  <table class="tb c3 mb10">
+    <thead><tr><th style="width:27%">Kolom</th><th>Artinya</th></tr></thead>
+    <tbody>
+      <tr><td><b>SKU &amp; Nama Barang</b></td><td>Identitas barang.</td></tr>
+      <tr><td><b>Gudang</b></td><td>ROP dihitung terpisah tiap gudang karena pola pemakaiannya berbeda.</td></tr>
+      <tr><td><b>Avg OUT / hari</b></td><td>Rata-rata barang keluar per hari pada periode yang dipakai.</td></tr>
+      <tr><td><b>Total OUT &amp; Hari Perhitungan</b></td><td>Angka mentah pembentuk rata-rata: total keluar dan panjang periode (30 / 60 / 90 hari).</td></tr>
+      <tr><td><b>Lead Time PO &amp; Safety</b></td><td>Parameter waktu yang diambil dari master barang.</td></tr>
+      <tr><td><b>Safety Stock</b></td><td>Cadangan pengaman dalam satuan qty.</td></tr>
+      <tr><td><b>ROP (Qty) &amp; ROP (Koli)</b></td><td>Titik pesan ulang dalam dua satuan.</td></tr>
+      <tr><td><b>On-hand (Qty) &amp; (Koli)</b></td><td>Stok tersedia saat ini di gudang tersebut.</td></tr>
+      <tr><td><b>Barang dalam pesanan</b></td><td>Sisa pengadaan yang masih berjalan untuk gudang tersebut &mdash; status <i>requested</i> atau <i>on_shipping</i>.</td></tr>
+      <tr><td><b>Selisih</b></td><td>ROP dikurangi on-hand. Positif berarti kurang, negatif berarti masih aman.</td></tr>
+      <tr><td><b>Status</b></td><td><span class="pill p-r">reorder</span> bila on-hand di bawah ROP, <span class="pill p-g">aman</span> bila sebaliknya.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sect c3"><div class="bar"></div><h3>Kapan perhitungan berjalan</h3></div>
+  <table class="tb c3 mb6">
+    <thead><tr><th style="width:28%">Pemicu</th><th style="width:30%">Yang dihitung ulang</th><th>Catatan</th></tr></thead>
+    <tbody>
+      <tr><td><b>Pergerakan stok</b><br><span class="xs" style="color:var(--mut)">dibuat, diubah, dihapus</span></td>
+        <td>Barang dan gudang pada pergerakan tersebut</td>
+        <td>Berjalan otomatis setelah transaksi tersimpan. Perhitungan berulang dalam waktu berdekatan ditahan agar operasi massal tidak membebani sistem.</td></tr>
+      <tr><td><b>Perubahan master barang</b><br><span class="xs" style="color:var(--mut)">isi per koli, lead time</span></td>
+        <td>Barang tersebut di seluruh gudang yang memiliki stoknya</td>
+        <td>Memastikan perubahan parameter langsung tercermin di semua gudang.</td></tr>
+      <tr><td><b>Hitung ulang manual</b></td>
+        <td>Seluruh kombinasi barang &amp; gudang yang dikenal sistem</td>
+        <td>Dijalankan dari tombol pada layar Reorder Point; berguna setelah migrasi data atau perubahan parameter massal.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="grid2">
+    <div class="call">
+      <div class="ct"><span class="dot" style="background:var(--c3)"></span>Filter dan ekspor</div>
+      <p>Daftar dapat disaring per gudang, kategori, tipe barang, dan status. Gudang bawaan mengikuti gudang
+      pengguna yang sedang masuk. Hasil saringan dapat diunduh sebagai Excel untuk rapat perencanaan.</p>
+    </div>
+    <div class="call warn">
+      <div class="ct"><span class="dot"></span>Menjaga akurasi</div>
+      <ul>
+        <li>Isi <b>lead time</b> per barang sesuai kenyataan pemasok; nilai bawaan hanya titik awal.</li>
+        <li>Pastikan <b>isi per koli</b> benar agar ROP koli langsung terpakai di lapangan.</li>
+        <li>Jalankan <b>hitung ulang</b> setelah perubahan parameter secara massal.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Bab 3 Reorder Point</div><div class="pnum">11</div></div>
+</div>
+
+<!-- ================= P12 : LAMPIRAN ================= -->
+<div class="page">
+  <div class="rhead"><div class="rh-l">Lampiran</div><div class="rh-r">Referensi Cepat</div></div>
+
+  <h2 class="ch" style="font-size:16pt">Referensi Cepat</h2>
+
+  <div class="sect"><div class="bar"></div><h3>Format kode dokumen</h3></div>
+  <table class="tb mb10">
+    <thead><tr><th style="width:26%">Dokumen</th><th style="width:30%">Pola</th><th>Keterangan</th></tr></thead>
+    <tbody>
+      <tr><td>Request Transfer</td><td class="mono">TR-YYYYMMDD-0001</td><td>Nomor urut per tanggal dokumen, dipastikan unik saat penyimpanan.</td></tr>
+      <tr><td>Shipment / Surat Jalan</td><td class="mono">SHIP-YYYYMMDD-0001</td><td>Dibuat otomatis saat pengiriman disimpan.</td></tr>
+      <tr><td>Goods Receipt</td><td class="xs" style="color:var(--mut)">diisi saat pembuatan</td><td>Nomor diusulkan sistem dan harus unik.</td></tr>
+      <tr><td>Pengadaan</td><td class="xs" style="color:var(--mut)">dibuat otomatis</td><td>Dibentuk saat dokumen pengadaan disimpan.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sect"><div class="bar"></div><h3>Peta menu terhadap alur</h3></div>
+  <table class="tb mb10">
+    <thead><tr><th style="width:34%">Menu</th><th style="width:14%">Bab</th><th>Dipakai untuk</th></tr></thead>
+    <tbody>
+      <tr><td>Stok Masuk &rsaquo; Request Transfer</td><td>Bab 1</td><td>Membuat dan memantau permintaan barang dari gudang lain; penyesuaian sisa.</td></tr>
+      <tr><td>Stok Keluar &rsaquo; Permintaan Barang</td><td>Bab 1</td><td>Menyetujui permintaan dan membuat pengiriman beserta surat jalan.</td></tr>
+      <tr><td>Transfer Gudang &rsaquo; Surat Jalan</td><td>Bab 1</td><td>Menampilkan dan mencetak surat jalan sebuah permintaan.</td></tr>
+      <tr><td>Laporan &rsaquo; Riwayat Pengiriman</td><td>Bab 1</td><td>Menandai keberangkatan, mengedit, atau membatalkan pengiriman.</td></tr>
+      <tr><td>Stok Masuk &rsaquo; Penerimaan Barang</td><td>Bab 1 &amp; 2</td><td>Mencatat dan menyelesaikan penerimaan, tipe transfer maupun pengadaan.</td></tr>
+      <tr><td>Stok Masuk &rsaquo; Pengadaan</td><td>Bab 2</td><td>Membuat dokumen pengadaan dan menyusun distribusinya.</td></tr>
+      <tr><td>Manajemen Stok &rsaquo; Reorder Point</td><td>Bab 3</td><td>Memantau titik pesan ulang dan menjalankan hitung ulang.</td></tr>
+      <tr><td>Manajemen Stok &rsaquo; Kartu Stok</td><td>Semua</td><td>Menelusuri seluruh pergerakan stok per barang dan gudang.</td></tr>
+      <tr><td>Laporan &rsaquo; Transfer Gudang / Pengadaan</td><td>Bab 1 &amp; 2</td><td>Rekap dan analisis periodik.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sect"><div class="bar"></div><h3>Glosarium</h3></div>
+  <table class="tb mb10">
+    <thead><tr><th style="width:26%">Istilah</th><th>Penjelasan</th></tr></thead>
+    <tbody>
+      <tr><td><b>Qty</b></td><td>Jumlah barang dalam satuan terkecil.</td></tr>
+      <tr><td><b>Koli</b></td><td>Jumlah barang dalam satuan kemasan; konversi memakai isi per koli pada master barang.</td></tr>
+      <tr><td><b>Sisa kirim</b></td><td>Bagian permintaan transfer yang belum dimasukkan ke pengiriman manapun.</td></tr>
+      <tr><td><b>Sisa pesanan</b></td><td>Bagian baris pengadaan yang belum diterima maupun didistribusikan.</td></tr>
+      <tr><td><b>Barang dalam perjalanan</b></td><td>Sudah dikirim tetapi belum diterima; tidak dihitung sebagai stok gudang manapun.</td></tr>
+      <tr><td><b>On-hand</b></td><td>Stok yang benar-benar tersedia di gudang saat ini.</td></tr>
+      <tr><td><b>Lead time PO</b></td><td>Perkiraan lama barang tiba sejak pemesanan dilakukan.</td></tr>
+      <tr><td><b>Safety stock</b></td><td>Cadangan stok untuk menutup keterlambatan dan lonjakan permintaan.</td></tr>
+      <tr><td><b>Hak akses approve</b></td><td>Izin menyelesaikan dokumen yang berdampak pada stok, seperti penerimaan barang.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="call ok">
+    <div class="ct"><span class="dot"></span>Tiga hal yang paling penting diingat</div>
+    <ul>
+      <li>Stok keluar saat <b>pengiriman dibuat</b>; stok masuk saat <b>penerimaan diselesaikan</b>. Dokumen lain tidak menyentuh stok.</li>
+      <li><b>Surat jalan terbit bersamaan dengan pengiriman</b> &mdash; isinya mengikuti data pengiriman, bukan data permintaan.</li>
+      <li><b>Reorder point mengikuti pemakaian nyata</b> dan dihitung ulang otomatis setiap kali stok bergerak.</li>
+    </ul>
+  </div>
+
+  <div class="rfoot"><div><b>Workflow Sistem IMS</b> &middot; Lampiran</div><div class="pnum">12</div></div>
+</div>
+
+</body>
+</html>
