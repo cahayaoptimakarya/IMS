@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin\Masterdata;
 
 use App\Http\Controllers\Controller;
+use App\Exports\ItemExport;
 use App\Models\Item;
 use App\Models\Uom;
 use App\Models\ItemCategory;
@@ -15,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ItemController extends Controller
 {
@@ -442,14 +444,88 @@ class ItemController extends Controller
         return response()->json(['isUnique' => $isUnique]);
     }
 
+    /**
+     * Export master item ke Excel mengikuti filter halaman (kategori, status, pencarian).
+     */
+    public function exportExcel(Request $request)
+    {
+        $query = Item::query()->with(['uom', 'itemCategory', 'itemType']);
+        $this->applyListFilters(
+            $query,
+            $request->input('category_id'),
+            $request->input('status'),
+            $request->input('search')
+        );
+
+        $headings = [
+            'No',
+            'SKU',
+            'Nama Barang',
+            'Kategori',
+            'Tipe Item',
+            'Status',
+            'UOM',
+            'Isi per Koli',
+            'Minimal Stok Menipis',
+            'Lead Time PO (hari)',
+            'Lead Time Safety (hari)',
+            'Panjang Koli (cm)',
+            'Lebar Koli (cm)',
+            'Tinggi Koli (cm)',
+            'CBM per Koli (m3)',
+            'Tempat',
+            'Deskripsi',
+        ];
+
+        $dataRows = [];
+        foreach ($query->orderBy('nama_barang')->get() as $i => $item) {
+            $dataRows[] = [
+                $i + 1,
+                $item->sku,
+                $item->nama_barang,
+                optional($item->itemCategory)->name,
+                optional($item->itemType)->name,
+                $item->is_active ? 'Aktif' : 'Nonaktif',
+                optional($item->uom)->name,
+                (int) $item->koli,
+                (int) $item->low_stock_threshold,
+                $item->lead_time_po_days,
+                $item->lead_time_safety_days,
+                $item->panjang_koli,
+                $item->lebar_koli,
+                $item->tinggi_koli,
+                $item->cbm_per_koli,
+                $item->tempat,
+                $item->deskripsi,
+            ];
+        }
+
+        $fileName = 'master_items_' . now()->format('Ymd_His') . '.xlsx';
+        return Excel::download(new ItemExport($dataRows, $headings), $fileName);
+    }
+
+    protected function applyListFilters($query, $categoryId, $status, $searchValue): void
+    {
+        if ($categoryId && $categoryId !== 'semua') {
+            $query->where('item_category_id', $categoryId);
+        }
+        if (in_array($status, ['active', 'inactive'], true)) {
+            $query->where('is_active', $status === 'active');
+        }
+        if ($searchValue) {
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('sku', 'like', "%{$searchValue}%")
+                    ->orWhere('nama_barang', 'like', "%{$searchValue}%")
+                    ->orWhere('deskripsi', 'like', "%{$searchValue}%");
+            });
+        }
+    }
+
     public function data(Request $request)
     {
         $draw = (int) $request->input('draw');
         $start = (int) $request->input('start', 0);
         $length = (int) $request->input('length', 10);
-        $searchValue = $request->input('search.value');
-        $categoryId = $request->input('category_id');
-        $status = $request->input('status');
 
         // Base query with relations
         $baseQuery = Item::query()->with(['uom', 'itemCategory']);
@@ -458,19 +534,12 @@ class ItemController extends Controller
         $recordsTotal = (clone $baseQuery)->count();
 
         // Filtering
-        if ($categoryId && $categoryId !== 'semua') {
-            $baseQuery->where('item_category_id', $categoryId);
-        }
-        if (in_array($status, ['active', 'inactive'], true)) {
-            $baseQuery->where('is_active', $status === 'active');
-        }
-        if ($searchValue) {
-            $baseQuery->where(function ($q) use ($searchValue) {
-                $q->where('sku', 'like', "%{$searchValue}%")
-                    ->orWhere('nama_barang', 'like', "%{$searchValue}%")
-                    ->orWhere('deskripsi', 'like', "%{$searchValue}%");
-            });
-        }
+        $this->applyListFilters(
+            $baseQuery,
+            $request->input('category_id'),
+            $request->input('status'),
+            $request->input('search.value')
+        );
 
         // recordsFiltered after applying filters
         $recordsFiltered = (clone $baseQuery)->count();

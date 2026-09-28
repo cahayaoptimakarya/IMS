@@ -103,8 +103,10 @@
                 </div>
                 <div class="card-toolbar">
                     <!--begin::Toolbar-->
-                    @if ($canCreate || $canEdit)
-                        <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                    <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                            <a href="{{ route('admin.masterdata.items.export-excel') }}" class="btn btn-light-primary" id="export_excel">
+                                <i class="fas fa-file-download me-1"></i> Export Excel
+                            </a>
                             @if ($canEdit)
                                 <a href="{{ route('admin.masterdata.items.update-bulk.index') }}" class="btn btn-light-success">
                                     <i class="fas fa-file-excel me-1"></i> Update Massal (Excel)
@@ -117,7 +119,6 @@
                                 </div>
                             @endif
                         </div>
-                    @endif
                     <!--end::Toolbar-->
                 </div>
 
@@ -402,6 +403,17 @@
             }, 500));
             $('#category_filter, #status_filter').on('change', function() {
                 table.draw();
+            });
+
+            // Export mengikuti filter & pencarian yang sedang aktif
+            $('#export_excel').on('click', function(e) {
+                e.preventDefault();
+                var params = $.param({
+                    category_id: $('#category_filter').val() || '',
+                    status: $('#status_filter').val() || '',
+                    search: $('#search_input').val() || ''
+                });
+                window.location.href = $(this).attr('href') + '?' + params;
             });
 
             if (canDelete) {

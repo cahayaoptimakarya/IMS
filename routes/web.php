@@ -55,6 +55,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::resource('uoms', UomController::class);
         // Put data route BEFORE resource to avoid binding 'data' as {item}
         Route::get('items/data', [ItemController::class, 'data'])->name('items.data');
+        Route::get('items/export-excel', [ItemController::class, 'exportExcel'])->name('items.export-excel');
         // Update massal via Excel; nama route mengandung ".update" sehingga memerlukan hak edit menu Items
         Route::get('items/update-massal', [\App\Http\Controllers\Admin\Masterdata\ItemBulkUpdateController::class, 'index'])->name('items.update-bulk.index');
         Route::get('items/update-massal/template', [\App\Http\Controllers\Admin\Masterdata\ItemBulkUpdateController::class, 'template'])->name('items.update-bulk.template');
