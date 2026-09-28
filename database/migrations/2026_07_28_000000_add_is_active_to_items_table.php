@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('items', 'is_active')) {
+            return;
+        }
+
         Schema::table('items', function (Blueprint $table) {
             $table->boolean('is_active')->default(true)->after('deskripsi');
         });

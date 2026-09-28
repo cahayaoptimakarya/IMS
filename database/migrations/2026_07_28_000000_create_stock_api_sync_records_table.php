@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up(): void {
+        if (Schema::hasTable('stock_api_sync_records')) return;
         Schema::create('stock_api_sync_records', function (Blueprint $table) {
             $table->id(); $table->unsignedBigInteger('item_id')->nullable()->index();
             $table->string('sku', 100)->unique(); $table->string('name', 255); $table->string('category', 255)->nullable();

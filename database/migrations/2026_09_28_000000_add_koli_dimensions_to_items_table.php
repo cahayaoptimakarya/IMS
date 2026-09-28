@@ -12,9 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('items', function (Blueprint $table) {
-            $table->decimal('panjang_koli', 10, 2)->nullable()->after('koli')->comment('Panjang per koli/karton (cm)');
-            $table->decimal('lebar_koli', 10, 2)->nullable()->after('panjang_koli')->comment('Lebar per koli/karton (cm)');
-            $table->decimal('tinggi_koli', 10, 2)->nullable()->after('lebar_koli')->comment('Tinggi per koli/karton (cm)');
+            if (!Schema::hasColumn('items', 'panjang_koli')) {
+                $table->decimal('panjang_koli', 10, 2)->nullable()->after('koli')->comment('Panjang per koli/karton (cm)');
+            }
+            if (!Schema::hasColumn('items', 'lebar_koli')) {
+                $table->decimal('lebar_koli', 10, 2)->nullable()->after('panjang_koli')->comment('Lebar per koli/karton (cm)');
+            }
+            if (!Schema::hasColumn('items', 'tinggi_koli')) {
+                $table->decimal('tinggi_koli', 10, 2)->nullable()->after('lebar_koli')->comment('Tinggi per koli/karton (cm)');
+            }
         });
     }
 

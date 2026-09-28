@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        if (Schema::hasTable('item_reorder_metrics')) {
+            return;
+        }
+
         Schema::create('item_reorder_metrics', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('item_id');
