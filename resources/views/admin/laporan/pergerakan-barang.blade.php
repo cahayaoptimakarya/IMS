@@ -7,622 +7,322 @@
     ])
 @endpush
 
-@section('content')
-    {{-- Hidden div to hold the JSON data for charts for AJAX updates --}}
-    <div id="chart_data_json" style="display: none;">
-        {{ json_encode(['trendData' => $trendData, 'pieChartData' => $pieChartData]) }}
-    </div>
+@push('styles')
+    <style>
+        .movement-card { cursor: pointer; border: 2px solid transparent; transition: border-color .15s ease; }
+        .movement-card.active { border-color: var(--bs-primary); }
+        .movement-card .share-bar { height: 6px; }
+        #movement_table td { vertical-align: middle; }
+    </style>
+@endpush
 
+@section('content')
     <div class="content flex-row-fluid" id="kt_content">
 
-        <!-- Title/Subtitle Hero -->
-        <div class="mb-7">
-            <div class="text-center py-6 px-4 rounded" style="background: linear-gradient(180deg, #F9FAFB 0%, #FFFFFF 100%);">
-                <div class="fs-2hx fw-bolder text-dark">Laporan Pergerakan Barang</div>
-                <div class="fs-6 text-gray-700 mt-2">
-                    Berdasarkan Gudang:
-                    <span class="fw-bold text-gray-900">{{ $activeWarehouse->name ?? 'Semua Gudang' }}</span>
+        <!--begin::Filters-->
+        <div class="card mb-7">
+            <div class="card-body">
+                <div class="row g-6 align-items-end">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold">Periode (Tanggal Kirim)</label>
+                        <div class="position-relative">
+                            <span class="position-absolute top-50 translate-middle-y ms-4"><i class="fas fa-calendar-alt"></i></span>
+                            <input class="form-control form-control-solid ps-12" id="date_range" placeholder="Pilih rentang tanggal" readonly />
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label fw-bold">Gudang</label>
+                        <select id="warehouse_filter" class="form-select form-select-solid" data-kt-select2="true" data-hide-search="true" {{ $lockWarehouse ? 'disabled' : '' }}>
+                            @foreach ($warehouses as $warehouse)
+                                <option value="{{ $warehouse->id }}" {{ ($activeWarehouse->id ?? null) == $warehouse->id ? 'selected' : '' }}>{{ $warehouse->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label fw-bold">Klasifikasi</label>
+                        <select id="class_filter" class="form-select form-select-solid" data-kt-select2="true" data-hide-search="true">
+                            <option value="">Semua Klasifikasi</option>
+                            @foreach ($classLabels as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-2 text-md-end">
+                        <button type="button" class="btn btn-light me-2" id="reset_filter">Reset</button>
+                        <button type="button" class="btn btn-primary" id="apply_filter">Terapkan</button>
+                    </div>
                 </div>
+                <div class="text-muted fs-7 mt-4" id="filter_info">&nbsp;</div>
             </div>
         </div>
+        <!--end::Filters-->
 
-        <!-- Keterangan Filter Bar -->
-        <div id="filter_info_bar" class="mb-5">
-            <div class="alert alert-secondary d-flex align-items-center p-3">
-                <span class="me-3"><i class="fas fa-filter"></i></span>
-                <div>
-                    <div class="fw-bold mb-1">Keterangan Filter</div>
-                    <div id="filter_info" class="text-gray-700">Menampilkan semua data</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="stats_wrapper">
-            <!--begin::Row-->
-            <div class="row g-5 g-xl-8">
-                <div class="col-xl-4">
-                    <!--begin::Statistics Widget 5-->
-                    <a href="#" class="card bg-body-white hoverable card-xl-stretch mb-xl-8">
+        <!--begin::Classification cards-->
+        @php
+            $cardMeta = [
+                'fast' => ['color' => 'success', 'icon' => 'fa-bolt', 'hint' => 'Kumulatif 0 - ' . (int) $fastThreshold . '% qty keluar'],
+                'medium' => ['color' => 'primary', 'icon' => 'fa-tachometer-alt', 'hint' => 'Kumulatif ' . (int) $fastThreshold . ' - ' . (int) $mediumThreshold . '% qty keluar'],
+                'slow' => ['color' => 'warning', 'icon' => 'fa-hourglass-half', 'hint' => 'Kumulatif > ' . (int) $mediumThreshold . '% qty keluar'],
+                'non_moving' => ['color' => 'danger', 'icon' => 'fa-pause-circle', 'hint' => 'Ada stok, tidak ada qty keluar'],
+            ];
+        @endphp
+        <div class="row g-5 g-xl-8 mb-7">
+            @foreach ($cardMeta as $key => $meta)
+                <div class="col-6 col-xl-3">
+                    <div class="card card-xl-stretch movement-card h-100" data-class="{{ $key }}">
                         <div class="card-body">
-                            <span class="svg-icon svg-icon-3x svg-icon-primary ms-n1">
-                                <i class="fas fa-exchange-alt fs-2x text-primary"></i>
-                            </span>
-                            <div class="text-gray-900 fw-bolder fs-2 mb-2 mt-5">{{ number_format($stats['total_movements'], 0, ',', '.') }}</div>
-                            <div class="fw-bold text-gray-400">Total Pergerakan</div>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="badge badge-light-{{ $meta['color'] }} fs-7 fw-bolder">{{ $classLabels[$key] }}</span>
+                                <i class="fas {{ $meta['icon'] }} fs-2 text-{{ $meta['color'] }}"></i>
+                            </div>
+                            <div class="text-gray-900 fw-bolder fs-2x mt-4"><span data-summary="{{ $key }}.sku_count">-</span> <span class="fs-6 text-gray-500 fw-bold">SKU</span></div>
+                            @if ($key !== 'non_moving')
+                                <div class="text-gray-600 fw-bold fs-7 mt-1">
+                                    <span data-summary="{{ $key }}.qty_share">-</span> dari total qty keluar
+                                </div>
+                                <div class="progress share-bar bg-light-{{ $meta['color'] }} mt-2">
+                                    <div class="progress-bar bg-{{ $meta['color'] }}" data-summary-bar="{{ $key }}" style="width: 0%"></div>
+                                </div>
+                            @else
+                                <div class="text-gray-600 fw-bold fs-7 mt-1">
+                                    Stok tertahan: <span data-summary="{{ $key }}.stock">-</span>
+                                </div>
+                            @endif
+                            <div class="text-muted fs-8 mt-2">{{ $meta['hint'] }}</div>
                         </div>
-                    </a>
-                    <!--end::Statistics Widget 5-->
+                    </div>
                 </div>
-                <div class="col-xl-4">
-                    <!--begin::Statistics Widget 5-->
-                    <a href="#" class="card bg-success hoverable card-xl-stretch mb-xl-8">
-                        <div class="card-body">
-                             <span class="svg-icon svg-icon-3x svg-icon-white ms-n1">
-                                <i class="fas fa-arrow-down fs-2x text-white"></i>
-                            </span>
-                            <div class="text-white fw-bolder fs-2 mb-2 mt-5">{{ number_format($stats['total_in'], 2, ',', '.') }}</div>
-                            <div class="fw-bold text-white">Total Kuantitas Masuk</div>
-                        </div>
-                    </a>
-                    <!--end::Statistics Widget 5-->
-                </div>
-                <div class="col-xl-4">
-                    <!--begin::Statistics Widget 5-->
-                    <a href="#" class="card bg-danger hoverable card-xl-stretch mb-5 mb-xl-8">
-                        <div class="card-body">
-                            <span class="svg-icon svg-icon-3x svg-icon-white ms-n1">
-                               <i class="fas fa-arrow-up fs-2x text-white"></i>
-                            </span>
-                            <div class="text-white fw-bolder fs-2 mb-2 mt-5">{{ number_format($stats['total_out'], 2, ',', '.') }}</div>
-                            <div class="fw-bold text-white">Total Kuantitas Keluar</div>
-                        </div>
-                    </a>
-                    <!--end::Statistics Widget 5-->
-                </div>
-            </div>
-            <!--end::Row-->
+            @endforeach
         </div>
+        <!--end::Classification cards-->
 
-        <!-- Additional Metrics Row -->
-        <div class="row g-5 g-xl-8 mb-6">
-            <div class="col-xl-3">
-                <div class="card card-xl-stretch mb-5 mb-xl-8">
-                    <div class="card-body">
-                        <div class="text-muted fs-7">Negative Stock Events</div>
-                        <div class="text-dark fw-bolder fs-2 mt-3">{{ number_format($negativeEvents ?? 0) }}</div>
-                        <div class="text-muted fs-8">Jumlah kejadian stok negatif dalam periode</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-3">
-                <div class="card card-xl-stretch mb-5 mb-xl-8">
-                    <div class="card-body">
-                        <div class="text-muted fs-7">Avg Daily Outflow per SKU</div>
-                        <div class="text-dark fw-bolder fs-2 mt-3">{{ number_format($avgDailyMovement ?? 0, 2) }}</div>
-                        <div class="text-muted fs-8">Rata-rata kuantitas keluar per SKU per hari (sejak pergerakan pertama)</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-6">
-                <div class="card card-xl-stretch mb-5 mb-xl-8">
-                    <div class="card-body">
-                        <div class="text-muted fs-7">Top Warehouse by Movement</div>
-                        <div class="mt-3">
-                            <ul class="list-group">
-                                @foreach (($warehouseMovement ?? collect()) as $wm)
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <div class="fw-bolder">{{ $wm->warehouse_name ?? 'Unknown' }}</div>
-                                            <div class="text-muted fs-8">Gudang ID: {{ $wm->warehouse_id }}</div>
-                                        </div>
-                                        <div class="fw-bolder">{{ number_format($wm->movement_sum, 2, ',', '.') }}</div>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!--begin::Row-->
-        <div class="row g-5 g-xl-8">
-            <div class="col-xl-7">
-                <div class="card card-xl-stretch mb-5 mb-xl-8">
-                    <div class="card-header border-0 pt-5">
-                        <h3 class="card-title align-items-start flex-column">
-                            <span class="card-label fw-bolder text-dark">Tren Pergerakan Stok</span>
-                            <span class="text-muted mt-1 fw-bold fs-7">Stok Masuk vs Stok Keluar</span>
-                        </h3>
-                    </div>
-                    <div class="card-body pt-5">
-                        <div id="stock_movement_chart" style="height: 350px;"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-5">
-                 <div class="card card-xl-stretch mb-5 mb-xl-8">
-                    <div class="card-header border-0 pt-5">
-                        <h3 class="card-title align-items-start flex-column">
-                            <span class="card-label fw-bolder text-dark">Tipe Pergerakan</span>
-                            <span class="text-muted mt-1 fw-bold fs-7">Berdasarkan jumlah transaksi</span>
-                        </h3>
-                    </div>
-                    <div class="card-body pt-5 d-flex justify-content-center align-items-center">
-                        <div id="movement_type_chart" style="height: 350px;"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!--end::Row-->
-
-        <!-- Top Items Row -->
-        <div class="row g-5 g-xl-8 mb-8">
-            <div class="col-xl-6">
-                <div class="card card-xl-stretch mb-5 mb-xl-8">
-                    <div class="card-header border-0 pt-5">
-                        <h3 class="card-title align-items-start flex-column">
-                            <span class="card-label fw-bolder text-dark">Top Incoming Items</span>
-                            <span class="text-muted mt-1 fw-bold fs-7">Berdasarkan kuantitas masuk</span>
-                        </h3>
-                    </div>
-                    <div class="card-body pt-5">
-                        <div class="table-responsive">
-                            <table class="table align-middle table-row-dashed fs-7 gy-3">
-                                <thead>
-                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                        <th>SKU / Info</th>
-                                        <th class="text-end">Total In (Qty)</th>
-                                        <th class="text-end">Total In (Koli)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (($topIncoming ?? collect()) as $inc)
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex flex-column">
-                                                    <span class="fw-bolder text-primary">{{ $inc->sku ?? '-' }}</span>
-                                                    <span class="text-muted">Per Koli: {{ number_format($inc->per_koli ?? 0) }} {{ $inc->uom_symbol ?? '' }}</span>
-                                                </div>
-                                            </td>
-                                            <td class="text-end">{{ number_format($inc->total_in ?? 0, 2, ',', '.') }}</td>
-                                            <td class="text-end">{{ number_format($inc->total_in_koli ?? 0, 2, ',', '.') }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-xl-6">
-                <div class="card card-xl-stretch mb-5 mb-xl-8">
-                    <div class="card-header border-0 pt-5">
-                        <h3 class="card-title align-items-start flex-column">
-                            <span class="card-label fw-bolder text-dark">Top Outgoing Items</span>
-                            <span class="text-muted mt-1 fw-bold fs-7">Berdasarkan kuantitas keluar</span>
-                        </h3>
-                    </div>
-                    <div class="card-body pt-5">
-                        <div class="table-responsive">
-                            <table class="table align-middle table-row-dashed fs-7 gy-3">
-                                <thead>
-                                    <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                        <th>SKU / Info</th>
-                                        <th class="text-end">Total Out (Qty)</th>
-                                        <th class="text-end">Total Out (Koli)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (($topOutgoing ?? collect()) as $out)
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex flex-column">
-                                                    <span class="fw-bolder text-primary">{{ $out->sku ?? '-' }}</span>
-                                                    <span class="text-muted">Per Koli: {{ number_format($out->per_koli ?? 0) }} {{ $out->uom_symbol ?? '' }}</span>
-                                                </div>
-                                            </td>
-                                            <td class="text-end">{{ number_format($out->total_out ?? 0, 2, ',', '.') }}</td>
-                                            <td class="text-end">{{ number_format($out->total_out_koli ?? 0, 2, ',', '.') }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+        <!--begin::Table-->
         <div class="card">
             <div class="card-header border-0 pt-6">
                 <div class="card-title">
-                    <form id="filter_form" class="d-flex align-items-center position-relative my-1">
-                        <div class="d-flex align-items-center position-relative my-1">
-                            <span class="svg-icon svg-icon-1 position-absolute ms-6">
-                                <i class="fas fa-calendar-alt"></i>
-                            </span>
-                            <input class="form-control form-control-solid w-350px ps-15" placeholder="Pilih Rentang Tanggal" id="kt_daterangepicker" name="date_range"/>
-                        </div>
-                    </form>
+                    <div class="d-flex align-items-center position-relative my-1">
+                        <span class="position-absolute ms-5"><i class="fas fa-search"></i></span>
+                        <input type="text" id="table_search" class="form-control form-control-solid w-250px ps-13" placeholder="Cari SKU / nama item" />
+                    </div>
                 </div>
                 <div class="card-toolbar">
-                    <button type="button" class="btn btn-light-primary me-3" data-kt-menu-trigger="click" data-kt-menu-placement="bottom-end">
-                        <span class="svg-icon svg-icon-2">
-                            <i class="fas fa-filter"></i>
-                        </span>
-                        Filter
-                    </button>
-                    <div class="menu menu-sub menu-sub-dropdown w-300px w-md-325px" data-kt-menu="true" id="kt_menu_624854996627a">
-                        <div class="px-7 py-5">
-                            <div class="fs-4 text-dark fw-bolder">Filter Options</div>
-                        </div>
-                        <div class="separator border-gray-200"></div>
-                        <div class="px-7 py-5">
-                            <div class="mb-10">
-                                <label class="form-label fs-5 fw-bold mb-3">Tipe Pergerakan:</label>
-                                <select id="type_filter" class="form-select form-select-solid fw-bolder" data-kt-select2="true" data-hide-search="true" data-placeholder="Pilih Tipe" name="type_filter" form="filter_form">
-                                    <option value="semua">Semua Tipe</option>
-                                    <option value="stock_in" {{ request('type_filter') == 'stock_in' ? 'selected' : '' }}>Stock In</option>
-                                    <option value="stock_out" {{ request('type_filter') == 'stock_out' ? 'selected' : '' }}>Stock Out</option>
-                                    <option value="transfer_in" {{ request('type_filter') == 'transfer_in' ? 'selected' : '' }}>Transfer In</option>
-                                    <option value="transfer_out" {{ request('type_filter') == 'transfer_out' ? 'selected' : '' }}>Transfer Out</option>
-                                    <option value="adjustment" {{ request('type_filter') == 'adjustment' ? 'selected' : '' }}>Adjustment</option>
-                                </select>
-                            </div>
-
-                            @if (!auth()->user()->warehouse_id)
-                                <div class="mb-10">
-                                    <label class="form-label fs-5 fw-bold mb-3">Gudang:</label>
-                                    <select id="warehouse_filter" class="form-select form-select-solid fw-bolder" data-kt-select2="true" name="warehouse_filter" form="filter_form">
-                                        <option value="">Semua Gudang</option>
-                                        @foreach ($warehouses as $warehouse)
-                                            <option value="{{ $warehouse->id }}" {{ (request('warehouse_filter') ? (request('warehouse_filter') == $warehouse->id) : ((($activeWarehouse->id ?? null) == $warehouse->id))) ? 'selected' : '' }}>{{ $warehouse->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @endif
-                            <div class="mb-10">
-                                <label class="form-label fs-5 fw-bold mb-3">Barang:</label>
-                                <select id="item_filter" class="form-select form-select-solid fw-bolder" data-kt-select2="true" name="item_filter" form="filter_form">
-                                    <option value="">Semua Barang</option>
-                                    @foreach ($items as $item)
-                                        <option value="{{ $item->id }}">{{ $item->sku ? $item->sku . ' - ' : '' }}{{ $item->nama_barang }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="d-flex justify-content-end">
-                                <button type="button" class="btn btn-light btn-active-light-primary me-2" id="reset_filter">Reset</button>
-                                <button type="button" class="btn btn-primary" id="apply_filter">Apply</button>
-                            </div>
-                        </div>
+                    <div class="text-muted fs-7 text-end">
+                        Total qty keluar: <span class="fw-bolder text-gray-800" id="total_out">-</span>
+                        &middot; Hari periode: <span class="fw-bolder text-gray-800" id="period_days">-</span>
                     </div>
                 </div>
             </div>
-            <div class="card-body pt-4" id="table_wrapper">
+            <div class="card-body pt-2">
                 <div class="table-responsive">
-                    <table id="table-on-page" class="table align-middle table-row-dashed fs-6 gy-5">
+                    <table id="movement_table" class="table align-middle table-row-dashed fs-7 gy-4">
                         <thead>
-                            <tr class="text-start text-gray-400 fw-bolder fs-7 text-uppercase gs-0">
-                                <th>Tanggal</th>
-                                <th>Barang</th>
-                                <th>Gudang</th>
-                                <th>Tipe</th>
-                                <th>Deskripsi</th>
-                                <th class="text-end">Stok Sebelum</th>
-                                <th class="text-end">Jumlah</th>
-                                <th class="text-end">Stok Sesudah</th>
-                                <th>User</th>
+                            <tr class="text-start text-gray-500 fw-bolder fs-7 text-uppercase gs-0">
+                                <th class="w-40px">No</th>
+                                <th class="min-w-200px">SKU / Item</th>
+                                <th class="text-end">Stok</th>
+                                <th>Klasifikasi</th>
+                                <th class="text-end">Qty Keluar</th>
+                                <th class="text-end">Rata-rata / Hari</th>
+                                <th class="text-end">Kontribusi (%)</th>
+                                <th class="text-end">Frequency</th>
+                                <th class="text-end">Days Cover</th>
+                                <th>Terakhir Keluar</th>
                             </tr>
                         </thead>
-                        <tbody class="fw-bold text-gray-600"></tbody>
+                        <tbody class="fw-bold text-gray-700"></tbody>
                     </table>
+                </div>
+                <div class="text-muted fs-8 mt-4">
+                    Qty keluar dihitung dari barang yang dikirim atas Permintaan Barang dengan gudang asal sesuai filter, berdasarkan tanggal kirim.
+                    Klasifikasi diurutkan dari qty keluar terbesar; item yang melintasi batas {{ (int) $fastThreshold }}% / {{ (int) $mediumThreshold }}% masuk ke lapisan tempat kontribusinya dimulai.
+                    Frequency = jumlah dokumen Permintaan Barang yang dikirim. Days cover = stok saat ini &divide; rata-rata keluar per hari.
+                    Terakhir keluar = tanggal kirim terakhir hingga akhir periode.
                 </div>
             </div>
         </div>
+        <!--end::Table-->
     </div>
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('metronic/assets/plugins/custom/apexcharts/apexcharts.bundle.js') }}"></script>
     <script>
-        // Define chart instances in a broader scope
-        var stockMovementChart;
-        var movementTypeChart;
-        var table;
+        $(function () {
+            var classMeta = {
+                fast: { color: 'success' },
+                medium: { color: 'primary' },
+                slow: { color: 'warning' },
+                non_moving: { color: 'danger' }
+            };
+            var defaultWarehouse = $('#warehouse_filter').val();
 
-        $(document).ready(function() {
-            // Initialize Select2 for filter dropdowns (default)
             if ($.fn.select2) {
-                $('[data-kt-select2="true"]').select2();
-            }
-            // Init Daterangepicker
-            var start = moment().subtract(29, 'days');
-            var end = moment();
-
-            @if($dateRange)
-                var dates = "{{$dateRange}}".split(' - ');
-                start = moment(dates[0], 'DD/MM/YYYY');
-                end = moment(dates[1], 'DD/MM/YYYY');
-            @endif
-
-            function cb(start, end) {
-                $('#kt_daterangepicker').val(start.format('DD/MM/YYYY') + ' - ' + end.format('DD/MM/YYYY'));
+                $('[data-kt-select2="true"]').select2({ minimumResultsForSearch: Infinity });
             }
 
-            $("#kt_daterangepicker").daterangepicker({
-                startDate: start,
-                endDate: end,
+            function fmt(value, digits) {
+                var n = parseFloat(value || 0);
+                return n.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: digits === undefined ? 2 : digits });
+            }
+
+            function escapeHtml(text) {
+                return $('<div>').text(text == null ? '' : text).html();
+            }
+
+            // Date range (default 30 hari terakhir)
+            var defaultStart = moment().subtract(29, 'days');
+            var defaultEnd = moment();
+            function setRange(start, end) {
+                $('#date_range').val(start.format('DD/MM/YYYY') + ' - ' + end.format('DD/MM/YYYY'));
+            }
+            $('#date_range').daterangepicker({
+                startDate: defaultStart,
+                endDate: defaultEnd,
                 ranges: {
-                   'Hari Ini': [moment(), moment()],
-                   'Kemarin': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                   '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
-                   '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
-                   'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
-                   'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                    '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
+                    '60 Hari Terakhir': [moment().subtract(59, 'days'), moment()],
+                    '90 Hari Terakhir': [moment().subtract(89, 'days'), moment()],
+                    'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
+                    'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')],
+                    'Tahun Ini': [moment().startOf('year'), moment()]
                 },
-                locale: {
-                    format: 'DD/MM/YYYY'
-                }
-            }, cb);
+                locale: { format: 'DD/MM/YYYY' }
+            }, setRange);
+            setRange(defaultStart, defaultEnd);
 
-            cb(start, end);
-
-            // Init Charts
-            var initialChartData = JSON.parse($('#chart_data_json').text());
-            initStockMovementChart(initialChartData.trendData);
-            initMovementTypeChart(initialChartData.pieChartData);
-
-            // Update filter info text helper
             function updateFilterInfo() {
-                var dateText = $('#kt_daterangepicker').val() ? `Periode: ${$('#kt_daterangepicker').val()}` : 'Semua Periode';
-                var typeVal = $('#type_filter').val();
-                var typeMap = {
-                    'semua': 'Semua Tipe',
-                    'stock_in': 'Stok Masuk',
-                    'stock_out': 'Stok Keluar',
-                    'transfer_in': 'Transfer Masuk',
-                    'transfer_out': 'Transfer Keluar',
-                    'adjustment': 'Adjustment'
-                };
-                var typeText = `Tipe: ${typeMap[typeVal] || 'Semua Tipe'}`;
-
-                var warehouseText = 'Gudang: ';
-                @if (auth()->user()->warehouse_id)
-                    warehouseText += `{{ auth()->user()->warehouse->name ?? 'N/A' }}`;
-                @else
-                    var wVal = $('#warehouse_filter').val();
-                    if (wVal) {
-                        warehouseText += $('#warehouse_filter option:selected').text();
-                    } else {
-                        warehouseText += 'Semua Gudang';
-                    }
-                @endif
-
-                var itemText = 'Barang: ';
-                var iVal = $('#item_filter').val();
-                if (iVal) {
-                    itemText += $('#item_filter option:selected').text();
-                } else {
-                    itemText += 'Semua Barang';
+                var cls = $('#class_filter').val();
+                $('#filter_info').text(
+                    'Periode: ' + $('#date_range').val()
+                    + ' | Gudang: ' + $('#warehouse_filter option:selected').text()
+                    + ' | Klasifikasi: ' + (cls ? $('#class_filter option:selected').text() : 'Semua')
+                );
+                $('.movement-card').removeClass('active');
+                if (cls) {
+                    $('.movement-card[data-class="' + cls + '"]').addClass('active');
                 }
-
-                $('#filter_info').text(`${dateText} | ${typeText} | ${warehouseText} | ${itemText}`);
             }
 
-            // Initial render of filter info
-            updateFilterInfo();
+            function renderSummary(summary) {
+                if (!summary) {
+                    $('[data-summary]').text('-');
+                    $('[data-summary-bar]').css('width', '0%');
+                    $('#total_out, #period_days').text('-');
+                    return;
+                }
+                $.each(summary.classes, function (key, data) {
+                    $('[data-summary="' + key + '.sku_count"]').text(fmt(data.sku_count, 0));
+                    $('[data-summary="' + key + '.qty_share"]').text(fmt(data.qty_share, 1) + '%');
+                    $('[data-summary="' + key + '.stock"]').text(fmt(data.stock));
+                    $('[data-summary-bar="' + key + '"]').css('width', Math.min(100, data.qty_share) + '%');
+                });
+                $('#total_out').text(fmt(summary.total_out));
+                $('#period_days').text(fmt(summary.period_days, 0));
+            }
 
-            // AJAX Filter Logic for stats & charts only
-            function fetchData(url = `{{ route('admin.laporan.pergerakanBarang') }}`) {
-                // Show loading indication
-                const contentWrapper = document.getElementById('kt_content');
-                const loadingEl = document.createElement("div");
-                loadingEl.classList.add("loading-overlay");
-                contentWrapper.appendChild(loadingEl);
-
-                $.ajax({
-                    url: url,
+            var table = $('#movement_table').DataTable({
+                processing: true,
+                serverSide: true,
+                searching: true,
+                dom: 'rt<"row mt-4"<"col-sm-12 col-md-5"li><"col-sm-12 col-md-7"p>>',
+                pageLength: 25,
+                lengthMenu: [10, 25, 50, 100],
+                order: [[0, 'asc']],
+                ajax: {
+                    url: "{{ route('admin.laporan.pergerakanBarang.data') }}",
                     type: 'GET',
-                    dataType: 'html',
-                    data: {
-                        date_range: $('#kt_daterangepicker').val(),
-                        type_filter: $('#type_filter').val(),
-                        warehouse_filter: $('#warehouse_filter').val(),
-                        item_filter: $('#item_filter').val(),
+                    data: function (d) {
+                        d.date_range = $('#date_range').val();
+                        d.warehouse_filter = $('#warehouse_filter').val();
+                        d.class_filter = $('#class_filter').val();
                     },
-                    success: function(response) {
-                        var newContent = $($.parseHTML(response));
-                        // Update stats only (table handled by DataTables)
-                        $('#stats_wrapper').html(newContent.find('#stats_wrapper').html());
-
-                        // Parse new chart data and update charts
-                        var newChartData = JSON.parse(newContent.find('#chart_data_json').text());
-                        
-                        stockMovementChart.updateSeries([{
-                            name: 'Stok Masuk',
-                            data: newChartData.trendData.stock_in
-                        }, {
-                            name: 'Stok Keluar',
-                            data: newChartData.trendData.stock_out
-                        }]);
-                        stockMovementChart.updateOptions({
-                             xaxis: {
-                                categories: newChartData.trendData.dates
-                            }
-                        });
-
-                        movementTypeChart.updateSeries(newChartData.pieChartData.series);
-                         movementTypeChart.updateOptions({
-                             labels: newChartData.pieChartData.labels
-                        });
-
-                    },
-                    error: function(xhr, status, error) {
-                        console.error("AJAX Error: ", status, error);
-                    },
-                    complete: function() {
-                        // Hide loading indication
-                        loadingEl.remove();
+                    dataSrc: function (json) {
+                        renderSummary(json.summary);
+                        return json.data;
                     }
-                });
-            }
-
-            $('#apply_filter').on('click', function() {
-                if ($.fn.DataTable.isDataTable('#table-on-page')) {
-                    $('#table-on-page').DataTable().draw();
-                }
-                fetchData();
-                updateFilterInfo();
-            });
-
-            $('#kt_daterangepicker').on('apply.daterangepicker', function(ev, picker) {
-                if ($.fn.DataTable.isDataTable('#table-on-page')) {
-                    $('#table-on-page').DataTable().draw();
-                }
-                fetchData();
-                updateFilterInfo();
-            });
-
-            $('#reset_filter').on('click', function() {
-                $('#kt_daterangepicker').val(moment().subtract(29, 'days').format('DD/MM/YYYY') + ' - ' + moment().format('DD/MM/YYYY'));
-                $('#type_filter').val('semua').trigger('change');
-                $('#warehouse_filter').val('').trigger('change');
-                $('#item_filter').val('').trigger('change');
-                
-                if ($.fn.DataTable.isDataTable('#table-on-page')) {
-                    $('#table-on-page').DataTable().draw();
-                }
-                fetchData();
-                updateFilterInfo();
-            });
-
-            // Initialize DataTable
-            function initDataTable() {
-                if ($.fn.DataTable.isDataTable('#table-on-page')) {
-                    $('#table-on-page').DataTable().destroy();
-                }
-                table = $('#table-on-page').DataTable({
-                    processing: true,
-                    serverSide: true,
-                    ajax: {
-                        url: "{{ route('admin.laporan.pergerakanBarang.data') }}",
-                        type: "GET",
-                        data: function(d) {
-                            d.search.value = d.search.value || '';
-                            d.date_range = $('#kt_daterangepicker').val();
-                            d.type_filter = $('#type_filter').val();
-                            d.warehouse_filter = $('#warehouse_filter').val();
-                            d.item_filter = $('#item_filter').val();
-                        }
-                    },
-                    columns: [
-                        { data: 'date', name: 'sm.date' },
-                        { data: null, name: 'i.nama_barang', render: function(data, type, row){
-                            var name = row.item_name || 'N/A';
-                            var sku = row.sku || 'N/A';
-                            return '<div class="d-flex align-items-center">'
-                                + '<div class="d-flex justify-content-start flex-column">'
-                                +   '<span class="text-primary fw-bolder d-block fs-6">' + sku + '</span>'
-                                +   '<span class="text-muted fw-bold d-block fs-7">' + name + '</span>'
-                                + '</div>'
-                                + '</div>';
-                        }},
-                        { data: 'warehouse_name', name: 'w.name', defaultContent: '-' },
-                        { data: 'type', name: 'sm.type', render: function(data){
-                            if(data === 'stock_in') return '<span class="badge badge-light-success fs-7 fw-bolder">Stok Masuk</span>';
-                            if(data === 'stock_out') return '<span class="badge badge-light-danger fs-7 fw-bolder">Stok Keluar</span>';
-                            if(data === 'transfer_in') return '<span class="badge badge-light-info fs-7 fw-bolder">Transfer Masuk</span>';
-                            if(data === 'transfer_out') return '<span class="badge badge-light-primary fs-7 fw-bolder">Transfer Keluar</span>';
-                            return '<span class="badge badge-light-warning fs-7 fw-bolder">Adjustment</span>';
-                        }},
-                        { data: 'description', name: 'sm.description', defaultContent: '-' },
-                        { data: 'stock_before', name: 'sm.stock_before', className: 'text-end', render: function(data){ return data ? parseFloat(data).toLocaleString('id-ID') : '0'; } },
-                        { data: 'quantity', name: 'sm.quantity', className: 'text-end', render: function(data){
-                            var val = parseFloat(data || 0);
-                            if (val > 0) return '<span class="text-success fw-bolder">+' + val.toLocaleString('id-ID') + '</span>';
-                            return '<span class="text-danger fw-bolder">' + val.toLocaleString('id-ID') + '</span>';
-                        } },
-                        { data: 'stock_after', name: 'sm.stock_after', className: 'text-end', render: function(data){ return data ? parseFloat(data).toLocaleString('id-ID') : '0'; } },
-                        { data: 'user_name', name: 'u.name', defaultContent: 'System' },
-                    ],
-                    order: [[0, 'desc']],
-                });
-            }
-
-            initDataTable();
-
-        });
-
-        // Chart Initialization Functions
-        function initStockMovementChart(trendData) {
-            var element = document.getElementById('stock_movement_chart');
-            if (!element) { return; }
-
-            var options = {
-                series: [{
-                    name: 'Stok Masuk',
-                    data: trendData.stock_in
-                }, {
-                    name: 'Stok Keluar',
-                    data: trendData.stock_out
-                }],
-                chart: { type: 'area', height: 350, toolbar: { show: false } },
-                xaxis: {
-                    categories: trendData.dates,
-                    axisBorder: { show: false },
-                    axisTicks: { show: false },
-                    labels: { style: { colors: '#A1A5B7', fontSize: '12px' } }
                 },
-                yaxis: { labels: { style: { colors: '#A1A5B7', fontSize: '12px' } } },
-                fill: { opacity: 1, type: 'solid' },
-                dataLabels: { enabled: false },
-                stroke: { curve: 'smooth', show: true, width: 3 },
-                colors: ['#50CD89', '#F1416C']
-            };
+                columns: [
+                    { data: 'rank', render: function (data, type, row, meta) {
+                        return meta.settings._iDisplayStart + meta.row + 1;
+                    } },
+                    { data: 'sku', render: function (data, type, row) {
+                        return '<div class="d-flex flex-column">'
+                            + '<span class="text-primary fw-bolder fs-6">' + escapeHtml(row.sku || '-') + '</span>'
+                            + '<span class="text-muted fw-bold">' + escapeHtml(row.nama_barang || '-') + '</span>'
+                            + '</div>';
+                    } },
+                    { data: 'stock', className: 'text-end', render: function (data, type, row) {
+                        var cls = parseFloat(data) <= 0 ? 'text-danger' : 'text-gray-800';
+                        return '<span class="fw-bolder ' + cls + '">' + fmt(data) + '</span>'
+                            + (row.uom ? ' <span class="text-muted fs-8">' + escapeHtml(row.uom) + '</span>' : '');
+                    } },
+                    { data: 'classification', render: function (data, type, row) {
+                        var color = (classMeta[data] || {}).color || 'secondary';
+                        return '<span class="badge badge-light-' + color + ' fw-bolder">' + escapeHtml(row.classification_label) + '</span>';
+                    } },
+                    { data: 'qty_out', className: 'text-end', render: function (data) {
+                        return '<span class="fw-bolder text-gray-800">' + fmt(data) + '</span>';
+                    } },
+                    { data: 'avg_per_day', className: 'text-end', render: function (data) { return fmt(data); } },
+                    { data: 'contribution', className: 'text-end', render: function (data, type, row) {
+                        if (row.cumulative === null) return '<span class="text-muted">0%</span>';
+                        return '<div class="fw-bolder text-gray-800">' + fmt(data) + '%</div>'
+                            + '<div class="text-muted fs-8">Kum. ' + fmt(row.cumulative) + '%</div>';
+                    } },
+                    { data: 'frequency', className: 'text-end', render: function (data) {
+                        return fmt(data, 0) + ' <span class="text-muted fs-8">dok</span>';
+                    } },
+                    { data: 'days_cover', className: 'text-end', render: function (data) {
+                        if (data === null) return '<span class="text-muted">-</span>';
+                        var n = parseFloat(data);
+                        var cls = n < 7 ? 'text-danger' : (n < 30 ? 'text-warning' : 'text-gray-800');
+                        return '<span class="fw-bolder ' + cls + '">' + fmt(n, 1) + '</span> <span class="text-muted fs-8">hari</span>';
+                    } },
+                    { data: 'last_out_date', render: function (data, type, row) {
+                        return row.last_out_date_label ? escapeHtml(row.last_out_date_label) : '<span class="text-muted">Belum pernah</span>';
+                    } }
+                ],
+                language: {
+                    emptyTable: 'Tidak ada data untuk filter ini',
+                    zeroRecords: 'Tidak ada item yang cocok',
+                    processing: 'Memuat...'
+                }
+            });
 
-            stockMovementChart = new ApexCharts(element, options);
-            stockMovementChart.render();
-        }
+            function reload() {
+                updateFilterInfo();
+                table.ajax.reload();
+            }
 
-        function initMovementTypeChart(pieChartData) {
-            var element = document.getElementById('movement_type_chart');
-            if (!element) { return; }
+            var searchTimer;
+            $('#table_search').on('keyup', function () {
+                var value = this.value;
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(function () { table.search(value).draw(); }, 400);
+            });
 
-            var options = {
-                series: pieChartData.series,
-                labels: pieChartData.labels,
-                chart: { type: 'donut', height: 350 },
-                responsive: [{
-                    breakpoint: 480,
-                    options: {
-                        chart: { width: 200 },
-                        legend: { position: 'bottom' }
-                    }
-                }]
-            };
+            $('#apply_filter').on('click', reload);
+            $('#date_range').on('apply.daterangepicker', reload);
+            $('#class_filter, #warehouse_filter').on('change', reload);
 
-            movementTypeChart = new ApexCharts(element, options);
-            movementTypeChart.render();
-        }
+            $('.movement-card').on('click', function () {
+                var cls = $(this).data('class');
+                $('#class_filter').val($('#class_filter').val() === cls ? '' : cls).trigger('change');
+            });
+
+            $('#reset_filter').on('click', function () {
+                var picker = $('#date_range').data('daterangepicker');
+                picker.setStartDate(moment().subtract(29, 'days'));
+                picker.setEndDate(moment());
+                setRange(picker.startDate, picker.endDate);
+                $('#warehouse_filter').val(defaultWarehouse);
+                $('#class_filter').val('');
+                $('#table_search').val('');
+                $('#warehouse_filter, #class_filter').trigger('change.select2');
+                table.search('').order([[0, 'asc']]);
+                reload();
+            });
+
+            updateFilterInfo();
+        });
     </script>
-    <style>
-        .loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.7);
-            z-index: 10;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .loading-overlay::after {
-            content: 'Loading...';
-            font-size: 1.2rem;
-            color: #333;
-        }
-    </style>
 @endpush
