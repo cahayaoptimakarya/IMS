@@ -103,12 +103,19 @@
                 </div>
                 <div class="card-toolbar">
                     <!--begin::Toolbar-->
-                    @if ($canCreate)
+                    @if ($canCreate || $canEdit)
                         <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
-                            <div class="me-2">
-                                <a href="{{ route('admin.masterdata.items.create') }}" class="btn btn-primary">Tambah
-                                    Item</a>
-                            </div>
+                            @if ($canEdit)
+                                <a href="{{ route('admin.masterdata.items.update-bulk.index') }}" class="btn btn-light-success">
+                                    <i class="fas fa-file-excel me-1"></i> Update Massal (Excel)
+                                </a>
+                            @endif
+                            @if ($canCreate)
+                                <div class="me-2">
+                                    <a href="{{ route('admin.masterdata.items.create') }}" class="btn btn-primary">Tambah
+                                        Item</a>
+                                </div>
+                            @endif
                         </div>
                     @endif
                     <!--end::Toolbar-->
@@ -154,11 +161,18 @@
                                         <li><span class="csv-col">G</span> Initial Quantity (opsional)</li>
                                         <li class="mt-1"><span class="csv-col">H</span> Warehouse ID (opsional)</li>
                                         <li class="mt-1"><span class="csv-col">I</span> Tempat (opsional)</li>
+                                        <li class="mt-1"><span class="csv-col">J</span> Panjang per koli, cm (opsional)</li>
+                                        <li class="mt-1"><span class="csv-col">K</span> Lebar per koli, cm (opsional)</li>
+                                        <li class="mt-1"><span class="csv-col">L</span> Tinggi per koli, cm (opsional)</li>
                                     </ul>
                                     <div class="text-gray-700 mt-2">
                                         Jika G dan H diisi, sistem membuat saldo awal ke Inventory dan Stock Movement
                                         dengan keterangan <code>Saldo awal</code> pada tanggal hari ini. Nilai koli dihitung otomatis:
                                         <code>koli = quantity / koli_per_item</code>.
+                                    </div>
+                                    <div class="text-gray-700 mt-2">
+                                        J, K, L dipakai untuk CBM per koli dan harus diisi ketiganya (desimal boleh koma atau titik);
+                                        jika tidak lengkap, dimensi diabaikan.
                                     </div>
                                 </div>
                             </div>
@@ -176,6 +190,7 @@
                                     <th class="min-w-100px sorting">Status</th>
                                     <th class="min-w-125px sorting">Minimal Stok Menipis</th>
                                     <th class="min-w-125px sorting">Koli</th>
+                                    <th class="min-w-150px sorting_disabled">Dimensi Koli / CBM</th>
                                     <th class="min-w-125px sorting">UOM</th>
                                     <th class="min-w-125px sorting">Deskripsi</th>
                                     <th class="text-center min-w-125px sorting_disabled">Actions</th>
@@ -228,6 +243,8 @@
             }
 
             var nf = new Intl.NumberFormat('id-ID');
+            var nfDec = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 });
+            var nfCbm = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 6 });
             var table = $('#table-on-page').DataTable({
                 processing: true,
                 serverSide: true,
@@ -286,6 +303,24 @@
                     {
                         data: 'koli',
                         name: 'koli'
+                    },
+                    {
+                        data: 'cbm_per_koli',
+                        name: 'cbm_per_koli',
+                        orderable: false,
+                        searchable: false,
+                        render: function(cbm, type, row) {
+                            if (cbm === null || cbm === undefined) {
+                                return '<span class="text-muted fs-7">Belum diisi</span>';
+                            }
+                            var dim = [row.panjang_koli, row.lebar_koli, row.tinggi_koli].map(function(v) {
+                                return nfDec.format(v);
+                            }).join(' &times; ');
+                            return '<div class="d-flex flex-column">'
+                                + '<span class="text-gray-800">' + dim + ' cm</span>'
+                                + '<span class="text-muted fs-7">' + nfCbm.format(cbm) + ' m³ / koli</span>'
+                                + '</div>';
+                        }
                     },
                     {
                         data: 'uom',

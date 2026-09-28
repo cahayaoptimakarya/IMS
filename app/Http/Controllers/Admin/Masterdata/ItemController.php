@@ -60,7 +60,7 @@ class ItemController extends Controller
             'lead_time_po_days' => 'nullable|integer|min:0',
             'lead_time_safety_days' => 'nullable|integer|min:0',
             'is_active' => 'nullable|boolean',
-        ]);
+        ] + $this->dimensionRules(), $this->dimensionMessages());
 
         DB::beginTransaction();
         try {
@@ -132,7 +132,7 @@ class ItemController extends Controller
             'lead_time_po_days' => 'nullable|integer|min:0',
             'lead_time_safety_days' => 'nullable|integer|min:0',
             'is_active' => 'nullable|boolean',
-        ]);
+        ] + $this->dimensionRules(), $this->dimensionMessages());
 
         DB::beginTransaction();
         try {
@@ -211,6 +211,8 @@ class ItemController extends Controller
      * F: UOM ID (default 1)
      * G: Initial Quantity (optional) -> create/update Inventory + StockMovement
      * H: Warehouse ID for initial qty (optional)
+     * I: Tempat (optional)
+     * J, K, L: Panjang, Lebar, Tinggi per koli dalam cm (optional, untuk CBM)
      */
     public function import(Request $request)
     {
@@ -256,6 +258,19 @@ class ItemController extends Controller
                 } else {
                     $tempat = null;
                 }
+                // J, K, L (opsional): dimensi per koli dalam cm, disimpan hanya jika ketiganya valid
+                $dimensions = [
+                    'panjang_koli' => $this->parseCsvDimension($row[9] ?? ''),
+                    'lebar_koli' => $this->parseCsvDimension($row[10] ?? ''),
+                    'tinggi_koli' => $this->parseCsvDimension($row[11] ?? ''),
+                ];
+                $filledDimensions = count(array_filter($dimensions, fn ($v) => $v !== null));
+                if ($filledDimensions > 0 && $filledDimensions < 3) {
+                    $errors[] = "Baris {$rowNumber}: dimensi koli (J/K/L) tidak lengkap atau tidak valid; dimensi diabaikan.";
+                }
+                if ($filledDimensions < 3) {
+                    $dimensions = array_fill_keys(array_keys($dimensions), null);
+                }
 
                 // Basic validation
                 if (!$sku || !$nama_barang) {
@@ -289,7 +304,7 @@ class ItemController extends Controller
                     'uom_id' => $uom_id,
                     'tempat' => $tempat,
                     'is_active' => true,
-                ]);
+                ] + $dimensions);
 
                 $created++;
 
@@ -368,6 +383,44 @@ class ItemController extends Controller
 
     
 
+    /**
+     * Dimensi per koli (cm) untuk CBM: opsional, tetapi P, L, T harus diisi bersamaan.
+     */
+    protected function dimensionRules(): array
+    {
+        return [
+            'panjang_koli' => 'nullable|numeric|gt:0|max:99999999.99|required_with:lebar_koli,tinggi_koli',
+            'lebar_koli' => 'nullable|numeric|gt:0|max:99999999.99|required_with:panjang_koli,tinggi_koli',
+            'tinggi_koli' => 'nullable|numeric|gt:0|max:99999999.99|required_with:panjang_koli,lebar_koli',
+        ];
+    }
+
+    protected function dimensionMessages(): array
+    {
+        return [
+            'panjang_koli.required_with' => 'Panjang koli wajib diisi jika lebar/tinggi diisi.',
+            'lebar_koli.required_with' => 'Lebar koli wajib diisi jika panjang/tinggi diisi.',
+            'tinggi_koli.required_with' => 'Tinggi koli wajib diisi jika panjang/lebar diisi.',
+            'panjang_koli.gt' => 'Panjang koli harus lebih dari 0.',
+            'lebar_koli.gt' => 'Lebar koli harus lebih dari 0.',
+            'tinggi_koli.gt' => 'Tinggi koli harus lebih dari 0.',
+        ];
+    }
+
+    /**
+     * Angka dimensi dari CSV; menerima desimal koma ("12,5") maupun titik. Nilai <= 0 / tidak valid -> null.
+     */
+    protected function parseCsvDimension($value): ?float
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+        $value = str_replace(',', '.', $value);
+
+        return is_numeric($value) && (float) $value > 0 ? round((float) $value, 2) : null;
+    }
+
     public function checkSkuUniqueness(Request $request)
     {
         $sku = $request->input('sku');
@@ -422,14 +475,14 @@ class ItemController extends Controller
         $orderDir = $request->input('order.0.dir', 'asc');
 
         // Map DataTables column index to database columns
-        // 0: No (ignored), 1: Item/SKU, 2: status, 3: low_stock_threshold, 4: koli, 5: uom, 6: deskripsi, 7: actions (ignored)
+        // 0: No (ignored), 1: Item/SKU, 2: status, 3: low_stock_threshold, 4: koli, 5: dimensi/CBM (ignored), 6: uom, 7: deskripsi, 8: actions (ignored)
         $orderableColumns = [
             1 => 'nama_barang',
             2 => 'is_active',
             3 => 'low_stock_threshold',
             4 => 'koli',
-            5 => 'uom_id', // fallback; custom sort by relation name not applied here
-            6 => 'deskripsi',
+            6 => 'uom_id', // fallback; custom sort by relation name not applied here
+            7 => 'deskripsi',
         ];
         if (isset($orderableColumns[$orderColumnIndex])) {
             $baseQuery->orderBy($orderableColumns[$orderColumnIndex], $orderDir === 'desc' ? 'desc' : 'asc');
@@ -458,6 +511,10 @@ class ItemController extends Controller
                 'is_active' => (bool) $item->is_active,
                 'low_stock_threshold' => $item->low_stock_threshold,
                 'koli' => $item->koli,
+                'panjang_koli' => $item->panjang_koli,
+                'lebar_koli' => $item->lebar_koli,
+                'tinggi_koli' => $item->tinggi_koli,
+                'cbm_per_koli' => $item->cbm_per_koli,
                 'uom' => optional($item->uom)->name,
                 'deskripsi' => $item->deskripsi,
                 'id' => $item->id,

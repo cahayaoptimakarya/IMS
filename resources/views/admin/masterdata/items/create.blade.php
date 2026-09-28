@@ -133,6 +133,8 @@
                         </div>
                     </div>
 
+                    @include('admin.masterdata.items._dimensi')
+
                     <div class="fv-row mb-7">
                         <label for="deskripsi" class="form-label">Deskripsi</label>
                         <textarea class="form-control form-control-solid" id="deskripsi" name="deskripsi" rows="3">{{ old('deskripsi') }}</textarea>
