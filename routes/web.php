@@ -218,6 +218,7 @@ Route::middleware(['auth', 'permission'])->group(function () {    Route::get('/a
         Route::get('laporan-stok/menipis', [LaporanStokController::class, 'lowStockReport'])->name('laporanstok.menipis');
         Route::get('laporan-pergerakan-barang', [LaporanController::class, 'laporanPergerakanBarang'])->name('pergerakanBarang');
         Route::get('laporan-pergerakan-barang/data', [LaporanController::class, 'pergerakanBarangData'])->name('pergerakanBarang.data');
+        Route::get('laporan-pergerakan-barang/export-excel', [LaporanController::class, 'pergerakanBarangExport'])->name('pergerakanBarang.export');
         Route::get('laporan-transfer-gudang', [\App\Http\Controllers\Admin\Laporan\LaporanTransferGudangController::class, 'index'])->name('laporan-transfer-gudang');
         Route::get('laporan-transfer-gudang/data', [\App\Http\Controllers\Admin\Laporan\LaporanTransferGudangController::class, 'transferGudangData'])->name('laporan-transfer-gudang.data');
         Route::get('laporan-stock-opname', [LaporanStockOpnameController::class, 'index'])->name('stockopname.index');

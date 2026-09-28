@@ -3,11 +3,15 @@
 
 namespace App\Http\Controllers\Admin\Laporan;
 
+use App\Exports\PergerakanBarangExport;
 use App\Http\Controllers\Controller;
 use App\Models\Warehouse;
 use App\Support\ItemMovementAnalyzer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 class LaporanController extends Controller
 {
@@ -24,6 +28,7 @@ class LaporanController extends Controller
             'activeWarehouse' => $activeWarehouse,
             'lockWarehouse' => (bool) $userWarehouseId,
             'classLabels' => ItemMovementAnalyzer::LABELS,
+            'coverLabels' => ItemMovementAnalyzer::COVER_LABELS,
             'fastThreshold' => ItemMovementAnalyzer::FAST_THRESHOLD,
             'mediumThreshold' => ItemMovementAnalyzer::MEDIUM_THRESHOLD,
         ]);
@@ -56,6 +61,8 @@ class LaporanController extends Controller
         if ($classFilter && array_key_exists($classFilter, ItemMovementAnalyzer::LABELS)) {
             $rows = $rows->where('classification', $classFilter);
         }
+
+        $rows = $this->applyCoverFilter($rows, $request);
 
         $search = trim((string) $request->input('search.value', ''));
         if ($search !== '') {
@@ -112,6 +119,63 @@ class LaporanController extends Controller
                 'period_label' => $startDate->format('d/m/Y') . ' - ' . $endDate->format('d/m/Y'),
             ],
         ]);
+    }
+
+    public function pergerakanBarangExport(Request $request, ItemMovementAnalyzer $analyzer)
+    {
+        $warehouse = Warehouse::find($this->resolveWarehouseId($request));
+        abort_unless($warehouse, 404, 'Gudang tidak ditemukan.');
+        [$startDate, $endDate] = $this->resolveDateRange($request->input('date_range'));
+
+        $result = $analyzer->analyze($warehouse->id, $startDate, $endDate);
+        $trend = $analyzer->outTrend($warehouse->id, $startDate, $endDate, $result['rows']);
+
+        $fileName = sprintf(
+            'laporan-pergerakan-barang_%s_%s_%s.xlsx',
+            Str::slug($warehouse->name),
+            $startDate->format('Ymd'),
+            $endDate->format('Ymd')
+        );
+
+        return Excel::download(new PergerakanBarangExport(
+            $result,
+            $trend,
+            $warehouse->name,
+            $startDate,
+            $endDate,
+            auth()->user()?->name
+        ), $fileName);
+    }
+
+    /**
+     * Filter days cover: pita tetap (kritis/waspada/aman/berlebih/tidak_ada) atau rentang custom (inklusif).
+     */
+    protected function applyCoverFilter(Collection $rows, Request $request): Collection
+    {
+        $filter = $request->input('cover_filter');
+
+        if ($filter === 'custom') {
+            $min = $request->input('cover_min');
+            $max = $request->input('cover_max');
+            $min = is_numeric($min) ? (float) $min : null;
+            $max = is_numeric($max) ? (float) $max : null;
+            if ($min === null && $max === null) {
+                return $rows;
+            }
+
+            return $rows->filter(function ($row) use ($min, $max) {
+                $cover = $row['days_cover'];
+                return $cover !== null
+                    && ($min === null || $cover >= $min)
+                    && ($max === null || $cover <= $max);
+            });
+        }
+
+        if ($filter && array_key_exists($filter, ItemMovementAnalyzer::COVER_LABELS)) {
+            return $rows->where('cover_status', $filter);
+        }
+
+        return $rows;
     }
 
     /**

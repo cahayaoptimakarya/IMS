@@ -144,6 +144,75 @@ class LaporanPergerakanBarangTest extends TestCase
         $this->assertSame([], $seha['data']);
     }
 
+    public function test_filters_by_days_cover_band_and_custom_range(): void
+    {
+        // periode 30 hari -> rata-rata/hari = qty keluar / 30
+        $critical = $this->item('KRITIS', 10);   // avg 3 -> 3,3 hari
+        $warning = $this->item('WASPADA', 60);   // avg 3 -> 20 hari
+        $safe = $this->item('AMAN', 150);        // avg 3 -> 50 hari
+        $excess = $this->item('LEBIH', 600);     // avg 3 -> 200 hari
+        $this->item('DIAM', 10);                 // non moving
+        foreach ([$critical, $warning, $safe, $excess] as $id) {
+            $this->ship($id, 90, '2026-09-10');
+        }
+
+        $skus = fn (array $params) => collect($this->fetch($params)['data'])->pluck('sku')->sort()->values()->all();
+
+        $this->assertSame(['KRITIS'], $skus(['cover_filter' => 'kritis']));
+        $this->assertSame(['WASPADA'], $skus(['cover_filter' => 'waspada']));
+        $this->assertSame(['AMAN'], $skus(['cover_filter' => 'aman']));
+        $this->assertSame(['LEBIH'], $skus(['cover_filter' => 'berlebih']));
+        $this->assertSame(['DIAM'], $skus(['cover_filter' => 'tidak_ada']));
+        $this->assertSame(['AMAN', 'WASPADA'], $skus(['cover_filter' => 'custom', 'cover_min' => 20, 'cover_max' => 50]));
+        $this->assertSame(['AMAN', 'LEBIH'], $skus(['cover_filter' => 'custom', 'cover_min' => 21]));
+        $this->assertCount(5, $skus(['cover_filter' => 'custom']));
+    }
+
+    public function test_exports_excel_report_with_sheets_and_charts(): void
+    {
+        $a = $this->item('A', 300);
+        $b = $this->item('B', 5);
+        $this->item('E', 40);
+        $this->ship($a, 750, '2026-09-10');
+        $this->ship($b, 250, '2026-09-15');
+
+        $response = $this->get(route('admin.laporan.pergerakanBarang.export', [
+            'date_range' => '30/08/2026 - 28/09/2026',
+        ]));
+        $response->assertOk();
+        $this->assertStringContainsString('laporan-pergerakan-barang_gudang-nanggewer_20260830_20260928.xlsx', $response->headers->get('content-disposition'));
+
+        $path = tempnam(sys_get_temp_dir(), 'pb') . '.xlsx';
+        file_put_contents($path, $response->streamedContent() ?: $response->getFile()->getContent());
+        $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx');
+        $reader->setIncludeCharts(true);
+        $book = $reader->load($path);
+        @unlink($path);
+
+        $this->assertSame(
+            ['Ringkasan', 'Detail Item', 'Pareto', 'Tren Keluar', 'Perlu Perhatian', 'Keterangan'],
+            $book->getSheetNames()
+        );
+        $this->assertSame(3, $book->getSheetByName('Ringkasan')->getChartCount());
+        $this->assertSame(2, $book->getSheetByName('Pareto')->getChartCount());
+        $this->assertSame(2, $book->getSheetByName('Tren Keluar')->getChartCount());
+
+        $detail = $book->getSheetByName('Detail Item');
+        $this->assertSame('A', $detail->getCell('B5')->getValue());
+        $this->assertSame('Fast Moving', $detail->getCell('F5')->getValue());
+        $this->assertSame('Medium Moving', $detail->getCell('F6')->getValue()); // mulai di kumulatif 75%
+        $this->assertSame('Non Moving', $detail->getCell('F7')->getValue());
+        $this->assertEquals(75, $detail->getCell('I5')->getValue());
+
+        $summary = $book->getSheetByName('Ringkasan');
+        $this->assertEquals(1000, $summary->getCell('A6')->getValue());
+        $this->assertEquals(1, $summary->getCell('C10')->getValue()); // SKU fast
+
+        // B: avg 250/30 = 8,33/hari, stok 5 -> kritis, masuk daftar risiko
+        $attention = $book->getSheetByName('Perlu Perhatian');
+        $this->assertSame('B', $attention->getCell('B7')->getValue());
+    }
+
     public function test_page_renders_with_nanggewer_selected(): void
     {
         $this->get(route('admin.laporan.pergerakanBarang'))

@@ -23,14 +23,14 @@
         <div class="card mb-7">
             <div class="card-body">
                 <div class="row g-6 align-items-end">
-                    <div class="col-12 col-md-4">
+                    <div class="col-12 col-md-6 col-xl-3">
                         <label class="form-label fw-bold">Periode (Tanggal Kirim)</label>
                         <div class="position-relative">
                             <span class="position-absolute top-50 translate-middle-y ms-4"><i class="fas fa-calendar-alt"></i></span>
                             <input class="form-control form-control-solid ps-12" id="date_range" placeholder="Pilih rentang tanggal" readonly />
                         </div>
                     </div>
-                    <div class="col-12 col-md-3">
+                    <div class="col-12 col-md-6 col-xl-2">
                         <label class="form-label fw-bold">Gudang</label>
                         <select id="warehouse_filter" class="form-select form-select-solid" data-kt-select2="true" data-hide-search="true" {{ $lockWarehouse ? 'disabled' : '' }}>
                             @foreach ($warehouses as $warehouse)
@@ -38,7 +38,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-12 col-md-3">
+                    <div class="col-12 col-md-6 col-xl-2">
                         <label class="form-label fw-bold">Klasifikasi</label>
                         <select id="class_filter" class="form-select form-select-solid" data-kt-select2="true" data-hide-search="true">
                             <option value="">Semua Klasifikasi</option>
@@ -47,7 +47,22 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-12 col-md-2 text-md-end">
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <label class="form-label fw-bold">Days Cover</label>
+                        <select id="cover_filter" class="form-select form-select-solid" data-kt-select2="true" data-hide-search="true">
+                            <option value="">Semua Days Cover</option>
+                            @foreach ($coverLabels as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                            <option value="custom">Rentang custom...</option>
+                        </select>
+                        <div class="input-group input-group-solid mt-2 d-none" id="cover_custom">
+                            <input type="number" min="0" step="0.1" class="form-control form-control-solid" id="cover_min" placeholder="Min hari" />
+                            <span class="input-group-text">s/d</span>
+                            <input type="number" min="0" step="0.1" class="form-control form-control-solid" id="cover_max" placeholder="Maks hari" />
+                        </div>
+                    </div>
+                    <div class="col-12 col-xl-2 text-xl-end">
                         <button type="button" class="btn btn-light me-2" id="reset_filter">Reset</button>
                         <button type="button" class="btn btn-primary" id="apply_filter">Terapkan</button>
                     </div>
@@ -106,10 +121,13 @@
                     </div>
                 </div>
                 <div class="card-toolbar">
-                    <div class="text-muted fs-7 text-end">
+                    <div class="text-muted fs-7 text-end me-4">
                         Total qty keluar: <span class="fw-bolder text-gray-800" id="total_out">-</span>
                         &middot; Hari periode: <span class="fw-bolder text-gray-800" id="period_days">-</span>
                     </div>
+                    <a href="#" class="btn btn-sm btn-light-success" id="export_excel" title="Export laporan lengkap (ringkasan, detail, pareto, tren, perlu perhatian) untuk gudang & periode terpilih">
+                        <i class="fas fa-file-excel"></i> Export Excel
+                    </a>
                 </div>
             </div>
             <div class="card-body pt-2">
@@ -135,7 +153,7 @@
                 <div class="text-muted fs-8 mt-4">
                     Qty keluar dihitung dari barang yang dikirim atas Permintaan Barang dengan gudang asal sesuai filter, berdasarkan tanggal kirim.
                     Klasifikasi diurutkan dari qty keluar terbesar; item yang melintasi batas {{ (int) $fastThreshold }}% / {{ (int) $mediumThreshold }}% masuk ke lapisan tempat kontribusinya dimulai.
-                    Frequency = jumlah dokumen Permintaan Barang yang dikirim. Days cover = stok saat ini &divide; rata-rata keluar per hari.
+                    Frequency = jumlah dokumen Permintaan Barang yang dikirim. Days cover = stok saat ini &divide; rata-rata keluar per hari (Kritis &lt; 7, Waspada 7-30, Aman 30-90, Berlebih &gt; 90 hari).
                     Terakhir keluar = tanggal kirim terakhir hingga akhir periode.
                 </div>
             </div>
@@ -189,13 +207,29 @@
             }, setRange);
             setRange(defaultStart, defaultEnd);
 
+            function coverInfo() {
+                var cover = $('#cover_filter').val();
+                if (!cover) return 'Semua';
+                if (cover !== 'custom') return $('#cover_filter option:selected').text();
+                var min = $('#cover_min').val(), max = $('#cover_max').val();
+                if (min === '' && max === '') return 'Semua';
+                if (min === '') return '<= ' + max + ' hari';
+                if (max === '') return '>= ' + min + ' hari';
+                return min + ' - ' + max + ' hari';
+            }
+
             function updateFilterInfo() {
                 var cls = $('#class_filter').val();
                 $('#filter_info').text(
                     'Periode: ' + $('#date_range').val()
                     + ' | Gudang: ' + $('#warehouse_filter option:selected').text()
                     + ' | Klasifikasi: ' + (cls ? $('#class_filter option:selected').text() : 'Semua')
+                    + ' | Days Cover: ' + coverInfo()
                 );
+                $('#export_excel').attr('href', "{{ route('admin.laporan.pergerakanBarang.export') }}?" + $.param({
+                    date_range: $('#date_range').val(),
+                    warehouse_filter: $('#warehouse_filter').val()
+                }));
                 $('.movement-card').removeClass('active');
                 if (cls) {
                     $('.movement-card[data-class="' + cls + '"]').addClass('active');
@@ -234,6 +268,9 @@
                         d.date_range = $('#date_range').val();
                         d.warehouse_filter = $('#warehouse_filter').val();
                         d.class_filter = $('#class_filter').val();
+                        d.cover_filter = $('#cover_filter').val();
+                        d.cover_min = $('#cover_min').val();
+                        d.cover_max = $('#cover_max').val();
                     },
                     dataSrc: function (json) {
                         renderSummary(json.summary);
@@ -274,7 +311,7 @@
                     { data: 'days_cover', className: 'text-end', render: function (data) {
                         if (data === null) return '<span class="text-muted">-</span>';
                         var n = parseFloat(data);
-                        var cls = n < 7 ? 'text-danger' : (n < 30 ? 'text-warning' : 'text-gray-800');
+                        var cls = n < 7 ? 'text-danger' : (n < 30 ? 'text-warning' : (n > 90 ? 'text-info' : 'text-success'));
                         return '<span class="fw-bolder ' + cls + '">' + fmt(n, 1) + '</span> <span class="text-muted fs-8">hari</span>';
                     } },
                     { data: 'last_out_date', render: function (data, type, row) {
@@ -304,6 +341,25 @@
             $('#date_range').on('apply.daterangepicker', reload);
             $('#class_filter, #warehouse_filter').on('change', reload);
 
+            $('#cover_filter').on('change', function () {
+                var custom = $(this).val() === 'custom';
+                $('#cover_custom').toggleClass('d-none', !custom);
+                if (!custom) {
+                    $('#cover_min, #cover_max').val('');
+                    reload();
+                } else {
+                    $('#cover_min').trigger('focus');
+                }
+            });
+
+            var coverTimer;
+            $('#cover_min, #cover_max').on('input', function () {
+                clearTimeout(coverTimer);
+                coverTimer = setTimeout(reload, 500);
+            }).on('keydown', function (e) {
+                if (e.key === 'Enter') { clearTimeout(coverTimer); reload(); }
+            });
+
             $('.movement-card').on('click', function () {
                 var cls = $(this).data('class');
                 $('#class_filter').val($('#class_filter').val() === cls ? '' : cls).trigger('change');
@@ -316,8 +372,10 @@
                 setRange(picker.startDate, picker.endDate);
                 $('#warehouse_filter').val(defaultWarehouse);
                 $('#class_filter').val('');
-                $('#table_search').val('');
-                $('#warehouse_filter, #class_filter').trigger('change.select2');
+                $('#cover_filter').val('');
+                $('#cover_min, #cover_max, #table_search').val('');
+                $('#cover_custom').addClass('d-none');
+                $('#warehouse_filter, #class_filter, #cover_filter').trigger('change.select2');
                 table.search('').order([[0, 'asc']]);
                 reload();
             });

@@ -41,6 +41,36 @@ class ItemMovementAnalyzer
         self::NON_MOVING => 'Non Moving',
     ];
 
+    // Pita days cover (hari): kritis < 7, waspada 7 - <30, aman 30 - 90, berlebih > 90
+    public const COVER_CRITICAL = 'kritis';
+    public const COVER_WARNING = 'waspada';
+    public const COVER_SAFE = 'aman';
+    public const COVER_EXCESS = 'berlebih';
+    public const COVER_NONE = 'tidak_ada';
+
+    public const COVER_CRITICAL_DAYS = 7;
+    public const COVER_WARNING_DAYS = 30;
+    public const COVER_EXCESS_DAYS = 90;
+
+    public const COVER_LABELS = [
+        self::COVER_CRITICAL => 'Kritis (< 7 hari)',
+        self::COVER_WARNING => 'Waspada (7 - 30 hari)',
+        self::COVER_SAFE => 'Aman (30 - 90 hari)',
+        self::COVER_EXCESS => 'Berlebih (> 90 hari)',
+        self::COVER_NONE => 'Tidak ada (non moving)',
+    ];
+
+    public static function coverStatus(?float $daysCover): string
+    {
+        return match (true) {
+            $daysCover === null => self::COVER_NONE,
+            $daysCover < self::COVER_CRITICAL_DAYS => self::COVER_CRITICAL,
+            $daysCover < self::COVER_WARNING_DAYS => self::COVER_WARNING,
+            $daysCover <= self::COVER_EXCESS_DAYS => self::COVER_SAFE,
+            default => self::COVER_EXCESS,
+        };
+    }
+
     /**
      * @return array{rows: Collection, summary: array, period_days: int, total_out: float}
      */
@@ -111,7 +141,10 @@ class ItemMovementAnalyzer
             ];
         })->values();
 
-        $rows = $this->classify($rows, $totalOut);
+        $rows = $this->classify($rows, $totalOut)->map(function ($row) {
+            $row['cover_status'] = self::coverStatus($row['days_cover']);
+            return $row;
+        });
 
         return [
             'rows' => $rows,
@@ -176,6 +209,47 @@ class ItemMovementAnalyzer
         }
 
         return $summary;
+    }
+
+    /**
+     * Qty keluar per tanggal kirim, dipecah per klasifikasi item (dari hasil analyze()).
+     * Periode > 92 hari dikelompokkan per minggu (Senin) agar tetap terbaca di chart.
+     *
+     * @return array{granularity: string, buckets: array<string, array<string, float>>}
+     */
+    public function outTrend(int $warehouseId, Carbon $startDate, Carbon $endDate, Collection $rows): array
+    {
+        $startDate = $startDate->copy()->startOfDay();
+        $endDate = $endDate->copy()->startOfDay();
+        $weekly = $startDate->diffInDays($endDate) + 1 > 92;
+        $classByItem = $rows->pluck('classification', 'item_id');
+        $emptyBucket = array_fill_keys([self::FAST, self::MEDIUM, self::SLOW], 0.0);
+
+        $buckets = [];
+        for ($day = $startDate->copy(); $day->lte($endDate); $day->addDay()) {
+            $key = ($weekly ? $day->copy()->startOfWeek(Carbon::MONDAY) : $day)->toDateString();
+            $buckets[$key] ??= $emptyBucket;
+        }
+
+        $daily = $this->shippedBaseQuery($warehouseId)
+            ->whereBetween('s.shipping_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->groupBy('s.shipping_date', 'sid.item_id')
+            ->select(['s.shipping_date', 'sid.item_id', DB::raw('SUM(sid.quantity_shipped) as qty')])
+            ->get();
+
+        foreach ($daily as $row) {
+            $class = $classByItem->get((int) $row->item_id);
+            if (!isset($emptyBucket[$class])) {
+                continue;
+            }
+            $date = Carbon::parse($row->shipping_date);
+            $key = ($weekly ? $date->startOfWeek(Carbon::MONDAY) : $date)->toDateString();
+            if (isset($buckets[$key])) {
+                $buckets[$key][$class] += (float) $row->qty;
+            }
+        }
+
+        return ['granularity' => $weekly ? 'weekly' : 'daily', 'buckets' => $buckets];
     }
 
     protected function shippedBaseQuery(int $warehouseId)
