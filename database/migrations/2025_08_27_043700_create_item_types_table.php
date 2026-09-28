@@ -11,6 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Migrasi ini ditambahkan belakangan dengan tanggal mundur; di server yang
+        // tabelnya sudah dibuat manual, cukup dicatat tanpa membuat ulang.
+        if (Schema::hasTable('item_types')) {
+            return;
+        }
+
         Schema::create('item_types', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
