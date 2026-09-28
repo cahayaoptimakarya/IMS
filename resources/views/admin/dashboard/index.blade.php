@@ -12,7 +12,7 @@
                 <div class="card bg-light-primary border-0 card-animate">
                     <div class="card-body">
                         <h3 class="card-title">Selamat Datang, {{ $user->name }}!</h3>
-                        <p class="text-muted">Berikut adalah ringkasan aktivitas Anda.</p>
+                        <p class="text-muted">Berikut adalah ringkasan aktivitas kamu.</p>
                     </div>
                 </div>
             </div>
