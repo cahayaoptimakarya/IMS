@@ -193,7 +193,10 @@ class ItemMovementAnalyzer
         });
     }
 
-    protected function summarize(Collection $rows, float $totalOut): array
+    /**
+     * Ringkasan per klasifikasi untuk sekumpulan baris; qty_share dihitung terhadap $totalOut.
+     */
+    public function summarize(Collection $rows, float $totalOut): array
     {
         $summary = [];
         foreach (array_keys(self::LABELS) as $class) {

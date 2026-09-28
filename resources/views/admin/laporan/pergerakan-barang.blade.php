@@ -81,6 +81,14 @@
                 'non_moving' => ['color' => 'danger', 'icon' => 'fa-pause-circle', 'hint' => 'Ada stok, tidak ada qty keluar'],
             ];
         @endphp
+        <div class="alert alert-light-primary d-none align-items-center py-3 mb-4" id="cover_card_notice">
+            <i class="fas fa-info-circle text-primary me-3"></i>
+            <div class="fs-7">
+                Kartu hanya menghitung item dengan days cover <span class="fw-bolder" id="cover_card_label"></span>
+                (<span class="fw-bolder" id="cover_card_count"></span> dari <span id="cover_card_total"></span> SKU).
+                Persentase qty tetap terhadap total qty keluar keseluruhan.
+            </div>
+        </div>
         <div class="row g-5 g-xl-8 mb-7">
             @foreach ($cardMeta as $key => $meta)
                 <div class="col-6 col-xl-3">
@@ -241,9 +249,12 @@
                     $('[data-summary]').text('-');
                     $('[data-summary-bar]').css('width', '0%');
                     $('#total_out, #period_days').text('-');
+                    $('#cover_card_notice').addClass('d-none').removeClass('d-flex');
                     return;
                 }
+                var coveredSku = 0;
                 $.each(summary.classes, function (key, data) {
+                    coveredSku += data.sku_count;
                     $('[data-summary="' + key + '.sku_count"]').text(fmt(data.sku_count, 0));
                     $('[data-summary="' + key + '.qty_share"]').text(fmt(data.qty_share, 1) + '%');
                     $('[data-summary="' + key + '.stock"]').text(fmt(data.stock));
@@ -251,6 +262,13 @@
                 });
                 $('#total_out').text(fmt(summary.total_out));
                 $('#period_days').text(fmt(summary.period_days, 0));
+
+                $('#cover_card_notice').toggleClass('d-none', !summary.cover_filtered).toggleClass('d-flex', !!summary.cover_filtered);
+                if (summary.cover_filtered) {
+                    $('#cover_card_label').text(coverInfo());
+                    $('#cover_card_count').text(fmt(coveredSku, 0));
+                    $('#cover_card_total').text(fmt(summary.total_sku, 0));
+                }
             }
 
             var table = $('#movement_table').DataTable({

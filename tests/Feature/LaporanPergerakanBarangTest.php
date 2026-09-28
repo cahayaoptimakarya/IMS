@@ -168,6 +168,36 @@ class LaporanPergerakanBarangTest extends TestCase
         $this->assertCount(5, $skus(['cover_filter' => 'custom']));
     }
 
+    public function test_summary_cards_follow_days_cover_filter_but_not_class_filter(): void
+    {
+        $a = $this->item('A', 10);    // 750 keluar -> fast, avg 25/hari -> 0,4 hari (kritis)
+        $b = $this->item('B', 1000);  // 250 keluar -> medium, avg 8,3/hari -> 120 hari (berlebih)
+        $this->item('E', 40);         // non moving
+        $this->ship($a, 750, '2026-09-10');
+        $this->ship($b, 250, '2026-09-11');
+
+        $all = $this->fetch()['summary'];
+        $this->assertFalse($all['cover_filtered']);
+        $this->assertSame(1, $all['classes']['fast']['sku_count']);
+        $this->assertSame(1, $all['classes']['medium']['sku_count']);
+        $this->assertSame(1, $all['classes']['non_moving']['sku_count']);
+
+        $critical = $this->fetch(['cover_filter' => 'kritis'])['summary'];
+        $this->assertTrue($critical['cover_filtered']);
+        $this->assertSame(1, $critical['classes']['fast']['sku_count']);
+        $this->assertSame(0, $critical['classes']['medium']['sku_count']);
+        $this->assertSame(0, $critical['classes']['non_moving']['sku_count']);
+        $this->assertEquals(75, $critical['classes']['fast']['qty_share']); // tetap terhadap total 1000
+        $this->assertEquals(1000, $critical['total_out']);
+        $this->assertSame(3, $critical['total_sku']);
+
+        // Filter klasifikasi hanya mempersempit tabel, kartu lain tidak menjadi 0
+        $fastOnly = $this->fetch(['class_filter' => 'fast']);
+        $this->assertCount(1, $fastOnly['data']);
+        $this->assertFalse($fastOnly['summary']['cover_filtered']);
+        $this->assertSame(1, $fastOnly['summary']['classes']['medium']['sku_count']);
+    }
+
     public function test_exports_excel_report_with_sheets_and_charts(): void
     {
         $a = $this->item('A', 300);

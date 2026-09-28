@@ -57,12 +57,18 @@ class LaporanController extends Controller
         $rows = $result['rows'];
         $recordsTotal = $rows->count();
 
+        // Kartu ringkasan mengikuti filter days cover, tetapi tidak filter klasifikasi
+        // (kartu itu sendiri adalah pemilih klasifikasi). Persentase qty tetap terhadap total keseluruhan.
+        $rows = $this->applyCoverFilter($rows, $request);
+        $coverFiltered = $rows->count() !== $recordsTotal;
+        $classSummary = $coverFiltered
+            ? $analyzer->summarize($rows, $result['total_out'])
+            : $result['summary'];
+
         $classFilter = $request->input('class_filter');
         if ($classFilter && array_key_exists($classFilter, ItemMovementAnalyzer::LABELS)) {
             $rows = $rows->where('classification', $classFilter);
         }
-
-        $rows = $this->applyCoverFilter($rows, $request);
 
         $search = trim((string) $request->input('search.value', ''));
         if ($search !== '') {
@@ -112,7 +118,8 @@ class LaporanController extends Controller
                 return $row;
             }),
             'summary' => [
-                'classes' => $result['summary'],
+                'classes' => $classSummary,
+                'cover_filtered' => $coverFiltered,
                 'total_out' => $result['total_out'],
                 'total_sku' => $recordsTotal,
                 'period_days' => $result['period_days'],
