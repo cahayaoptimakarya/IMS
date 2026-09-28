@@ -144,7 +144,7 @@ class LaporanPergerakanBarangTest extends TestCase
         $this->assertSame([], $seha['data']);
     }
 
-    public function test_filters_by_days_cover_band_and_custom_range(): void
+    public function test_filters_by_custom_days_cover_range(): void
     {
         // periode 30 hari -> rata-rata/hari = qty keluar / 30
         $critical = $this->item('KRITIS', 10);   // avg 3 -> 3,3 hari
@@ -158,14 +158,14 @@ class LaporanPergerakanBarangTest extends TestCase
 
         $skus = fn (array $params) => collect($this->fetch($params)['data'])->pluck('sku')->sort()->values()->all();
 
-        $this->assertSame(['KRITIS'], $skus(['cover_filter' => 'kritis']));
-        $this->assertSame(['WASPADA'], $skus(['cover_filter' => 'waspada']));
-        $this->assertSame(['AMAN'], $skus(['cover_filter' => 'aman']));
-        $this->assertSame(['LEBIH'], $skus(['cover_filter' => 'berlebih']));
-        $this->assertSame(['DIAM'], $skus(['cover_filter' => 'tidak_ada']));
-        $this->assertSame(['AMAN', 'WASPADA'], $skus(['cover_filter' => 'custom', 'cover_min' => 20, 'cover_max' => 50]));
-        $this->assertSame(['AMAN', 'LEBIH'], $skus(['cover_filter' => 'custom', 'cover_min' => 21]));
-        $this->assertCount(5, $skus(['cover_filter' => 'custom']));
+        // batas inklusif, boleh hanya min atau hanya maks; non moving (tanpa days cover) tidak ikut
+        $this->assertSame(['AMAN', 'WASPADA'], $skus(['cover_min' => 20, 'cover_max' => 50]));
+        $this->assertSame(['AMAN', 'LEBIH'], $skus(['cover_min' => 21]));
+        $this->assertSame(['KRITIS'], $skus(['cover_max' => 5]));
+        $this->assertSame(['KRITIS'], $skus(['cover_min' => 0, 'cover_max' => 3.4]));
+        $this->assertSame([], $skus(['cover_min' => 60, 'cover_max' => 100]));
+        $this->assertCount(5, $skus([]));
+        $this->assertCount(5, $skus(['cover_min' => '', 'cover_max' => 'abc']));
     }
 
     public function test_summary_cards_follow_days_cover_filter_but_not_class_filter(): void
@@ -182,7 +182,7 @@ class LaporanPergerakanBarangTest extends TestCase
         $this->assertSame(1, $all['classes']['medium']['sku_count']);
         $this->assertSame(1, $all['classes']['non_moving']['sku_count']);
 
-        $critical = $this->fetch(['cover_filter' => 'kritis'])['summary'];
+        $critical = $this->fetch(['cover_max' => 5])['summary'];
         $this->assertTrue($critical['cover_filtered']);
         $this->assertSame(1, $critical['classes']['fast']['sku_count']);
         $this->assertSame(0, $critical['classes']['medium']['sku_count']);

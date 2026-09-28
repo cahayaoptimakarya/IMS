@@ -48,18 +48,11 @@
                         </select>
                     </div>
                     <div class="col-12 col-md-6 col-xl-3">
-                        <label class="form-label fw-bold">Days Cover</label>
-                        <select id="cover_filter" class="form-select form-select-solid" data-kt-select2="true" data-hide-search="true">
-                            <option value="">Semua Days Cover</option>
-                            @foreach ($coverLabels as $key => $label)
-                                <option value="{{ $key }}">{{ $label }}</option>
-                            @endforeach
-                            <option value="custom">Rentang custom...</option>
-                        </select>
-                        <div class="input-group input-group-solid mt-2 d-none" id="cover_custom">
-                            <input type="number" min="0" step="0.1" class="form-control form-control-solid" id="cover_min" placeholder="Min hari" />
+                        <label class="form-label fw-bold">Days Cover (hari)</label>
+                        <div class="input-group input-group-solid">
+                            <input type="number" min="0" step="0.1" class="form-control form-control-solid" id="cover_min" placeholder="Min" />
                             <span class="input-group-text">s/d</span>
-                            <input type="number" min="0" step="0.1" class="form-control form-control-solid" id="cover_max" placeholder="Maks hari" />
+                            <input type="number" min="0" step="0.1" class="form-control form-control-solid" id="cover_max" placeholder="Maks" />
                         </div>
                     </div>
                     <div class="col-12 col-xl-2 text-xl-end">
@@ -216,9 +209,6 @@
             setRange(defaultStart, defaultEnd);
 
             function coverInfo() {
-                var cover = $('#cover_filter').val();
-                if (!cover) return 'Semua';
-                if (cover !== 'custom') return $('#cover_filter option:selected').text();
                 var min = $('#cover_min').val(), max = $('#cover_max').val();
                 if (min === '' && max === '') return 'Semua';
                 if (min === '') return '<= ' + max + ' hari';
@@ -286,7 +276,6 @@
                         d.date_range = $('#date_range').val();
                         d.warehouse_filter = $('#warehouse_filter').val();
                         d.class_filter = $('#class_filter').val();
-                        d.cover_filter = $('#cover_filter').val();
                         d.cover_min = $('#cover_min').val();
                         d.cover_max = $('#cover_max').val();
                     },
@@ -359,17 +348,6 @@
             $('#date_range').on('apply.daterangepicker', reload);
             $('#class_filter, #warehouse_filter').on('change', reload);
 
-            $('#cover_filter').on('change', function () {
-                var custom = $(this).val() === 'custom';
-                $('#cover_custom').toggleClass('d-none', !custom);
-                if (!custom) {
-                    $('#cover_min, #cover_max').val('');
-                    reload();
-                } else {
-                    $('#cover_min').trigger('focus');
-                }
-            });
-
             var coverTimer;
             $('#cover_min, #cover_max').on('input', function () {
                 clearTimeout(coverTimer);
@@ -390,10 +368,8 @@
                 setRange(picker.startDate, picker.endDate);
                 $('#warehouse_filter').val(defaultWarehouse);
                 $('#class_filter').val('');
-                $('#cover_filter').val('');
                 $('#cover_min, #cover_max, #table_search').val('');
-                $('#cover_custom').addClass('d-none');
-                $('#warehouse_filter, #class_filter, #cover_filter').trigger('change.select2');
+                $('#warehouse_filter, #class_filter').trigger('change.select2');
                 table.search('').order([[0, 'asc']]);
                 reload();
             });

@@ -28,7 +28,6 @@ class LaporanController extends Controller
             'activeWarehouse' => $activeWarehouse,
             'lockWarehouse' => (bool) $userWarehouseId,
             'classLabels' => ItemMovementAnalyzer::LABELS,
-            'coverLabels' => ItemMovementAnalyzer::COVER_LABELS,
             'fastThreshold' => ItemMovementAnalyzer::FAST_THRESHOLD,
             'mediumThreshold' => ItemMovementAnalyzer::MEDIUM_THRESHOLD,
         ]);
@@ -155,34 +154,25 @@ class LaporanController extends Controller
     }
 
     /**
-     * Filter days cover: pita tetap (kritis/waspada/aman/berlebih/tidak_ada) atau rentang custom (inklusif).
+     * Filter days cover berdasarkan rentang hari yang diinput user (min/maks, inklusif, boleh salah satu).
+     * Item tanpa days cover (non moving) tidak termasuk saat filter aktif.
      */
     protected function applyCoverFilter(Collection $rows, Request $request): Collection
     {
-        $filter = $request->input('cover_filter');
-
-        if ($filter === 'custom') {
-            $min = $request->input('cover_min');
-            $max = $request->input('cover_max');
-            $min = is_numeric($min) ? (float) $min : null;
-            $max = is_numeric($max) ? (float) $max : null;
-            if ($min === null && $max === null) {
-                return $rows;
-            }
-
-            return $rows->filter(function ($row) use ($min, $max) {
-                $cover = $row['days_cover'];
-                return $cover !== null
-                    && ($min === null || $cover >= $min)
-                    && ($max === null || $cover <= $max);
-            });
+        $min = $request->input('cover_min');
+        $max = $request->input('cover_max');
+        $min = is_numeric($min) ? (float) $min : null;
+        $max = is_numeric($max) ? (float) $max : null;
+        if ($min === null && $max === null) {
+            return $rows;
         }
 
-        if ($filter && array_key_exists($filter, ItemMovementAnalyzer::COVER_LABELS)) {
-            return $rows->where('cover_status', $filter);
-        }
-
-        return $rows;
+        return $rows->filter(function ($row) use ($min, $max) {
+            $cover = $row['days_cover'];
+            return $cover !== null
+                && ($min === null || $cover >= $min)
+                && ($max === null || $cover <= $max);
+        });
     }
 
     /**
