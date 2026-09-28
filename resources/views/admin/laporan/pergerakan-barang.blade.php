@@ -39,6 +39,15 @@
                         </select>
                     </div>
                     <div class="col-12 col-md-6 col-xl-2">
+                        <label class="form-label fw-bold">Tipe Item</label>
+                        <select id="item_type_filter" class="form-select form-select-solid" data-kt-select2="true" data-hide-search="true">
+                            <option value="">Semua Tipe</option>
+                            @foreach ($itemTypes as $itemType)
+                                <option value="{{ $itemType->id }}">{{ $itemType->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-6 col-xl-2">
                         <label class="form-label fw-bold">Klasifikasi</label>
                         <select id="class_filter" class="form-select form-select-solid" data-kt-select2="true" data-hide-search="true">
                             <option value="">Semua Klasifikasi</option>
@@ -55,7 +64,7 @@
                             <input type="number" min="0" step="0.1" class="form-control form-control-solid" id="cover_max" placeholder="Maks" />
                         </div>
                     </div>
-                    <div class="col-12 col-xl-2 text-xl-end">
+                    <div class="col-12 text-end">
                         <button type="button" class="btn btn-light me-2" id="reset_filter">Reset</button>
                         <button type="button" class="btn btn-primary" id="apply_filter">Terapkan</button>
                     </div>
@@ -221,12 +230,14 @@
                 $('#filter_info').text(
                     'Periode: ' + $('#date_range').val()
                     + ' | Gudang: ' + $('#warehouse_filter option:selected').text()
+                    + ' | Tipe Item: ' + ($('#item_type_filter').val() ? $('#item_type_filter option:selected').text() : 'Semua')
                     + ' | Klasifikasi: ' + (cls ? $('#class_filter option:selected').text() : 'Semua')
                     + ' | Days Cover: ' + coverInfo()
                 );
                 $('#export_excel').attr('href', "{{ route('admin.laporan.pergerakanBarang.export') }}?" + $.param({
                     date_range: $('#date_range').val(),
-                    warehouse_filter: $('#warehouse_filter').val()
+                    warehouse_filter: $('#warehouse_filter').val(),
+                    item_type_filter: $('#item_type_filter').val()
                 }));
                 $('.movement-card').removeClass('active');
                 if (cls) {
@@ -275,6 +286,7 @@
                     data: function (d) {
                         d.date_range = $('#date_range').val();
                         d.warehouse_filter = $('#warehouse_filter').val();
+                        d.item_type_filter = $('#item_type_filter').val();
                         d.class_filter = $('#class_filter').val();
                         d.cover_min = $('#cover_min').val();
                         d.cover_max = $('#cover_max').val();
@@ -346,7 +358,7 @@
 
             $('#apply_filter').on('click', reload);
             $('#date_range').on('apply.daterangepicker', reload);
-            $('#class_filter, #warehouse_filter').on('change', reload);
+            $('#class_filter, #warehouse_filter, #item_type_filter').on('change', reload);
 
             var coverTimer;
             $('#cover_min, #cover_max').on('input', function () {
@@ -367,9 +379,9 @@
                 picker.setEndDate(moment());
                 setRange(picker.startDate, picker.endDate);
                 $('#warehouse_filter').val(defaultWarehouse);
-                $('#class_filter').val('');
+                $('#class_filter, #item_type_filter').val('');
                 $('#cover_min, #cover_max, #table_search').val('');
-                $('#warehouse_filter, #class_filter').trigger('change.select2');
+                $('#warehouse_filter, #class_filter, #item_type_filter').trigger('change.select2');
                 table.search('').order([[0, 'asc']]);
                 reload();
             });

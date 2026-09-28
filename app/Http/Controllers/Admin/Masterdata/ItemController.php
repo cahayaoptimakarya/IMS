@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Item;
 use App\Models\Uom;
 use App\Models\ItemCategory;
+use App\Models\ItemType;
 use App\Models\UserActivity;
 use App\Models\Inventory;
 use App\Models\StockMovement;
@@ -40,7 +41,8 @@ class ItemController extends Controller
     {
         $uoms = Uom::all();
         $itemcategories = ItemCategory::all();
-        return view('admin.masterdata.items.create', compact('uoms', 'itemcategories'));
+        $itemtypes = ItemType::orderBy('name')->get();
+        return view('admin.masterdata.items.create', compact('uoms', 'itemcategories', 'itemtypes'));
     }
 
     /**
@@ -53,6 +55,7 @@ class ItemController extends Controller
             'sku' => 'required|string|unique:items,sku',
             'uom_id' => 'required|exists:uoms,id',
             'item_category_id' => 'required|exists:item_categories,id|not_in:null',
+            'item_type_id' => 'required|exists:item_types,id',
             'nama_barang' => 'required|string',
             'tempat' => 'nullable|string|max:255',
             'deskripsi' => 'nullable|string',
@@ -110,7 +113,8 @@ class ItemController extends Controller
         $item = Item::findOrFail($id);
         $uoms = Uom::all();
         $itemcategories = ItemCategory::all();
-        return view('admin.masterdata.items.edit', compact('item', 'uoms', 'itemcategories'));
+        $itemtypes = ItemType::orderBy('name')->get();
+        return view('admin.masterdata.items.edit', compact('item', 'uoms', 'itemcategories', 'itemtypes'));
     }
 
     /**
@@ -125,6 +129,7 @@ class ItemController extends Controller
             'sku' => 'required|string|unique:items,sku,' . $item->id,
             'uom_id' => 'required|exists:uoms,id',
             'item_category_id' => 'required|exists:item_categories,id|not_in:null',
+            'item_type_id' => 'required|exists:item_types,id',
             'nama_barang' => 'required|string',
             'tempat' => 'nullable|string|max:255',
             'deskripsi' => 'nullable|string',

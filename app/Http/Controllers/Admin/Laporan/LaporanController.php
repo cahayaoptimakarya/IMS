@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\Laporan;
 
 use App\Exports\PergerakanBarangExport;
 use App\Http\Controllers\Controller;
+use App\Models\ItemType;
 use App\Models\Warehouse;
 use App\Support\ItemMovementAnalyzer;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ class LaporanController extends Controller
             'warehouses' => $warehouses,
             'activeWarehouse' => $activeWarehouse,
             'lockWarehouse' => (bool) $userWarehouseId,
+            'itemTypes' => ItemType::orderBy('name')->get(),
             'classLabels' => ItemMovementAnalyzer::LABELS,
             'fastThreshold' => ItemMovementAnalyzer::FAST_THRESHOLD,
             'mediumThreshold' => ItemMovementAnalyzer::MEDIUM_THRESHOLD,
@@ -52,7 +54,7 @@ class LaporanController extends Controller
             ]);
         }
 
-        $result = $analyzer->analyze($warehouseId, $startDate, $endDate);
+        $result = $analyzer->analyze($warehouseId, $startDate, $endDate, $this->resolveItemTypeId($request));
         $rows = $result['rows'];
         $recordsTotal = $rows->count();
 
@@ -133,12 +135,14 @@ class LaporanController extends Controller
         abort_unless($warehouse, 404, 'Gudang tidak ditemukan.');
         [$startDate, $endDate] = $this->resolveDateRange($request->input('date_range'));
 
-        $result = $analyzer->analyze($warehouse->id, $startDate, $endDate);
-        $trend = $analyzer->outTrend($warehouse->id, $startDate, $endDate, $result['rows']);
+        $itemType = ItemType::find($this->resolveItemTypeId($request));
+
+        $result = $analyzer->analyze($warehouse->id, $startDate, $endDate, $itemType?->id);
+        $trend = $analyzer->outTrend($warehouse->id, $startDate, $endDate, $result['rows'], $itemType?->id);
 
         $fileName = sprintf(
             'laporan-pergerakan-barang_%s_%s_%s.xlsx',
-            Str::slug($warehouse->name),
+            Str::slug($warehouse->name . ($itemType ? ' ' . $itemType->name : '')),
             $startDate->format('Ymd'),
             $endDate->format('Ymd')
         );
@@ -146,7 +150,7 @@ class LaporanController extends Controller
         return Excel::download(new PergerakanBarangExport(
             $result,
             $trend,
-            $warehouse->name,
+            $warehouse->name . ($itemType ? ' (Tipe: ' . $itemType->name . ')' : ''),
             $startDate,
             $endDate,
             auth()->user()?->name
@@ -193,6 +197,13 @@ class LaporanController extends Controller
         $nanggewerId = Warehouse::where('name', 'Gudang Nanggewer')->value('id');
 
         return $nanggewerId ? (int) $nanggewerId : Warehouse::orderBy('id')->value('id');
+    }
+
+    protected function resolveItemTypeId(Request $request): ?int
+    {
+        $itemTypeId = (int) $request->input('item_type_filter');
+
+        return $itemTypeId > 0 ? $itemTypeId : null;
     }
 
     /**

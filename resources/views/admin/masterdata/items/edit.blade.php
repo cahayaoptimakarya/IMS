@@ -40,6 +40,24 @@
                             </div>
 
                             <div class="fv-row mb-7">
+                                <label for="item_type_id" class="form-label required">Tipe Item</label>
+                                <select class="form-select form-select-solid fw-bolder select2-hidden-accessible"
+                                    id="item_type_id" name="item_type_id" data-control="select2"
+                                    data-placeholder="Pilih Tipe Item">
+                                    <option></option>
+                                    @foreach ($itemtypes as $type)
+                                        <option value="{{ $type->id }}"
+                                            {{ old('item_type_id', $item->item_type_id) == $type->id ? 'selected' : '' }}>
+                                            {{ $type->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('item_type_id')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+
+                            <div class="fv-row mb-7">
                                 <label for="sku" class="form-label required">SKU</label>
                                 <input type="text" class="form-control form-control-solid" id="sku" name="sku"
                                     value="{{ old('sku', $item->sku) }}" required oninput="this.value = this.value.toUpperCase().replace(/\s/g, '');">

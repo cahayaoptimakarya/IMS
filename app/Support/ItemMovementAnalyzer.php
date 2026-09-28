@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\DB;
  * - Non Moving : memiliki stok di gudang tetapi tidak ada qty keluar pada periode
  * Item yang melintasi batas lapisan masuk ke lapisan tempat kontribusinya dimulai,
  * sehingga item teratas selalu Fast meskipun kontribusinya sendiri > 70%.
+ * Jika tipe item dipilih, klasifikasi dihitung hanya di antara item bertipe tersebut.
  */
 class ItemMovementAnalyzer
 {
@@ -74,7 +75,7 @@ class ItemMovementAnalyzer
     /**
      * @return array{rows: Collection, summary: array, period_days: int, total_out: float}
      */
-    public function analyze(int $warehouseId, Carbon $startDate, Carbon $endDate): array
+    public function analyze(int $warehouseId, Carbon $startDate, Carbon $endDate, ?int $itemTypeId = null): array
     {
         $startDate = $startDate->copy()->startOfDay();
         $endDate = $endDate->copy()->endOfDay();
@@ -83,7 +84,7 @@ class ItemMovementAnalyzer
         $effectiveEnd = $endDate->copy()->min(Carbon::today()->endOfDay());
         $periodDays = max(1, (int) $startDate->diffInDays($effectiveEnd->copy()->startOfDay()) + 1);
 
-        $outRows = $this->shippedBaseQuery($warehouseId)
+        $outRows = $this->shippedBaseQuery($warehouseId, $itemTypeId)
             ->whereBetween('s.shipping_date', [$startDate->toDateString(), $endDate->toDateString()])
             ->groupBy('sid.item_id')
             ->select([
@@ -95,7 +96,7 @@ class ItemMovementAnalyzer
             ->keyBy('item_id');
 
         // Tanggal terakhir keluar (sepanjang waktu s/d akhir periode) agar non moving tetap informatif.
-        $lastOutDates = $this->shippedBaseQuery($warehouseId)
+        $lastOutDates = $this->shippedBaseQuery($warehouseId, $itemTypeId)
             ->where('s.shipping_date', '<=', $endDate->toDateString())
             ->groupBy('sid.item_id')
             ->select(['sid.item_id', DB::raw('MAX(s.shipping_date) as last_out_date')])
@@ -103,6 +104,7 @@ class ItemMovementAnalyzer
 
         $stocks = DB::table('inventories')
             ->where('warehouse_id', $warehouseId)
+            ->when($itemTypeId, fn ($q) => $q->whereIn('item_id', DB::table('items')->where('item_type_id', $itemTypeId)->select('id')))
             ->groupBy('item_id')
             ->select(['item_id', DB::raw('SUM(quantity) as stock')])
             ->pluck('stock', 'item_id');
@@ -220,7 +222,7 @@ class ItemMovementAnalyzer
      *
      * @return array{granularity: string, buckets: array<string, array<string, float>>}
      */
-    public function outTrend(int $warehouseId, Carbon $startDate, Carbon $endDate, Collection $rows): array
+    public function outTrend(int $warehouseId, Carbon $startDate, Carbon $endDate, Collection $rows, ?int $itemTypeId = null): array
     {
         $startDate = $startDate->copy()->startOfDay();
         $endDate = $endDate->copy()->startOfDay();
@@ -234,7 +236,7 @@ class ItemMovementAnalyzer
             $buckets[$key] ??= $emptyBucket;
         }
 
-        $daily = $this->shippedBaseQuery($warehouseId)
+        $daily = $this->shippedBaseQuery($warehouseId, $itemTypeId)
             ->whereBetween('s.shipping_date', [$startDate->toDateString(), $endDate->toDateString()])
             ->groupBy('s.shipping_date', 'sid.item_id')
             ->select(['s.shipping_date', 'sid.item_id', DB::raw('SUM(sid.quantity_shipped) as qty')])
@@ -255,9 +257,10 @@ class ItemMovementAnalyzer
         return ['granularity' => $weekly ? 'weekly' : 'daily', 'buckets' => $buckets];
     }
 
-    protected function shippedBaseQuery(int $warehouseId)
+    protected function shippedBaseQuery(int $warehouseId, ?int $itemTypeId = null)
     {
         return DB::table('shipment_item_details as sid')
+            ->when($itemTypeId, fn ($q) => $q->join('items as it', 'it.id', '=', 'sid.item_id')->where('it.item_type_id', $itemTypeId))
             ->join('shipments as s', 's.id', '=', 'sid.shipment_id')
             ->join('transfer_request_items as tri', 'tri.id', '=', 'sid.reference_id')
             ->where('sid.reference_type', ShipmentItemDetail::REFERENCE_TYPE_TRANSFER_REQUEST_ITEM)
