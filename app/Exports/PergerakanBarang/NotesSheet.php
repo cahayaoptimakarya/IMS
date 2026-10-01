@@ -37,6 +37,9 @@ class NotesSheet extends BaseSheet
                 Analyzer::COVER_CRITICAL_DAYS, Analyzer::COVER_CRITICAL_DAYS, Analyzer::COVER_WARNING_DAYS,
                 Analyzer::COVER_WARNING_DAYS, Analyzer::COVER_EXCESS_DAYS, Analyzer::COVER_EXCESS_DAYS
             ),
+            'Days Cover Needed' => 'Jumlah hari ke depan yang ingin dicukupi stoknya (diinput saat export, saat ini ' . $this->report->daysNeededLabel() . ' hari).',
+            'Dalam Order' => 'Qty Stock In Order ke gudang laporan berstatus Requested / On Shipping yang belum diterima (sisa qty).',
+            'Rekomendasi Order' => 'Kebutuhan = (rata-rata keluar per hari x days cover needed) - stok saat ini - qty dalam order. Jika kebutuhan > 0, dibulatkan ke atas menjadi koli penuh (isi per koli dari master item); Qty = koli x isi per koli. Item Non Moving tidak direkomendasikan.',
             'Stok' => 'Stok saat file dibuat pada gudang laporan (bukan stok pada akhir periode).',
             'Terakhir Keluar' => 'Tanggal kirim terakhir hingga akhir periode, termasuk sebelum periode, agar item Non Moving tetap terlihat kapan terakhir keluar.',
             'Satuan Qty' => 'Qty dijumlahkan dalam satuan dasar masing-masing item; kontribusi dihitung dari qty tanpa konversi satuan.',

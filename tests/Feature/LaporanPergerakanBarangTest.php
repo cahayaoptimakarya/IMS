@@ -213,14 +213,17 @@ class LaporanPergerakanBarangTest extends TestCase
         $this->assertStringContainsString('laporan-pergerakan-barang_gudang-nanggewer_20260830_20260928.xlsx', $response->headers->get('content-disposition'));
 
         $path = tempnam(sys_get_temp_dir(), 'pb') . '.xlsx';
-        file_put_contents($path, $response->streamedContent() ?: $response->getFile()->getContent());
+        $base = $response->baseResponse;
+        file_put_contents($path, $base instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse
+            ? $base->getFile()->getContent()
+            : $response->streamedContent());
         $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader('Xlsx');
         $reader->setIncludeCharts(true);
         $book = $reader->load($path);
         @unlink($path);
 
         $this->assertSame(
-            ['Ringkasan', 'Detail Item', 'Pareto', 'Tren Keluar', 'Perlu Perhatian', 'Keterangan'],
+            ['Ringkasan', 'Detail Item', 'Pareto', 'Tren Keluar', 'Perlu Perhatian', 'Rekomendasi Order', 'Keterangan'],
             $book->getSheetNames()
         );
         $this->assertSame(3, $book->getSheetByName('Ringkasan')->getChartCount());
@@ -241,12 +244,87 @@ class LaporanPergerakanBarangTest extends TestCase
         // B: avg 250/30 = 8,33/hari, stok 5 -> kritis, masuk daftar risiko
         $attention = $book->getSheetByName('Perlu Perhatian');
         $this->assertSame('B', $attention->getCell('B7')->getValue());
+
+        // Days cover needed default 30: A butuh 750 - 300 = 450 (45 koli @10), B butuh 250 - 5 = 245 -> 25 koli = 250
+        $this->assertEquals(450, $detail->getCell('R5')->getValue());
+        $order = $book->getSheetByName('Rekomendasi Order');
+        $this->assertSame('A', $order->getCell('B6')->getValue());
+        $this->assertEquals(45, $order->getCell('M6')->getValue());
+        $this->assertSame('B', $order->getCell('B7')->getValue());
+        $this->assertEquals(250, $order->getCell('N7')->getValue());
+        $this->assertSame('TOTAL', $order->getCell('A8')->getValue());
+    }
+
+    private function stockInOrder(int $itemId, float $remaining, string $status = 'requested', string $itemStatus = 'pending'): void
+    {
+        $orderId = DB::table('stock_in_orders')->insertGetId([
+            'code' => 'SIO-' . (++$this->trSeq), 'date' => '2026-09-25',
+            'warehouse_id' => $this->nanggewer, 'status' => $status,
+        ]);
+        DB::table('stock_in_order_items')->insert([
+            'stock_in_order_id' => $orderId, 'item_id' => $itemId, 'quantity' => $remaining,
+            'remaining_quantity' => $remaining, 'status' => $itemStatus,
+        ]);
+    }
+
+    public function test_recommends_order_based_on_days_cover_needed(): void
+    {
+        $a = $this->item('A', 300);   // 750 keluar -> 25/hari
+        $b = $this->item('B', 10);    // 90 keluar -> 3/hari, isi 12 per koli
+        $c = $this->item('C', 600);   // 90 keluar -> 3/hari, stok sudah cukup
+        $this->item('E', 40);         // non moving
+        DB::table('items')->where('id', $b)->update(['koli' => 12]);
+        $this->ship($a, 750, '2026-09-10');
+        $this->ship($b, 90, '2026-09-11');
+        $this->ship($c, 90, '2026-09-12');
+        $this->stockInOrder($a, 100);                          // dalam order
+        $this->stockInOrder($a, 500, 'completed', 'completed'); // sudah diterima -> diabaikan
+
+        $json = $this->fetch(['days_needed' => 30]);
+        $rows = collect($json['data'])->keyBy('sku');
+
+        // A: target 750 - stok 300 - dalam order 100 = 350 -> 35 koli @10
+        $this->assertEquals(100, $rows['A']['on_order_qty']);
+        $this->assertEquals(750, $rows['A']['target_qty']);
+        $this->assertEquals(350, $rows['A']['need_qty']);
+        $this->assertSame(35, $rows['A']['order_koli']);
+        $this->assertEquals(350, $rows['A']['order_qty']);
+        $this->assertEquals(30, $rows['A']['cover_after_order']);
+        // B: target 90 - 10 = 80 -> dibulatkan ke 7 koli @12 = 84
+        $this->assertSame(7, $rows['B']['order_koli']);
+        $this->assertEquals(84, $rows['B']['order_qty']);
+        $this->assertSame(0, $rows['C']['order_koli']);
+        $this->assertSame(0, $rows['E']['order_koli']);
+        $this->assertNull($rows['E']['cover_after_order']);
+
+        $this->assertEquals(['sku_count' => 2, 'order_qty' => 434, 'order_koli' => 42, 'days_needed' => 30], $json['summary']['order']);
+
+        // Days needed lebih besar -> rekomendasi naik; C (stok 200 hari) mulai perlu order di 210 hari
+        $rows = collect($this->fetch(['days_needed' => 60])['data'])->keyBy('sku');
+        $this->assertEquals(1100, $rows['A']['order_qty']); // 1500 - 300 - 100
+        $rows = collect($this->fetch(['days_needed' => 210])['data'])->keyBy('sku');
+        $this->assertEquals(30, $rows['C']['order_qty']);   // 630 - 600
+
+        // Kosong / tidak valid -> default 30, dibatasi maksimal 365
+        $this->assertEquals(30, $this->fetch(['days_needed' => ''])['summary']['order']['days_needed']);
+        $this->assertEquals(30, $this->fetch(['days_needed' => -5])['summary']['order']['days_needed']);
+        $this->assertEquals(365, $this->fetch(['days_needed' => 9999])['summary']['order']['days_needed']);
+
+        $skus = fn (array $params) => collect($this->fetch($params)['data'])->pluck('sku')->all();
+        $this->assertSame(['A', 'B'], $skus(['order_filter' => 'order']));
+        $this->assertSame(['C', 'E'], $skus(['order_filter' => 'no_order']));
+        // Urut rekomendasi terbesar
+        $this->assertSame(['A', 'B', 'C', 'E'], $skus(['order' => [['column' => 11, 'dir' => 'desc']]]));
+
+        // Ringkasan order mengikuti filter tabel
+        $this->assertSame(1, $this->fetch(['search' => ['value' => 'item b']])['summary']['order']['sku_count']);
     }
 
     public function test_page_renders_with_nanggewer_selected(): void
     {
         $this->get(route('admin.laporan.pergerakanBarang'))
             ->assertOk()
-            ->assertSee('value="' . $this->nanggewer . '" selected', false);
+            ->assertSee('value="' . $this->nanggewer . '" selected', false)
+            ->assertSee('id="days_needed"', false);
     }
 }

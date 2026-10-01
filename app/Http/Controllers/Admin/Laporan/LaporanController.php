@@ -32,6 +32,8 @@ class LaporanController extends Controller
             'classLabels' => ItemMovementAnalyzer::LABELS,
             'fastThreshold' => ItemMovementAnalyzer::FAST_THRESHOLD,
             'mediumThreshold' => ItemMovementAnalyzer::MEDIUM_THRESHOLD,
+            'defaultDaysNeeded' => ItemMovementAnalyzer::DEFAULT_DAYS_NEEDED,
+            'maxDaysNeeded' => ItemMovementAnalyzer::MAX_DAYS_NEEDED,
         ]);
     }
 
@@ -55,7 +57,8 @@ class LaporanController extends Controller
         }
 
         $result = $analyzer->analyze($warehouseId, $startDate, $endDate, $this->resolveItemTypeId($request));
-        $rows = $result['rows'];
+        $daysNeeded = $this->resolveDaysNeeded($request);
+        $rows = $analyzer->withOrderRecommendation($result['rows'], $warehouseId, $daysNeeded);
         $recordsTotal = $rows->count();
 
         // Kartu ringkasan mengikuti filter days cover, tetapi tidak filter klasifikasi
@@ -69,6 +72,13 @@ class LaporanController extends Controller
         $classFilter = $request->input('class_filter');
         if ($classFilter && array_key_exists($classFilter, ItemMovementAnalyzer::LABELS)) {
             $rows = $rows->where('classification', $classFilter);
+        }
+
+        $orderFilter = $request->input('order_filter');
+        if ($orderFilter === 'order') {
+            $rows = $rows->filter(fn ($row) => $row['order_qty'] > 0);
+        } elseif ($orderFilter === 'no_order') {
+            $rows = $rows->filter(fn ($row) => $row['order_qty'] <= 0);
         }
 
         $search = trim((string) $request->input('search.value', ''));
@@ -92,6 +102,8 @@ class LaporanController extends Controller
             7 => 'frequency',
             8 => 'days_cover',
             9 => 'last_out_date',
+            10 => 'on_order_qty',
+            11 => 'order_qty',
         ];
         $orderKey = $sortable[(int) $request->input('order.0.column', 0)] ?? 'rank';
         $descending = strtolower((string) $request->input('order.0.dir', 'asc')) === 'desc';
@@ -104,6 +116,8 @@ class LaporanController extends Controller
             return $cmp ?: $a['rank'] <=> $b['rank'];
         })->values();
 
+        // Ringkasan order mengikuti seluruh filter tabel (sebelum paginasi)
+        $orderSummary = $analyzer->summarizeOrder($rows) + ['days_needed' => $daysNeeded];
         $recordsFiltered = $rows->count();
         $page = $length > 0 ? $rows->slice($start, $length)->values() : $rows;
 
@@ -120,6 +134,7 @@ class LaporanController extends Controller
             }),
             'summary' => [
                 'classes' => $classSummary,
+                'order' => $orderSummary,
                 'cover_filtered' => $coverFiltered,
                 'total_out' => $result['total_out'],
                 'total_sku' => $recordsTotal,
@@ -138,6 +153,9 @@ class LaporanController extends Controller
         $itemType = ItemType::find($this->resolveItemTypeId($request));
 
         $result = $analyzer->analyze($warehouse->id, $startDate, $endDate, $itemType?->id);
+        $daysNeeded = $this->resolveDaysNeeded($request);
+        $result['rows'] = $analyzer->withOrderRecommendation($result['rows'], $warehouse->id, $daysNeeded);
+        $result['days_needed'] = $daysNeeded;
         $trend = $analyzer->outTrend($warehouse->id, $startDate, $endDate, $result['rows'], $itemType?->id);
 
         $fileName = sprintf(
@@ -177,6 +195,19 @@ class LaporanController extends Controller
                 && ($min === null || $cover >= $min)
                 && ($max === null || $cover <= $max);
         });
+    }
+
+    /**
+     * Days cover needed untuk rekomendasi order; kosong/tidak valid memakai default.
+     */
+    protected function resolveDaysNeeded(Request $request): float
+    {
+        $days = $request->input('days_needed');
+        if (!is_numeric($days) || (float) $days <= 0) {
+            return (float) ItemMovementAnalyzer::DEFAULT_DAYS_NEEDED;
+        }
+
+        return min((float) $days, (float) ItemMovementAnalyzer::MAX_DAYS_NEEDED);
     }
 
     /**

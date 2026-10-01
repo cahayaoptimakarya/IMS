@@ -15,6 +15,7 @@ class ReportData
     public array $summary;
     public int $periodDays;
     public float $totalOut;
+    public float $daysNeeded;
     public Carbon $printedAt;
 
     public function __construct(
@@ -30,20 +31,35 @@ class ReportData
         $this->summary = $result['summary'];
         $this->periodDays = $result['period_days'];
         $this->totalOut = $result['total_out'];
+        $this->daysNeeded = (float) ($result['days_needed'] ?? Analyzer::DEFAULT_DAYS_NEEDED);
         $this->printedAt = Carbon::now();
     }
 
     public function contextLine(): string
     {
         return sprintf(
-            '%s  |  Periode %s - %s (%d hari)  |  Dicetak %s%s',
+            '%s  |  Periode %s - %s (%d hari)  |  Days cover needed %s hari  |  Dicetak %s%s',
             $this->warehouseName,
             $this->startDate->format('d/m/Y'),
             $this->endDate->format('d/m/Y'),
             $this->periodDays,
+            $this->daysNeededLabel(),
             $this->printedAt->format('d/m/Y H:i'),
             $this->printedBy ? ' oleh ' . $this->printedBy : ''
         );
+    }
+
+    public function daysNeededLabel(): string
+    {
+        return rtrim(rtrim(number_format($this->daysNeeded, 1, ',', '.'), '0'), ',');
+    }
+
+    /**
+     * Item yang direkomendasikan order, urut peringkat (fast lebih dulu).
+     */
+    public function orderRows(): Collection
+    {
+        return $this->rows->filter(fn ($row) => ($row['order_qty'] ?? 0) > 0)->values();
     }
 
     public function movingRows(): Collection

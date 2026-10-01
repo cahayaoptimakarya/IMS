@@ -5,6 +5,7 @@ namespace App\Exports;
 use App\Exports\PergerakanBarang\AttentionSheet;
 use App\Exports\PergerakanBarang\DetailSheet;
 use App\Exports\PergerakanBarang\NotesSheet;
+use App\Exports\PergerakanBarang\OrderRecommendationSheet;
 use App\Exports\PergerakanBarang\ParetoSheet;
 use App\Exports\PergerakanBarang\ReportData;
 use App\Exports\PergerakanBarang\SummarySheet;
@@ -35,6 +36,7 @@ class PergerakanBarangExport implements WithMultipleSheets
             new ParetoSheet($this->report),
             new TrendSheet($this->report),
             new AttentionSheet($this->report),
+            new OrderRecommendationSheet($this->report),
             new NotesSheet($this->report),
         ];
     }

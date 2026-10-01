@@ -61,6 +61,10 @@ class ItemMovementAnalyzer
         self::COVER_NONE => 'Tidak ada (non moving)',
     ];
 
+    // Days cover needed default untuk rekomendasi order (hari), dibatasi maksimal setahun
+    public const DEFAULT_DAYS_NEEDED = 30;
+    public const MAX_DAYS_NEEDED = 365;
+
     public static function coverStatus(?float $daysCover): string
     {
         return match (true) {
@@ -116,7 +120,7 @@ class ItemMovementAnalyzer
         $items = DB::table('items as i')
             ->leftJoin('uoms as u', 'u.id', '=', 'i.uom_id')
             ->whereIn('i.id', $itemIds)
-            ->select(['i.id', 'i.sku', 'i.nama_barang', DB::raw('COALESCE(u.symbol, u.name) as uom')])
+            ->select(['i.id', 'i.sku', 'i.nama_barang', 'i.koli', DB::raw('COALESCE(u.symbol, u.name) as uom')])
             ->get()
             ->keyBy('id');
 
@@ -134,6 +138,7 @@ class ItemMovementAnalyzer
                 'sku' => $item->sku,
                 'nama_barang' => $item->nama_barang,
                 'uom' => $item->uom,
+                'per_koli' => max(1, (int) ($item->koli ?? 1)),
                 'stock' => $stock,
                 'qty_out' => $qtyOut,
                 'avg_per_day' => $avgPerDay,
@@ -153,6 +158,77 @@ class ItemMovementAnalyzer
             'summary' => $this->summarize($rows, $totalOut),
             'period_days' => $periodDays,
             'total_out' => $totalOut,
+        ];
+    }
+
+    /**
+     * Tambahkan rekomendasi order agar stok mencukupi $daysNeeded hari ke depan.
+     *
+     * - Target stok   = rata-rata keluar / hari x days cover needed
+     * - Stok tersedia = stok gudang + qty dalam order (Stock In Order requested / on_shipping yang belum diterima)
+     * - Kebutuhan     = max(0, target - stok tersedia)
+     * - Rekomendasi   = kebutuhan dibulatkan ke atas per koli (isi per koli dari master item)
+     * Item non moving (rata-rata 0) tidak direkomendasikan order.
+     */
+    public function withOrderRecommendation(Collection $rows, int $warehouseId, float $daysNeeded): Collection
+    {
+        $onOrder = $this->onOrderQuantities($warehouseId, $rows->pluck('item_id')->all());
+
+        return $rows->map(function ($row) use ($onOrder, $daysNeeded) {
+            $onOrderQty = (float) ($onOrder->get($row['item_id']) ?? 0);
+            $available = max(0, $row['stock']) + $onOrderQty;
+            $target = $row['avg_per_day'] * $daysNeeded;
+            $need = max(0, $target - $available);
+            // Toleransi pembulatan float agar kebutuhan 20,0000001 tidak menjadi 3 koli
+            $orderKoli = $need > 1e-6 ? (int) ceil(round($need / $row['per_koli'], 6)) : 0;
+            $orderQty = $orderKoli * $row['per_koli'];
+
+            $row['days_needed'] = $daysNeeded;
+            $row['on_order_qty'] = $onOrderQty;
+            $row['target_qty'] = $target;
+            $row['need_qty'] = $need;
+            $row['order_koli'] = $orderKoli;
+            $row['order_qty'] = $orderQty;
+            $row['cover_after_order'] = $row['avg_per_day'] > 0
+                ? ($available + $orderQty) / $row['avg_per_day']
+                : null;
+
+            return $row;
+        });
+    }
+
+    /**
+     * Qty yang masih dalam perjalanan ke gudang (belum diterima) per item.
+     */
+    public function onOrderQuantities(int $warehouseId, array $itemIds): Collection
+    {
+        if (empty($itemIds)) {
+            return collect();
+        }
+
+        return DB::table('stock_in_order_items as si')
+            ->join('stock_in_orders as sio', 'sio.id', '=', 'si.stock_in_order_id')
+            ->where('sio.warehouse_id', $warehouseId)
+            ->whereIn('sio.status', ['requested', 'on_shipping'])
+            ->whereIn('si.status', ['pending', 'on_progress'])
+            ->whereIn('si.item_id', $itemIds)
+            ->groupBy('si.item_id')
+            ->select(['si.item_id', DB::raw('SUM(COALESCE(si.remaining_quantity, 0)) as qty')])
+            ->pluck('qty', 'si.item_id')
+            ->map(fn ($qty) => max(0, (float) $qty));
+    }
+
+    /**
+     * Ringkasan rekomendasi order untuk sekumpulan baris hasil withOrderRecommendation().
+     */
+    public function summarizeOrder(Collection $rows): array
+    {
+        $ordered = $rows->filter(fn ($row) => $row['order_qty'] > 0);
+
+        return [
+            'sku_count' => $ordered->count(),
+            'order_qty' => (float) $ordered->sum('order_qty'),
+            'order_koli' => (int) $ordered->sum('order_koli'),
         ];
     }
 

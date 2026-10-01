@@ -13,6 +13,7 @@
         .movement-card.active { border-color: var(--bs-primary); }
         .movement-card .share-bar { height: 6px; }
         #movement_table td { vertical-align: middle; }
+        #movement_table th.order-col, #movement_table td.order-col { background-color: var(--bs-light-success); }
     </style>
 @endpush
 
@@ -64,7 +65,26 @@
                             <input type="number" min="0" step="0.1" class="form-control form-control-solid" id="cover_max" placeholder="Maks" />
                         </div>
                     </div>
-                    <div class="col-12 text-end">
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <label class="form-label fw-bold" for="days_needed">
+                            Days Cover Needed (hari)
+                            <i class="fas fa-info-circle text-muted ms-1" data-bs-toggle="tooltip"
+                               title="Stok ingin cukup untuk berapa hari ke depan. Rekomendasi order = rata-rata keluar/hari x days cover needed - stok - qty dalam order, dibulatkan ke atas per koli."></i>
+                        </label>
+                        <div class="input-group input-group-solid">
+                            <input type="number" min="1" max="{{ $maxDaysNeeded }}" step="1" class="form-control form-control-solid" id="days_needed" value="{{ $defaultDaysNeeded }}" placeholder="{{ $defaultDaysNeeded }}" />
+                            <span class="input-group-text">hari</span>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-xl-2">
+                        <label class="form-label fw-bold">Rekomendasi Order</label>
+                        <select id="order_filter" class="form-select form-select-solid" data-kt-select2="true" data-hide-search="true">
+                            <option value="">Semua Item</option>
+                            <option value="order">Perlu Order</option>
+                            <option value="no_order">Tidak Perlu Order</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-xl-7 text-end">
                         <button type="button" class="btn btn-light me-2" id="reset_filter">Reset</button>
                         <button type="button" class="btn btn-primary" id="apply_filter">Terapkan</button>
                     </div>
@@ -121,6 +141,38 @@
         </div>
         <!--end::Classification cards-->
 
+        <!--begin::Order recommendation summary-->
+        <div class="card mb-7 bg-light-success border border-success border-dashed">
+            <div class="card-body py-5 d-flex flex-wrap align-items-center gap-5">
+                <div class="d-flex align-items-center me-auto">
+                    <i class="fas fa-shopping-cart fs-1 text-success me-4"></i>
+                    <div>
+                        <div class="fw-bolder fs-5 text-gray-900">Rekomendasi Order</div>
+                        <div class="text-gray-600 fs-7">
+                            Agar stok cukup <span class="fw-bolder" id="order_days_needed">-</span> hari ke depan
+                            <span id="order_scope_note"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center px-4">
+                    <div class="fw-bolder fs-2 text-gray-900" id="order_sku_count">-</div>
+                    <div class="text-muted fs-8">SKU perlu order</div>
+                </div>
+                <div class="text-center px-4">
+                    <div class="fw-bolder fs-2 text-success" id="order_total_koli">-</div>
+                    <div class="text-muted fs-8">Total koli</div>
+                </div>
+                <div class="text-center px-4">
+                    <div class="fw-bolder fs-2 text-gray-900" id="order_total_qty">-</div>
+                    <div class="text-muted fs-8">Total qty</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-success" id="show_order_only">
+                    <i class="fas fa-filter"></i> Tampilkan yang perlu order
+                </button>
+            </div>
+        </div>
+        <!--end::Order recommendation summary-->
+
         <!--begin::Table-->
         <div class="card">
             <div class="card-header border-0 pt-6">
@@ -155,6 +207,8 @@
                                 <th class="text-end">Frequency</th>
                                 <th class="text-end">Days Cover</th>
                                 <th>Terakhir Keluar</th>
+                                <th class="text-end" title="Stock In Order (Requested / On Shipping) yang belum diterima">Dalam Order</th>
+                                <th class="text-end min-w-125px order-col">Rekomendasi Order</th>
                             </tr>
                         </thead>
                         <tbody class="fw-bold text-gray-700"></tbody>
@@ -165,6 +219,8 @@
                     Klasifikasi diurutkan dari qty keluar terbesar; item yang melintasi batas {{ (int) $fastThreshold }}% / {{ (int) $mediumThreshold }}% masuk ke lapisan tempat kontribusinya dimulai.
                     Frequency = jumlah dokumen Permintaan Barang yang dikirim. Days cover = stok saat ini &divide; rata-rata keluar per hari (Kritis &lt; 7, Waspada 7-30, Aman 30-90, Berlebih &gt; 90 hari).
                     Terakhir keluar = tanggal kirim terakhir hingga akhir periode.
+                    Dalam order = sisa qty Stock In Order ke gudang ini berstatus Requested / On Shipping.
+                    Rekomendasi order = (rata-rata keluar/hari &times; days cover needed) &minus; stok &minus; dalam order, dibulatkan ke atas per koli (isi per koli dari master item); item Non Moving tidak direkomendasikan.
                 </div>
             </div>
         </div>
@@ -182,6 +238,8 @@
                 non_moving: { color: 'danger' }
             };
             var defaultWarehouse = $('#warehouse_filter').val();
+            var defaultDaysNeeded = {{ (int) $defaultDaysNeeded }};
+            var maxDaysNeeded = {{ (int) $maxDaysNeeded }};
 
             if ($.fn.select2) {
                 $('[data-kt-select2="true"]').select2({ minimumResultsForSearch: Infinity });
@@ -225,6 +283,13 @@
                 return min + ' - ' + max + ' hari';
             }
 
+            // Nilai kosong / tidak valid memakai default, sama seperti di server
+            function daysNeeded() {
+                var n = parseFloat($('#days_needed').val());
+                if (isNaN(n) || n <= 0) return defaultDaysNeeded;
+                return Math.min(n, maxDaysNeeded);
+            }
+
             function updateFilterInfo() {
                 var cls = $('#class_filter').val();
                 $('#filter_info').text(
@@ -233,11 +298,14 @@
                     + ' | Tipe Item: ' + ($('#item_type_filter').val() ? $('#item_type_filter option:selected').text() : 'Semua')
                     + ' | Klasifikasi: ' + (cls ? $('#class_filter option:selected').text() : 'Semua')
                     + ' | Days Cover: ' + coverInfo()
+                    + ' | Days Cover Needed: ' + daysNeeded() + ' hari'
+                    + ' | Rekomendasi: ' + ($('#order_filter').val() ? $('#order_filter option:selected').text() : 'Semua')
                 );
                 $('#export_excel').attr('href', "{{ route('admin.laporan.pergerakanBarang.export') }}?" + $.param({
                     date_range: $('#date_range').val(),
                     warehouse_filter: $('#warehouse_filter').val(),
-                    item_type_filter: $('#item_type_filter').val()
+                    item_type_filter: $('#item_type_filter').val(),
+                    days_needed: daysNeeded()
                 }));
                 $('.movement-card').removeClass('active');
                 if (cls) {
@@ -251,6 +319,8 @@
                     $('[data-summary-bar]').css('width', '0%');
                     $('#total_out, #period_days').text('-');
                     $('#cover_card_notice').addClass('d-none').removeClass('d-flex');
+                    $('#order_sku_count, #order_total_koli, #order_total_qty, #order_days_needed').text('-');
+                    $('#order_scope_note').text('');
                     return;
                 }
                 var coveredSku = 0;
@@ -263,6 +333,15 @@
                 });
                 $('#total_out').text(fmt(summary.total_out));
                 $('#period_days').text(fmt(summary.period_days, 0));
+
+                if (summary.order) {
+                    $('#order_days_needed').text(fmt(summary.order.days_needed, 1));
+                    $('#order_sku_count').text(fmt(summary.order.sku_count, 0));
+                    $('#order_total_koli').text(fmt(summary.order.order_koli, 0));
+                    $('#order_total_qty').text(fmt(summary.order.order_qty));
+                    var scoped = $('#class_filter').val() || $('#cover_min').val() !== '' || $('#cover_max').val() !== '' || $('#table_search').val();
+                    $('#order_scope_note').text(scoped ? '(sesuai filter tabel)' : '');
+                }
 
                 $('#cover_card_notice').toggleClass('d-none', !summary.cover_filtered).toggleClass('d-flex', !!summary.cover_filtered);
                 if (summary.cover_filtered) {
@@ -290,6 +369,8 @@
                         d.class_filter = $('#class_filter').val();
                         d.cover_min = $('#cover_min').val();
                         d.cover_max = $('#cover_max').val();
+                        d.days_needed = daysNeeded();
+                        d.order_filter = $('#order_filter').val();
                     },
                     dataSrc: function (json) {
                         renderSummary(json.summary);
@@ -335,6 +416,26 @@
                     } },
                     { data: 'last_out_date', render: function (data, type, row) {
                         return row.last_out_date_label ? escapeHtml(row.last_out_date_label) : '<span class="text-muted">Belum pernah</span>';
+                    } },
+                    { data: 'on_order_qty', className: 'text-end', render: function (data) {
+                        if (!parseFloat(data)) return '<span class="text-muted">-</span>';
+                        return '<span class="fw-bolder text-info">' + fmt(data) + '</span>';
+                    } },
+                    { data: 'order_qty', className: 'text-end order-col', render: function (data, type, row) {
+                        var detail = 'Target ' + fmt(row.days_needed, 1) + ' hari: ' + fmt(row.target_qty)
+                            + '\nStok: ' + fmt(row.stock) + ' | Dalam order: ' + fmt(row.on_order_qty)
+                            + '\nKebutuhan: ' + fmt(row.need_qty) + ' | Isi/koli: ' + fmt(row.per_koli, 0);
+                        if (row.order_qty <= 0) {
+                            var reason = row.avg_per_day > 0 ? 'Cukup' : 'Tidak ada keluar';
+                            return '<span class="text-muted fs-8" title="' + escapeHtml(detail) + '">' + reason + '</span>';
+                        }
+                        if (row.cover_after_order !== null) {
+                            detail += '\nCover setelah order: ' + fmt(row.cover_after_order, 1) + ' hari';
+                        }
+                        return '<div title="' + escapeHtml(detail) + '">'
+                            + '<div class="fw-bolder text-success fs-6">' + fmt(row.order_koli, 0) + ' <span class="fs-8">koli</span></div>'
+                            + '<div class="text-muted fs-8">' + fmt(data) + (row.uom ? ' ' + escapeHtml(row.uom) : '') + '</div>'
+                            + '</div>';
                     } }
                 ],
                 language: {
@@ -358,14 +459,18 @@
 
             $('#apply_filter').on('click', reload);
             $('#date_range').on('apply.daterangepicker', reload);
-            $('#class_filter, #warehouse_filter, #item_type_filter').on('change', reload);
+            $('#class_filter, #warehouse_filter, #item_type_filter, #order_filter').on('change', reload);
 
             var coverTimer;
-            $('#cover_min, #cover_max').on('input', function () {
+            $('#cover_min, #cover_max, #days_needed').on('input', function () {
                 clearTimeout(coverTimer);
                 coverTimer = setTimeout(reload, 500);
             }).on('keydown', function (e) {
                 if (e.key === 'Enter') { clearTimeout(coverTimer); reload(); }
+            });
+
+            $('#show_order_only').on('click', function () {
+                $('#order_filter').val('order').trigger('change');
             });
 
             $('.movement-card').on('click', function () {
@@ -379,12 +484,17 @@
                 picker.setEndDate(moment());
                 setRange(picker.startDate, picker.endDate);
                 $('#warehouse_filter').val(defaultWarehouse);
-                $('#class_filter, #item_type_filter').val('');
+                $('#class_filter, #item_type_filter, #order_filter').val('');
                 $('#cover_min, #cover_max, #table_search').val('');
-                $('#warehouse_filter, #class_filter, #item_type_filter').trigger('change.select2');
+                $('#days_needed').val(defaultDaysNeeded);
+                $('#warehouse_filter, #class_filter, #item_type_filter, #order_filter').trigger('change.select2');
                 table.search('').order([[0, 'asc']]);
                 reload();
             });
+
+            if (window.bootstrap && bootstrap.Tooltip) {
+                $('[data-bs-toggle="tooltip"]').each(function () { new bootstrap.Tooltip(this); });
+            }
 
             updateFilterInfo();
         });
