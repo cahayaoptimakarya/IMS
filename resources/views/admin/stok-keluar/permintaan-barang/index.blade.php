@@ -327,6 +327,7 @@
                                 <p class="mt-2">Memuat item...</p>
                             </div>
                         </div>
+                        @include('layouts.partials._cbm_summary', ['id' => 'shipment-cbm-summary', 'class' => 'mb-2 d-none'])
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
@@ -655,6 +656,9 @@
                 $('#driver_contact').val(contact || '');
             });
 
+            // Sembunyikan ringkasan CBM saat modal ditutup agar tidak tampil data permintaan sebelumnya
+            kirimBarangModal.addEventListener('hidden.bs.modal', () => $('#shipment-cbm-summary').addClass('d-none'));
+
             // Initialize selects after modal is fully shown to ensure width + rendering correct
             kirimBarangModal.addEventListener('shown.bs.modal', event => {
                 const button = event.relatedTarget;
@@ -668,6 +672,7 @@
                 form.action = action;
 
                 // Reset and show loading
+                $('#shipment-cbm-summary').addClass('d-none');
                 itemsContainer.html(`<div class="text-center">
                                     <div class="spinner-border text-primary" role="status">
                                         <span class="visually-hidden">Loading...</span>
@@ -787,16 +792,18 @@
                         `);
 
                         const table = $('<table class="table align-middle table-sm table-borderless"></table>');
-                        const thead = $('<thead><tr><th class="text-gray-600">Item</th><th class="text-gray-600" width="200">Qty Kirim</th><th class="text-gray-600" width="180">Koli Kirim</th></tr></thead>');
+                        const thead = $('<thead><tr><th class="text-gray-600">Item</th><th class="text-gray-600" width="200">Qty Kirim</th><th class="text-gray-600" width="180">Koli Kirim</th><th class="text-gray-600 text-end" width="130">CBM</th></tr></thead>');
                         const tbody = $('<tbody></tbody>');
 
                         items.forEach(item => {
                             const koliRatio = parseFloat(item.item.koli) || 1;
                             const requestedQty = parseFloat(item.quantity ?? 0);
                             const requestedKoli = parseFloat(item.koli ?? 0);
+                            const cbmPerKoli = ImsCbm.perKoliFromItem(item.item);
                             const row = `
                                 <tr data-name="${(item.item.nama_barang || '').toLowerCase()}" data-sku="${(item.item.sku || '').toLowerCase()}"
-                                    data-koli-ratio="${koliRatio}" data-max-qty="${item.ship_remaining_quantity}" data-max-koli="${item.ship_remaining_koli}">
+                                    data-koli-ratio="${koliRatio}" data-max-qty="${item.ship_remaining_quantity}" data-max-koli="${item.ship_remaining_koli}"
+                                    data-cbm-koli="${cbmPerKoli === null ? '' : cbmPerKoli}">
                                     <td class="item-cell">
                                         <div class="d-flex flex-column">
                                             <div class="d-flex align-items-center gap-2">
@@ -815,6 +822,10 @@
                                         <td>
                                             <input type="number" step="any" class="form-control form-control-solid form-control-sm koli-input" name="items[${item.id}][koli]" value="${item.ship_remaining_koli}" min="0" max="${item.ship_remaining_koli}" placeholder="Koli">
                                             <div class="help-muted mt-1">Maks: ${item.ship_remaining_koli} Koli</div>
+                                        </td>
+                                        <td class="text-end cbm-cell">
+                                            <div class="fw-semibold text-gray-800 text-nowrap" data-cbm-value>-</div>
+                                            <div class="help-muted mt-1 text-nowrap" data-cbm-hint></div>
                                         </td>
                                 </tr>`;
                             tbody.append(row);
@@ -847,10 +858,29 @@
                                 const koli = parseFloat($(this).find('.koli-input').val()) || 0;
                                 totalQty += qty; totalKoli += koli; itemCount += 1;
                             });
-                            $('#modal-item-summary').text(`${itemCount} item • Total: ${totalQty} Qty | ${totalKoli} Koli`);
+                            $('#modal-item-summary').text(`${itemCount} item • Total: ${ImsCbm.formatNum(totalQty, 2)} Qty | ${ImsCbm.formatNum(totalKoli, 2)} Koli`);
+
+                            // CBM yang akan dikirim (semua baris, tidak terpengaruh filter pencarian)
+                            const cbmSummary = { qty: 0, koli: 0, cbm: 0, known: 0, missing: 0 };
+                            tbody.find('tr').each(function() {
+                                const row = $(this);
+                                const qty = parseFloat(row.find('.qty-input').val()) || 0;
+                                const koli = parseFloat(row.find('.koli-input').val()) || 0;
+                                const cbmPerKoli = row.attr('data-cbm-koli');
+                                const cbm = ImsCbm.forLine(cbmPerKoli, row.data('koli-ratio'), qty, koli);
+                                ImsCbm.renderCell(row.find('.cbm-cell'), cbm, cbmPerKoli);
+                                if (qty <= 0 && koli <= 0) return; // baris tidak ikut dikirim
+                                cbmSummary.qty += qty;
+                                cbmSummary.koli += koli;
+                                if (cbm === null) { cbmSummary.missing++; } else { cbmSummary.cbm += cbm; cbmSummary.known++; }
+                            });
+                            ImsCbm.renderSummary($('#shipment-cbm-summary'), cbmSummary);
                         }
+                        $('#shipment-cbm-summary').removeClass('d-none');
                         updateSummary();
-                        tbody.on('input', '.qty-input, .koli-input', updateSummary);
+                        // Dijadwalkan agar membaca nilai setelah konversi qty <-> koli selesai
+                        tbody.on('input change', '.qty-input, .koli-input', function() { ImsCbm.schedule(updateSummary); });
+                        $('#modal-item-search').on('input', function() { ImsCbm.schedule(updateSummary); });
                     },
                     error: function() {
                         itemsContainer.html(

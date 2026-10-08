@@ -107,6 +107,7 @@
                                             <th>Item</th>
                                             <th width="200">Qty Kirim</th>
                                             <th width="180">Koli Kirim</th>
+                                            <th width="130" class="text-end">CBM</th>
                                             <th>Keterangan</th>
                                             <th width="70" class="text-center">Aksi</th>
                                         </tr>
@@ -119,7 +120,8 @@
                                                 $currentQty = old("items.$detail->id.quantity", $detail->quantity_shipped);
                                                 $currentKoli = old("items.$detail->id.koli", $detail->koli_shipped);
                                             @endphp
-                                            <tr data-koli-ratio="{{ $ratio }}" data-max-qty="{{ $max['max_qty'] }}" data-max-koli="{{ $max['max_koli'] }}">
+                                            <tr data-koli-ratio="{{ $ratio }}" data-max-qty="{{ $max['max_qty'] }}" data-max-koli="{{ $max['max_koli'] }}"
+                                                data-item-koli="{{ (int) optional($detail->item)->koli }}" data-cbm-koli="{{ optional($detail->item)->cbm_per_koli }}">
                                                 <td>
                                                     <div class="d-flex flex-column">
                                                         <div class="d-flex align-items-center gap-2">
@@ -139,6 +141,10 @@
                                                     <div class="text-muted small mt-1">Maks: {{ number_format($max['max_koli'], 2) }} Koli</div>
                                                     @error('items.'.$detail->id.'.koli')<div class="text-danger small">{{ $message }}</div>@enderror
                                                 </td>
+                                                <td class="text-end cbm-cell">
+                                                    <div class="fw-semibold text-gray-800 text-nowrap" data-cbm-value>-</div>
+                                                    <div class="text-muted small mt-1 text-nowrap" data-cbm-hint></div>
+                                                </td>
                                                 <td>
                                                     <input type="text" class="form-control form-control-sm form-control-solid" name="items[{{ $detail->id }}][description]" value="{{ old('items.'.$detail->id.'.description', $detail->description) }}" placeholder="Keterangan">
                                                 </td>
@@ -152,6 +158,8 @@
                                     </tbody>
                                 </table>
                             </div>
+
+                            @include('layouts.partials._cbm_summary', ['id' => 'cbm-summary'])
 
                             <div class="d-flex justify-content-between mt-6">
                                 <a href="{{ route('admin.riwayat-pengiriman.index') }}" class="btn btn-light">Batal</a>
@@ -206,7 +214,24 @@
                 totalKoli += isNaN(koli) ? 0 : koli;
                 count += 1;
             });
-            summary.textContent = `${count} item • Total: ${totalQty} Qty | ${totalKoli} Koli`;
+            summary.textContent = `${count} item • Total: ${ImsCbm.formatNum(totalQty, 2)} Qty | ${ImsCbm.formatNum(totalKoli, 2)} Koli`;
+            refreshCbm();
+        }
+
+        // CBM per baris + ringkasan (rumus sama dengan surat jalan)
+        function refreshCbm(){
+            const s = { qty: 0, koli: 0, cbm: 0, known: 0, missing: 0 };
+            tbody.querySelectorAll('tr').forEach(tr => {
+                const qty = parseFloat(tr.querySelector('.qty-input')?.value || '0') || 0;
+                const koli = parseFloat(tr.querySelector('.koli-input')?.value || '0') || 0;
+                const cbmPerKoli = tr.getAttribute('data-cbm-koli');
+                const cbm = ImsCbm.forLine(cbmPerKoli, tr.getAttribute('data-item-koli'), qty, koli);
+                ImsCbm.renderCell($(tr).find('.cbm-cell'), cbm, cbmPerKoli);
+                s.qty += qty;
+                s.koli += koli;
+                if (cbm === null) { s.missing++; } else { s.cbm += cbm; s.known++; }
+            });
+            ImsCbm.renderSummary($('#cbm-summary'), s);
         }
 
         function clamp(val, min, max){

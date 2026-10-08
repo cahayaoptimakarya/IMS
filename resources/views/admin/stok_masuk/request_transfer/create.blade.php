@@ -134,6 +134,7 @@
                                     <th class="min-w-125px">Stok (Koli)</th>
                                     <th class="min-w-125px">Jumlah</th>
                                     <th class="min-w-125px">Koli</th>
+                                    <th class="min-w-125px text-end">CBM</th>
                                     <th class="min-w-200px">Deskripsi Item</th>
                                     <th class="min-w-50px text-end">Aksi</th>
                                 </tr>
@@ -143,13 +144,15 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="7">
+                                    <td colspan="8">
                                         <button type="button" class="btn btn-light-primary" id="add-item-btn">+ Tambah Item</button>
                                     </td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
+
+                    @include('layouts.partials._cbm_summary', ['id' => 'cbm-summary'])
 
                     <div class="mt-10">
                         <button type="submit" class="btn btn-primary">Simpan</button>
@@ -189,6 +192,10 @@
             <td>
                 <input type="number" name="items[__INDEX__][koli]" class="form-control form-control-solid koli-input"
                     min="0" step="any" value="0">
+            </td>
+            <td class="text-end cbm-cell">
+                <div class="fw-semibold text-gray-800 text-nowrap" data-cbm-value>-</div>
+                <div class="fs-8 text-muted text-nowrap" data-cbm-hint></div>
             </td>
             <td>
                 <input type="text" name="items[__INDEX__][description]" class="form-control form-control-solid">
@@ -289,6 +296,8 @@
                     $(option).attr('data-quantity', inventoryItem.quantity);
                     $(option).attr('data-koli-stock', inventoryItem.koli || 0);
                     $(option).attr('data-koli-per-unit', inventoryItem.item.koli || 1);
+                    const cbmPerKoli = ImsCbm.perKoliFromItem(inventoryItem.item);
+                    $(option).attr('data-cbm-koli', cbmPerKoli === null ? '' : cbmPerKoli);
                     $(selectElement).append(option);
                 });
                 $(selectElement).val(currentVal).trigger('change');
@@ -682,6 +691,30 @@
             }
 
             $('#items-search').on('input', debounce(applyTableFilter, 150));
+
+            // CBM per baris + ringkasan total (dihitung setelah handler qty/koli lain selesai)
+            function refreshCbm() {
+                const summary = { qty: 0, koli: 0, cbm: 0, known: 0, missing: 0 };
+                $('#items-table tbody tr').each(function() {
+                    const row = $(this);
+                    const selectedOption = row.find('.item-select option:selected');
+                    const qty = parseLocaleNumber(row.find('.quantity-input').val());
+                    const koli = parseLocaleNumber(row.find('.koli-input').val());
+                    summary.qty += qty;
+                    summary.koli += koli;
+                    if (!selectedOption.length || !selectedOption.val()) {
+                        row.find('[data-cbm-value]').text('-');
+                        row.find('[data-cbm-hint]').text('');
+                        return;
+                    }
+                    const cbmPerKoli = selectedOption.attr('data-cbm-koli');
+                    const cbm = ImsCbm.forLine(cbmPerKoli, selectedOption.data('koliPerUnit'), qty, koli);
+                    ImsCbm.renderCell(row.find('.cbm-cell'), cbm, cbmPerKoli);
+                    if (cbm === null) { summary.missing++; } else { summary.cbm += cbm; summary.known++; }
+                });
+                ImsCbm.renderSummary($('#cbm-summary'), summary);
+            }
+            ImsCbm.watch($('#items-table tbody'), refreshCbm);
 
             // Form submission logic remains the same
             $('#transfer-request-form').on('submit', function(e) {

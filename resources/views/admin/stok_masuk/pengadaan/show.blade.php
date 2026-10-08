@@ -150,6 +150,7 @@
                                 @php
                                     $totalQuantity = $stockInOrder->items->sum('quantity');
                                     $totalKoli = $stockInOrder->items->sum('koli');
+                                    $cbmSummary = \App\Support\Cbm::summarize($stockInOrder->items, fn ($it) => [$it->item, $it->koli, $it->quantity]);
                                 @endphp
                                 <div class="table-responsive mb-10">
                                     <table class="table g-5 gs-0 mb-0 fw-bolder text-gray-700">
@@ -160,6 +161,7 @@
                                                 <th class="min-w-250px w-250px">Item</th>
                                                 <th class="min-w-100px w-150px text-end">Kuantitas</th>
                                                 <th class="min-w-100px w-150px text-end">Koli</th>
+                                                <th class="min-w-100px w-150px text-end">CBM (m³)</th>
                                                 <th class="min-w-100px w-150px text-center">Status Item</th>
                                             </tr>
                                         </thead>
@@ -179,6 +181,7 @@
                                                     </td>
                                                     <td class="text-end">{{ number_format($item->quantity, 0, ',', '.') }} {{ $item->item->uom->code }}</td>
                                                     <td class="text-end">{{ number_format($item->koli, 2, ',', '.') }}</td>
+                                                    <td class="text-end">{{ \App\Support\Cbm::format(\App\Support\Cbm::forLine($item->item, $item->koli, $item->quantity)) }}</td>
                                                     <td class="text-center">{{ ucwords(str_replace('_', ' ', $item->status)) }}</td>
                                                 </tr>
                                             @endforeach
@@ -190,6 +193,7 @@
                                                 <th colspan="2" class="text-end">Total</th>
                                                 <th class="text-end">{{ number_format($totalQuantity, 0, ',', '.') }}</th>
                                                 <th class="text-end">{{ number_format($totalKoli, 2, ',', '.') }}</th>
+                                                <th class="text-end">{{ \App\Support\Cbm::format($cbmSummary['total']) }}</th>
                                                 <th></th>
                                             </tr>
                                         </tfoot>

@@ -85,6 +85,7 @@
                                     <th class="w-150px">SKU</th>
                                     <th class="w-120px text-end">Qty</th>
                                     <th class="w-120px text-end">Koli</th>
+                                    <th class="w-120px text-end">CBM (m³)</th>
                                     <th>Keterangan</th>
                                 </tr>
                             </thead>
@@ -96,6 +97,7 @@
                                         <td>{{ $d->item->sku ?? '-' }}</td>
                                         <td class="text-end">{{ number_format($d->quantity_shipped, 0, ',', '.') }}</td>
                                         <td class="text-end">{{ number_format($d->koli_shipped, 2, ',', '.') }}</td>
+                                        <td class="text-end">{{ \App\Support\Cbm::format(\App\Support\Cbm::forLine($d->item, $d->koli_shipped, $d->quantity_shipped)) }}</td>
                                         <td>{{ $d->description ?? '-' }}</td>
                                     </tr>
                                 @endforeach
@@ -105,6 +107,7 @@
                                     <td colspan="3" class="text-end">Total</td>
                                     <td class="text-end">{{ number_format($totalQuantity, 0, ',', '.') }}</td>
                                     <td class="text-end">{{ number_format($totalKoli, 2, ',', '.') }}</td>
+                                    <td class="text-end">{{ \App\Support\Cbm::format($cbmSummary['total']) }}</td>
                                     <td></td>
                                 </tr>
                             </tfoot>

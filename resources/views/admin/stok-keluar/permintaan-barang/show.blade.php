@@ -93,6 +93,7 @@
                     @php
                         $totalQuantity = $transferRequest->items->sum('quantity');
                         $totalKoli = $transferRequest->items->sum('koli');
+                        $cbmSummary = \App\Support\Cbm::summarize($transferRequest->items, fn ($it) => [$it->item, $it->koli, $it->quantity]);
                     @endphp
                     <div class="section-title">Daftar Item</div>
                     <div class="table-responsive mb-10">
@@ -104,6 +105,7 @@
                                     <th>Nama Item</th>
                                     <th style="width:140px; text-align:right;">Kuantitas</th>
                                     <th style="width:140px; text-align:right;">Koli</th>
+                                    <th style="width:140px; text-align:right;">CBM (m³)</th>
                                     <th style="width:220px">Keterangan</th>
                                 </tr>
                             </thead>
@@ -120,6 +122,7 @@
                                         </td>
                                         <td style="text-align:right;">{{ number_format($item->quantity ?? 0, 0, ',', '.') }}</td>
                                         <td style="text-align:right;">{{ number_format($item->koli ?? 0, 2, ',', '.') }}</td>
+                                        <td style="text-align:right;">{{ \App\Support\Cbm::format(\App\Support\Cbm::forLine($item->item, $item->koli, $item->quantity)) }}</td>
                                         <td>{{ $item->description ?? '-' }}</td>
                                     </tr>
                                 @endforeach
@@ -129,6 +132,7 @@
                                     <th colspan="3" style="text-align:right;">Total</th>
                                     <th style="text-align:right;">{{ number_format($totalQuantity ?? 0, 0, ',', '.') }}</th>
                                     <th style="text-align:right;">{{ number_format($totalKoli ?? 0, 2, ',', '.') }}</th>
+                                    <th style="text-align:right;">{{ \App\Support\Cbm::format($cbmSummary['total']) }}</th>
                                     <th></th>
                                 </tr>
                             </tfoot>
@@ -150,6 +154,7 @@
                                 @php
                                     $shipQty = $shipment->itemDetails->sum('quantity_shipped');
                                     $shipKoli = $shipment->itemDetails->sum('koli_shipped');
+                                    $shipCbm = \App\Support\Cbm::summarize($shipment->itemDetails, fn ($d) => [$d->item, $d->koli_shipped, $d->quantity_shipped]);
                                     $collapseId = 'shipment-'.$shipment->id;
                                     $st = $shipment->status ?? '-';
                                     $badge = 'primary';
@@ -167,9 +172,9 @@
                                                         <span class="badge badge-light-{{ $badge }}">Status: {{ ucwords($st) }}</span>
                                                     </div>
                                                 </div>
-                                                <div class="text-end">
+                                                <div class="text-end pe-4">
                                                     <div class="meta-label">Total Dikirim</div>
-                                                    <div class="meta-value">{{ number_format($shipQty ?? 0, 0, ',', '.') }} Qty • {{ number_format($shipKoli ?? 0, 2, ',', '.') }} Koli</div>
+                                                    <div class="meta-value">{{ number_format($shipQty ?? 0, 0, ',', '.') }} Qty • {{ number_format($shipKoli ?? 0, 2, ',', '.') }} Koli • {{ \App\Support\Cbm::format($shipCbm['total']) }} m³</div>
                                                     
                                                 </div>
                                             </div>
@@ -207,6 +212,7 @@
                                                             <th>Item</th>
                                                             <th style="width:140px; text-align:right;">Qty Dikirim</th>
                                                             <th style="width:140px; text-align:right;">Koli Dikirim</th>
+                                                            <th style="width:140px; text-align:right;">CBM (m³)</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -216,6 +222,7 @@
                                                                 <td>{{ optional($detail->item)->nama_barang ?? '-' }}</td>
                                                                 <td style="text-align:right;">{{ number_format($detail->quantity_shipped ?? 0, 0, ',', '.') }}</td>
                                                                 <td style="text-align:right;">{{ number_format($detail->koli_shipped ?? 0, 2, ',', '.') }}</td>
+                                                                <td style="text-align:right;">{{ \App\Support\Cbm::format(\App\Support\Cbm::forLine($detail->item, $detail->koli_shipped, $detail->quantity_shipped)) }}</td>
                                                             </tr>
                                                         @endforeach
                                                     </tbody>
@@ -224,6 +231,7 @@
                                                             <th colspan="2" style="text-align:right;">Total</th>
                                                             <th style="text-align:right;">{{ number_format($shipQty ?? 0, 0, ',', '.') }}</th>
                                                             <th style="text-align:right;">{{ number_format($shipKoli ?? 0, 2, ',', '.') }}</th>
+                                                            <th style="text-align:right;">{{ \App\Support\Cbm::format($shipCbm['total']) }}</th>
                                                         </tr>
                                                     </tfoot>
                                                 </table>

@@ -118,6 +118,7 @@
                                 <th class="required">Item</th>
                                 <th width="150px" class="required">Quantity</th>
                                 <th width="150px" class="required">Koli</th>
+                                <th width="140px" class="text-end">CBM</th>
                                 <th width="50px">Aksi</th>
                             </tr>
                         </thead>
@@ -126,6 +127,8 @@
                         </tbody>
                     </table>
                     <button type="button" class="btn btn-light-primary" id="add-item-btn">+ Tambah Item</button>
+
+                    @include('layouts.partials._cbm_summary', ['id' => 'cbm-summary'])
 
                     <div class="d-flex justify-content-end mt-10">
                         <a href="{{ route('admin.stok-masuk.pengadaan.index') }}"
@@ -202,6 +205,10 @@
                         </td>
                         <td><input type="number" name="items[${itemIndex}][quantity]" class="form-control form-control-solid quantity-input" value="1" min="1" required></td>
                         <td><input type="number" name="items[${itemIndex}][koli]" class="form-control form-control-solid koli-input" value="0" min="0" step="any"></td>
+                        <td class="text-end cbm-cell">
+                            <div class="fw-semibold text-gray-800 text-nowrap" data-cbm-value>-</div>
+                            <div class="fs-8 text-muted text-nowrap" data-cbm-hint></div>
+                        </td>
                         <td class="text-center"><button type="button" class="btn btn-icon btn-light-danger remove-item-btn"><i class="fas fa-trash"></i></button></td>
                     </tr>`;
 
@@ -216,6 +223,8 @@
                 available.forEach(function(item) {
                     let option = new Option(item.sku + ' - ' + item.nama_barang, item.id, false, false);
                     $(option).attr('data-koli', item.koli || 1);
+                    const cbmPerKoli = ImsCbm.perKoliFromItem(item);
+                    $(option).attr('data-cbm-koli', cbmPerKoli === null ? '' : cbmPerKoli);
                     newSelect.append(option);
                 });
 
@@ -296,6 +305,30 @@
             }
             const debounce = (fn, d=200) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),d); }; };
             $('#items-search').on('input', debounce(applyTableFilter, 150));
+
+            // CBM per baris + ringkasan total (dihitung setelah konversi qty/koli selesai)
+            function refreshCbm() {
+                const summary = { qty: 0, koli: 0, cbm: 0, known: 0, missing: 0 };
+                $('#items-table tbody tr').each(function() {
+                    const row = $(this);
+                    const selectedOption = row.find('.item-select option:selected');
+                    const qty = parseFloat(row.find('.quantity-input').val()) || 0;
+                    const koli = parseFloat(row.find('.koli-input').val()) || 0;
+                    summary.qty += qty;
+                    summary.koli += koli;
+                    if (!selectedOption.length || !selectedOption.val()) {
+                        row.find('[data-cbm-value]').text('-');
+                        row.find('[data-cbm-hint]').text('');
+                        return;
+                    }
+                    const cbmPerKoli = selectedOption.attr('data-cbm-koli');
+                    const cbm = ImsCbm.forLine(cbmPerKoli, selectedOption.data('koli'), qty, koli);
+                    ImsCbm.renderCell(row.find('.cbm-cell'), cbm, cbmPerKoli);
+                    if (cbm === null) { summary.missing++; } else { summary.cbm += cbm; summary.known++; }
+                });
+                ImsCbm.renderSummary($('#cbm-summary'), summary);
+            }
+            ImsCbm.watch($('#items-table tbody'), refreshCbm);
 
             // Tambah baris pertama secara default
             addNewRow();

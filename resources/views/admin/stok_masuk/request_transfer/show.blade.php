@@ -154,6 +154,7 @@
                     @php
                         $totalQuantity = $transferRequest->items->sum('quantity');
                         $totalKoli = $transferRequest->items->sum('koli');
+                        $cbmSummary = \App\Support\Cbm::summarize($transferRequest->items, fn ($it) => [$it->item, $it->koli, $it->quantity]);
                     @endphp
 
                     <div class="section-title">Daftar Item</div>
@@ -166,6 +167,7 @@
                                     <th>Nama Item</th>
                                     <th style="width:140px; text-align:right;">Kuantitas</th>
                                     <th style="width:140px; text-align:right;">Koli</th>
+                                    <th style="width:140px; text-align:right;">CBM (m³)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -181,6 +183,7 @@
                                         </td>
                                         <td style="text-align:right;">{{ number_format($item->quantity ?? 0, 0, ',', '.') }}</td>
                                         <td style="text-align:right;">{{ number_format($item->koli ?? 0, 2, ',', '.') }}</td>
+                                        <td style="text-align:right;">{{ \App\Support\Cbm::format(\App\Support\Cbm::forLine($item->item, $item->koli, $item->quantity)) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -189,6 +192,7 @@
                                     <th colspan="3" style="text-align:right;">Total</th>
                                     <th style="text-align:right;">{{ number_format($totalQuantity, 0, ',', '.') }}</th>
                                     <th style="text-align:right;">{{ number_format($totalKoli, 2, ',', '.') }}</th>
+                                    <th style="text-align:right;">{{ \App\Support\Cbm::format($cbmSummary['total']) }}</th>
                                 </tr>
                             </tfoot>
                         </table>
@@ -208,6 +212,11 @@
                             $totalRemainKoli = $pendingToShip->sum(function($it){
                                 return max(0, (float) ($it->ship_remaining_koli ?? 0));
                             });
+                            $remainCbm = \App\Support\Cbm::summarize($pendingToShip, fn ($it) => [
+                                $it->item,
+                                max(0, (float) ($it->ship_remaining_koli ?? 0)),
+                                max(0, (float) ($it->ship_remaining_quantity ?? 0)),
+                            ]);
                         @endphp
 
                         @if($pendingToShip->count())
@@ -220,6 +229,7 @@
                                         <th>Item</th>
                                         <th style="width:140px; text-align:right;">Sisa Qty Kirim</th>
                                         <th style="width:140px; text-align:right;">Sisa Koli Kirim</th>
+                                        <th style="width:140px; text-align:right;">Sisa CBM (m³)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -233,6 +243,7 @@
                                             <td>{{ optional($pi->item)->nama_barang ?? '-' }}</td>
                                             <td style="text-align:right;">{{ number_format($remainQty, 0, ',', '.') }}</td>
                                             <td style="text-align:right;">{{ number_format($remainKoli, 2, ',', '.') }}</td>
+                                            <td style="text-align:right;">{{ \App\Support\Cbm::format(\App\Support\Cbm::forLine($pi->item, $remainKoli, $remainQty)) }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -241,6 +252,7 @@
                                         <th colspan="2" style="text-align:right;">Total Sisa Kirim</th>
                                         <th style="text-align:right;">{{ number_format($totalRemainQty, 0, ',', '.') }}</th>
                                         <th style="text-align:right;">{{ number_format($totalRemainKoli, 2, ',', '.') }}</th>
+                                        <th style="text-align:right;">{{ \App\Support\Cbm::format($remainCbm['total']) }}</th>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -265,6 +277,7 @@
                                     @php
                                         $shipQty = $shipment->itemDetails->sum('quantity_shipped');
                                         $shipKoli = $shipment->itemDetails->sum('koli_shipped');
+                                        $shipCbm = \App\Support\Cbm::summarize($shipment->itemDetails, fn ($d) => [$d->item, $d->koli_shipped, $d->quantity_shipped]);
                                         $collapseId = 'shipment-'.$shipment->id;
                                         $st = $shipment->status ?? '-';
                                         $badge = 'primary';
@@ -282,9 +295,9 @@
                                                             <span class="badge badge-light-{{ $badge }}">Status: {{ ucfirst($st) }}</span>
                                                         </div>
                                                     </div>
-                                                    <div class="text-end">
+                                                    <div class="text-end pe-4">
                                                         <div class="meta-label">Total Dikirim</div>
-                                                        <div class="meta-value">{{ number_format($shipQty, 0, ',', '.') }} Qty • {{ number_format($shipKoli, 2, ',', '.') }} Koli</div>
+                                                        <div class="meta-value">{{ number_format($shipQty, 0, ',', '.') }} Qty • {{ number_format($shipKoli, 2, ',', '.') }} Koli • {{ \App\Support\Cbm::format($shipCbm['total']) }} m³</div>
                                                     </div>
                                                 </div>
                                             </button>
@@ -316,6 +329,7 @@
                                                                 <th>Item</th>
                                                                 <th style="width:140px; text-align:right;">Qty Dikirim</th>
                                                                 <th style="width:140px; text-align:right;">Koli Dikirim</th>
+                                                                <th style="width:140px; text-align:right;">CBM (m³)</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -325,6 +339,7 @@
                                                                     <td>{{ optional($detail->item)->nama_barang ?? '-' }}</td>
                                                                     <td style="text-align:right;">{{ number_format($detail->quantity_shipped, 0, ',', '.') }}</td>
                                                                     <td style="text-align:right;">{{ number_format($detail->koli_shipped, 2, ',', '.') }}</td>
+                                                                    <td style="text-align:right;">{{ \App\Support\Cbm::format(\App\Support\Cbm::forLine($detail->item, $detail->koli_shipped, $detail->quantity_shipped)) }}</td>
                                                                 </tr>
                                                             @endforeach
                                                         </tbody>
@@ -333,6 +348,7 @@
                                                                 <th colspan="2" style="text-align:right;">Total</th>
                                                                 <th style="text-align:right;">{{ number_format($shipQty, 0, ',', '.') }}</th>
                                                                 <th style="text-align:right;">{{ number_format($shipKoli, 2, ',', '.') }}</th>
+                                                                <th style="text-align:right;">{{ \App\Support\Cbm::format($shipCbm['total']) }}</th>
                                                             </tr>
                                                         </tfoot>
                                                     </table>

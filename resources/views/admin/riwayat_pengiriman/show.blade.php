@@ -65,6 +65,16 @@
             if (strtolower((string)$status) === 'selesai' || strtolower((string)$status) === 'completed') { $ribbonBg = 'success'; }
             elseif (strtolower((string)$status) === 'dalam perjalanan' || strtolower((string)$status) === 'on_progress') { $ribbonBg = 'warning'; }
             elseif (strtolower((string)$status) === 'packing') { $ribbonBg = 'info'; }
+
+            $sortedDetails = $shipment->itemDetails
+                ->sortBy(function ($detail) {
+                    $sku = optional($detail->item)->sku;
+                    return $sku === null ? '~' : $sku;
+                }, SORT_NATURAL | SORT_FLAG_CASE)
+                ->values();
+            $totQty = (float) ($sortedDetails->sum('quantity_shipped') ?? 0);
+            $totKoli = (float) ($sortedDetails->sum('koli_shipped') ?? 0);
+            $cbmSummary = \App\Support\Cbm::summarize($sortedDetails, fn ($d) => [$d->item, $d->koli_shipped, $d->quantity_shipped]);
         @endphp
         <div class="card">
             <div class="doc-ribbon-top d-print-none">
@@ -90,28 +100,20 @@
                             <div class="meta-row"><span class="meta-label">Kendaraan</span><span class="meta-value">{{ $shipment->vehicle_type ?? '-' }}</span></div>
                             <div class="meta-row"><span class="meta-label">No. Polisi</span><span class="meta-value">{{ $shipment->license_plate ?? '-' }}</span></div>
                             <div class="meta-row"><span class="meta-label">Driver</span><span class="meta-value">{{ $shipment->driver_name ?? '-' }}</span></div>
+                            <div class="meta-row"><span class="meta-label">Total CBM</span><span class="meta-value">{{ \App\Support\Cbm::format($cbmSummary['total']) }} m³</span></div>
                         </div>
                     </div>
 
-                    @php
-                        $sortedDetails = $shipment->itemDetails
-                            ->sortBy(function ($detail) {
-                                $sku = optional($detail->item)->sku;
-                                return $sku === null ? '~' : $sku;
-                            }, SORT_NATURAL | SORT_FLAG_CASE)
-                            ->values();
-                        $totQty = (float) ($sortedDetails->sum('quantity_shipped') ?? 0);
-                        $totKoli = (float) ($sortedDetails->sum('koli_shipped') ?? 0);
-                    @endphp
                     <div class="section-title">Daftar Barang</div>
                     <div class="table-responsive">
                         <table class="table-doc">
                             <thead>
                                 <tr>
-                                    <th rowspan="2" style="width:32px">NO</th>
+                                    <th rowspan="2" style="width:32px; white-space:nowrap;">NO</th>
                                     <th rowspan="2" style="width:100px">SKU</th>
                                     <th rowspan="2">NAMA BARANG</th>
                                     <th colspan="2" style="text-align:center; width:200px">JUMLAH</th>
+                                    <th rowspan="2" style="width:90px; text-align:right; vertical-align:middle;">CBM (m³)</th>
                                     <th rowspan="2" style="width:120px">KET</th>
                                 </tr>
                                 <tr>
@@ -127,10 +129,11 @@
                                         <td>{{ optional($d->item)->nama_barang ?? ($d->item->name ?? '-') }}</td>
                                         <td style="text-align:right;">{{ number_format($d->quantity_shipped ?? 0, 0, ',', '.') }}</td>
                                         <td style="text-align:right;">{{ number_format($d->koli_shipped ?? 0, 2, ',', '.') }}</td>
+                                        <td style="text-align:right;">{{ \App\Support\Cbm::format(\App\Support\Cbm::forLine($d->item, $d->koli_shipped, $d->quantity_shipped)) }}</td>
                                         <td>{{ $d->description ?? '' }}</td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="6" class="text-center" style="color:var(--doc-muted)">Tidak ada detail</td></tr>
+                                    <tr><td colspan="7" class="text-center" style="color:var(--doc-muted)">Tidak ada detail</td></tr>
                                 @endforelse
                             </tbody>
                             <tfoot>
@@ -138,11 +141,13 @@
                                     <th colspan="3" style="text-align:right;">TOTAL</th>
                                     <th style="text-align:right;">{{ number_format($totQty, 0, ',', '.') }}</th>
                                     <th style="text-align:right;">{{ number_format($totKoli, 2, ',', '.') }}</th>
+                                    <th style="text-align:right;">{{ \App\Support\Cbm::format($cbmSummary['total']) }}</th>
                                     <th></th>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
+
 
                     <div class="row g-6 mt-6">
                         <div class="col-12">

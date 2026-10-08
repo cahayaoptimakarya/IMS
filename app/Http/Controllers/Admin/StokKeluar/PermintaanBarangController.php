@@ -261,7 +261,7 @@ class PermintaanBarangController extends Controller
     {
         $items = $transferRequest->items()
             ->where('ship_remaining_quantity', '>', 0)
-            ->with('item:id,nama_barang,koli,sku')
+            ->with('item:id,nama_barang,koli,sku,panjang_koli,lebar_koli,tinggi_koli')
             ->get();
 
         return response()->json($items);

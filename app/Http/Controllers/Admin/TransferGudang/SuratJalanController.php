@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Shipment;
 use App\Models\ShipmentItemDetail;
 use App\Models\TransferRequest;
+use App\Support\Cbm;
 use Illuminate\Http\Request;
 
 class SuratJalanController extends Controller
@@ -33,7 +34,8 @@ class SuratJalanController extends Controller
 
         $totalQuantity = $shipment->itemDetails->sum('quantity_shipped');
         $totalKoli = $shipment->itemDetails->sum('koli_shipped');
+        $cbmSummary = Cbm::summarize($shipment->itemDetails, fn ($d) => [$d->item, $d->koli_shipped, $d->quantity_shipped]);
 
-        return view('admin.transfergudang.surat-jalan.show', compact('transferRequest', 'shipment', 'totalQuantity', 'totalKoli'));
+        return view('admin.transfergudang.surat-jalan.show', compact('transferRequest', 'shipment', 'totalQuantity', 'totalKoli', 'cbmSummary'));
     }
 }

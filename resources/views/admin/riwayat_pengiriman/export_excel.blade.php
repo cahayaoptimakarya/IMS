@@ -7,6 +7,7 @@
         ->values();
     $totQty = (float) ($sortedDetails->sum('quantity_shipped') ?? 0);
     $totKoli = (float) ($sortedDetails->sum('koli_shipped') ?? 0);
+    $cbmSummary = \App\Support\Cbm::summarize($sortedDetails, fn ($d) => [$d->item, $d->koli_shipped, $d->quantity_shipped]);
 @endphp
 <table>
     <tr>
@@ -37,6 +38,11 @@
         <td>Driver</td>
         <td>{{ $shipment->driver_name ?? '-' }}</td>
     </tr>
+    <tr>
+        <td>Total CBM</td>
+        <td colspan="2" style="font-weight:bold;">{{ \App\Support\Cbm::format($cbmSummary['total']) }} m³</td>
+        <td colspan="3"></td>
+    </tr>
     @if(!empty($referenceCode))
     <tr>
         <td>Referensi</td>
@@ -56,6 +62,7 @@
         <th style="width:100px; font-weight:bold;">SKU</th>
         <th style="font-weight:bold;">NAMA BARANG</th>
         <th colspan="2" style="font-weight:bold; text-align:center; width:200px;">JUMLAH</th>
+        <th style="width:90px; font-weight:bold; text-align:right;">CBM (m³)</th>
         <th style="width:120px; font-weight:bold;">KET</th>
     </tr>
     <tr>
@@ -64,6 +71,7 @@
         <th></th>
         <th style="width:90px; text-align:right; font-weight:bold;">PCS(SET)</th>
         <th style="width:90px; text-align:right; font-weight:bold;">KOLI</th>
+        <th></th>
         <th></th>
     </tr>
     </thead>
@@ -75,11 +83,12 @@
             <td>{{ optional($d->item)->nama_barang ?? ($d->item->name ?? '-') }}</td>
             <td style="text-align:right;">{{ number_format($d->quantity_shipped ?? 0, 0, ',', '.') }}</td>
             <td style="text-align:right;">{{ number_format($d->koli_shipped ?? 0, 2, ',', '.') }}</td>
+            <td style="text-align:right;">{{ \App\Support\Cbm::format(\App\Support\Cbm::forLine($d->item, $d->koli_shipped, $d->quantity_shipped)) }}</td>
             <td>{{ $d->description ?? '' }}</td>
         </tr>
     @empty
         <tr>
-            <td colspan="6" style="text-align:center;">Tidak ada detail</td>
+            <td colspan="7" style="text-align:center;">Tidak ada detail</td>
         </tr>
     @endforelse
     </tbody>
@@ -88,10 +97,12 @@
         <th colspan="3" style="text-align:right;">TOTAL</th>
         <th style="text-align:right;">{{ number_format($totQty, 0, ',', '.') }}</th>
         <th style="text-align:right;">{{ number_format($totKoli, 2, ',', '.') }}</th>
+        <th style="text-align:right;">{{ \App\Support\Cbm::format($cbmSummary['total']) }}</th>
         <th></th>
     </tr>
     </tfoot>
     </table>
+
 
 <table>
     <tr><td colspan="5"></td></tr>
