@@ -6,6 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class StockApiSyncRecord extends Model
 {
-    protected $fillable = ['item_id', 'sku', 'name', 'category', 'uom', 'qty', 'min_qty', 'status', 'source_updated_at'];
+    protected $fillable = ['item_id', 'sku', 'name', 'category', 'item_type', 'uom', 'qty', 'min_qty', 'status', 'source_updated_at'];
     protected $casts = ['qty' => 'decimal:3', 'min_qty' => 'decimal:3', 'source_updated_at' => 'datetime'];
 }

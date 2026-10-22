@@ -33,3 +33,5 @@ Accept: application/json
 - `GET /api/v1/stocks?as_of=YYYY-MM-DD&page=1&per_page=100`
 
 `as_of` menggunakan WIB dan memberikan saldo penutup Gudang Nanggewer pada tanggal tersebut. `updated_since` dan `updated_until` tidak dapat digabung dengan `as_of`. Barang nonaktif tetap dikirim dengan `status: inactive`; item yang dihapus dikirim dengan `status: deleted` dan qty `0`.
+
+Setiap item di `data` berisi `sku`, `name`, `category`, `item_type`, `uom`, `qty`, `min_qty`, `status`, dan `updated_at`. `item_type` adalah nama tipe item dari master data Tipe Item (nullable). Setelah deploy perubahan yang menambahkan `item_type`, jalankan `php artisan migrate` lalu `php artisan stock-api:backfill` agar kolom ini terisi untuk semua barang.
