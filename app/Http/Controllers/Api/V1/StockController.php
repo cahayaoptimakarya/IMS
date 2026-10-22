@@ -32,7 +32,7 @@ class StockController extends Controller
             'success' => true,
             'meta' => ['warehouse_code' => config('stock_api.warehouse_code'), 'server_time' => $serverTime->toIso8601String(), 'page' => $filters['page'], 'per_page' => $filters['per_page'], 'total' => $total, 'total_pages' => (int) ceil($total / $filters['per_page'])],
             'data' => $records->map(fn (object $record) => [
-                'sku' => $record->sku, 'name' => $record->name, 'category' => $record->category, 'uom' => $record->uom,
+                'sku' => $record->sku, 'name' => $record->name, 'category' => $record->category, 'item_type' => $record->item_type, 'uom' => $record->uom,
                 'qty' => (float) ($record->historical_qty ?? $record->qty), 'min_qty' => $record->min_qty === null ? null : (float) $record->min_qty,
                 'status' => $record->status, 'updated_at' => $this->isoTimestamp($record->historical_updated_at ?? $record->source_updated_at),
             ])->values(),
@@ -53,7 +53,7 @@ class StockController extends Controller
         return DB::table('stock_api_sync_records as sr')
             ->leftJoinSub($after, 'after_date', 'after_date.item_id', '=', 'sr.item_id')
             ->leftJoinSub($through, 'through_date', 'through_date.item_id', '=', 'sr.item_id')
-            ->select(['sr.sku', 'sr.name', 'sr.category', 'sr.uom', 'sr.min_qty', 'sr.status', 'sr.source_updated_at',
+            ->select(['sr.sku', 'sr.name', 'sr.category', 'sr.item_type', 'sr.uom', 'sr.min_qty', 'sr.status', 'sr.source_updated_at',
                 DB::raw('CASE WHEN sr.status = \'deleted\' THEN 0 ELSE GREATEST(0, COALESCE(sr.qty, 0) - COALESCE(after_date.net_movement, 0)) END as historical_qty'),
                 DB::raw('COALESCE(through_date.last_movement_at, sr.source_updated_at) as historical_updated_at'),
             ]);

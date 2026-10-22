@@ -12,6 +12,7 @@ use App\Observers\ShipmentObserver;
 use App\Models\StockMovement;
 use App\Observers\StockMovementObserver;
 use App\Models\Item;
+use App\Models\ItemType;
 use App\Models\Inventory;
 use App\Models\ItemCategory;
 use App\Models\Uom;
@@ -61,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
         Item::observe(ItemObserver::class);
         Item::observe(StockApiItemObserver::class);
         ItemCategory::saved(fn (ItemCategory $category) => DB::afterCommit(fn () => Item::where('item_category_id', $category->id)->orderBy('id')->each(fn (Item $item) => StockApiSyncService::syncItem($item->id))));
+        ItemType::saved(fn (ItemType $type) => DB::afterCommit(fn () => Item::where('item_type_id', $type->id)->orderBy('id')->each(fn (Item $item) => StockApiSyncService::syncItem($item->id))));
         Uom::saved(fn (Uom $uom) => DB::afterCommit(fn () => Item::where('uom_id', $uom->id)->orderBy('id')->each(fn (Item $item) => StockApiSyncService::syncItem($item->id))));
     }
 }

@@ -12,7 +12,7 @@ class StockApiSyncService
 {
     public static function syncItem(int $itemId, ?Carbon $changedAt = null): void
     {
-        $item = Item::with(['uom', 'itemCategory'])->find($itemId);
+        $item = Item::with(['uom', 'itemCategory', 'itemType'])->find($itemId);
         if (! $item) return;
         $warehouseId = (int) Warehouse::where('name', config('stock_api.source_warehouse_name'))->value('id');
         if ($warehouseId <= 0) return;
@@ -22,6 +22,7 @@ class StockApiSyncService
             'sku' => $item->sku,
             'name' => $item->nama_barang,
             'category' => $item->itemCategory?->name,
+            'item_type' => $item->itemType?->name,
             'uom' => $item->uom?->symbol ?: ($item->uom?->name ?: 'PCS'),
             'qty' => max(0, (float) Inventory::where('item_id', $item->id)->where('warehouse_id', $warehouseId)->sum('quantity')),
             'min_qty' => (float) $item->low_stock_threshold ?: null,
